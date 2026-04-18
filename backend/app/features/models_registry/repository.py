@@ -51,3 +51,6 @@ class ModelProfileRepository:
 
     async def commit(self) -> None:
         await self.session.commit()
+
+    async def refresh(self, model_profile: ModelProfile) -> None:
+        await self.session.refresh(model_profile)
