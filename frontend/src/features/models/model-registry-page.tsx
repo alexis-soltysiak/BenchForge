@@ -1220,6 +1220,7 @@ export function ModelRegistryPage() {
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
         size="xl"
+        tone="sky"
         title={selectedModel ? "Edit profile" : "Create profile"}
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
