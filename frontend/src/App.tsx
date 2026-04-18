@@ -4,7 +4,6 @@ import {
   Database,
   FileText,
   Layers3,
-  Sparkles,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
@@ -109,6 +108,7 @@ const viewThemes: Record<
 export function App() {
   const [view, setView] = useState<View>("home");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [markUnavailable, setMarkUnavailable] = useState(false);
 
   useEffect(() => {
     const syncRoute = () => {
@@ -211,12 +211,27 @@ export function App() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                       <div className="space-y-2">
                         <button
-                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                          className="group inline-flex min-h-12 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-2 text-slate-700 shadow-[0_18px_36px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
                           onClick={navigateToHome}
                           type="button"
                         >
-                          <Sparkles className="h-3.5 w-3.5 text-slate-700" />
-                          BenchForge Workspace
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]">
+                            {!markUnavailable ? (
+                              <img
+                                alt=""
+                                className="h-4 w-4 object-contain"
+                                onError={() => setMarkUnavailable(true)}
+                                src="/branding/benchforge-mark.png"
+                              />
+                            ) : (
+                              <span className="text-sm font-semibold text-slate-700">
+                                B
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-700">
+                            BenchForge
+                          </span>
                         </button>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -320,12 +335,27 @@ export function App() {
                 <div className="relative flex h-full flex-col">
                   <div className="mb-4 flex justify-end">
                     <button
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-white"
+                      className="group inline-flex min-h-12 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-2 text-slate-700 shadow-[0_18px_36px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
                       onClick={navigateToHome}
                       type="button"
                     >
-                      <Sparkles className="h-3.5 w-3.5 text-slate-700" />
-                      BenchForge
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]">
+                        {!markUnavailable ? (
+                          <img
+                            alt=""
+                            className="h-4 w-4 object-contain"
+                            onError={() => setMarkUnavailable(true)}
+                            src="/branding/benchforge-mark.png"
+                          />
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-700">
+                            B
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-700">
+                        BenchForge
+                      </span>
                     </button>
                   </div>
 
