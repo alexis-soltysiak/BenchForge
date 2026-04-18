@@ -69,57 +69,55 @@ export function Modal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       <button
         aria-label="Close modal"
         className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
         type="button"
       />
-      <div className="relative flex min-h-full items-center justify-center">
-        <div
-          aria-modal="true"
-          className={cn(
-            "relative w-full overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))] shadow-[0_48px_120px_-40px_rgba(15,23,42,0.65)]",
-            sizeClasses[size],
-          )}
-          role="dialog"
-        >
-          <div className="relative border-b border-slate-200/80 px-6 py-5 sm:px-7">
-            <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-32", toneGlows[tone])} />
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p
-                  className={cn(
-                    "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]",
-                    toneEyebrows[tone],
-                  )}
-                >
-                  Workspace Editor
-                </p>
-                <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
-                  {title}
-                </h2>
-                {description ? (
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                    {description}
-                  </p>
-                ) : null}
-              </div>
-              <Button
-                aria-label="Close modal"
-                onClick={onClose}
-                size="icon"
-                type="button"
-                variant="soft"
+      <div
+        aria-modal="true"
+        className={cn(
+          "relative flex max-h-[95vh] w-full flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))] shadow-[0_48px_120px_-40px_rgba(15,23,42,0.65)]",
+          sizeClasses[size],
+        )}
+        role="dialog"
+      >
+        <div className="relative shrink-0 border-b border-slate-200/80 px-6 py-5 sm:px-7">
+          <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-32", toneGlows[tone])} />
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p
+                className={cn(
+                  "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]",
+                  toneEyebrows[tone],
+                )}
               >
-                <X className="h-4 w-4" />
-              </Button>
+                Workspace Editor
+              </p>
+              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
+                {title}
+              </h2>
+              {description ? (
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  {description}
+                </p>
+              ) : null}
             </div>
+            <Button
+              aria-label="Close modal"
+              onClick={onClose}
+              size="icon"
+              type="button"
+              variant="soft"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="relative max-h-[calc(100vh-10rem)] overflow-y-auto px-6 py-6 sm:px-7">
-            {children}
-          </div>
+        </div>
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-7">
+          {children}
         </div>
       </div>
     </div>,

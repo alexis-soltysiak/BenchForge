@@ -7,10 +7,12 @@ import {
   Download,
   Eye,
   Gavel,
+  LoaderCircle,
   Play,
   Search,
   Sparkles,
   SquareTerminal,
+  XCircle,
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -657,6 +659,10 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                             selectedRun.model_snapshots,
                             response.model_snapshot_id,
                           );
+                          const isRunActive = !terminalStatuses.has(selectedRun.status);
+                          const isRowLoading =
+                            retryingResponseIds.includes(response.id) ||
+                            ((response.status === "pending" || response.status === "running") && isRunActive);
 
                           return (
                               <tr
@@ -685,7 +691,18 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <StatusPill status={response.status} />
+                                <div className="flex items-center gap-2">
+                                  {isRowLoading ? (
+                                    <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-500" />
+                                  ) : response.status === "completed" ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                  ) : response.status === "failed" ? (
+                                    <XCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                                  ) : (
+                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                                  )}
+                                  <StatusPill status={response.status} />
+                                </div>
                               </td>
                               <td className="px-4 py-3 text-slate-600">
                                 {formatDuration(response.metric?.duration_ms)}
@@ -1660,21 +1677,21 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
         </table>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {run.global_summaries.map((summary) => {
           const model = modelById(run.model_snapshots, summary.model_snapshot_id);
           return (
             <div
               key={`detail-${summary.id}`}
-              className="rounded-[1.4rem] border border-border/80 bg-slate-50 p-4"
+              className="rounded-xl border border-border/80 bg-slate-50 p-3"
             >
-              <p className="text-sm font-semibold text-slate-950">
+              <p className="text-xs font-semibold text-slate-950">
                 {model?.display_name ?? "Unknown model"}
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
+              <p className="mt-1.5 text-xs leading-5 text-slate-600">
                 {summary.global_summary_text ?? "No global summary generated."}
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <FeedbackBlock
                   icon={Sparkles}
                   label="Best patterns"
@@ -1852,40 +1869,34 @@ function JudgeCandidateCard({
   const model = response ? modelById(run.model_snapshots, response.model_snapshot_id) : undefined;
 
   return (
-    <div className="rounded-[1.4rem] border border-border/80 bg-white p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-xs font-semibold text-white">
-              {candidate.anonymized_candidate_label}
-            </span>
-            <p className="text-sm font-semibold text-slate-950">
-              {model?.display_name ?? "Candidate model"}
-            </p>
-            <MetaPill label={`Rank ${candidate.ranking_in_batch}`} />
-          </div>
-          <p className="mt-2 text-sm text-slate-500">
-            {model
-              ? `${model.provider_type} / ${model.runtime_type}`
-              : "Model snapshot unavailable"}
+    <div className="rounded-xl border border-border/80 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
+            {candidate.anonymized_candidate_label}
+          </span>
+          <p className="text-sm font-semibold text-slate-950">
+            {model?.display_name ?? "Candidate model"}
           </p>
+          <MetaPill label={`Rank ${candidate.ranking_in_batch}`} />
+          <span className="text-xs text-slate-400">
+            {model ? `${model.provider_type} / ${model.runtime_type}` : ""}
+          </span>
         </div>
         <div
           className={cn(
-            "rounded-[1rem] border px-4 py-3 text-center",
+            "rounded-lg border px-3 py-1.5 text-center",
             scoreToneClasses(candidate.overall_score, "soft"),
           )}
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Overall
-          </p>
-          <p className="mt-1 text-2xl font-semibold">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Overall</p>
+          <p className="text-xl font-semibold leading-none mt-0.5">
             {formatScore(candidate.overall_score)}
           </p>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-2.5 grid gap-2 grid-cols-3 sm:grid-cols-6">
         <ScoreStat label="Relevance" value={candidate.relevance_score} />
         <ScoreStat label="Accuracy" value={candidate.accuracy_score} />
         <ScoreStat label="Completeness" value={candidate.completeness_score} />
@@ -1894,7 +1905,7 @@ function JudgeCandidateCard({
         <ScoreStat label="Confidence" value={candidate.judge_confidence_score ?? "—"} />
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
         <FeedbackBlock
           icon={Sparkles}
           label="Strengths"
@@ -1907,7 +1918,7 @@ function JudgeCandidateCard({
         />
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-2.5 space-y-2">
         <FeedbackBlock
           label="Short feedback"
           value={candidate.short_feedback ?? "No short feedback provided."}
@@ -1925,14 +1936,14 @@ function ScoreStat({ label, value }: { label: string; value: string }) {
   return (
     <div
       className={cn(
-        "rounded-[1rem] border px-3 py-3",
+        "rounded-lg border px-2 py-2 text-center",
         scoreToneClasses(value, "soft"),
       )}
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 truncate">
         {label}
       </p>
-      <p className="mt-2 text-lg font-semibold">{formatScore(value)}</p>
+      <p className="mt-1 text-base font-semibold leading-none">{formatScore(value)}</p>
     </div>
   );
 }
@@ -1960,14 +1971,14 @@ function FeedbackBlock({
   value: string;
 }) {
   return (
-    <div className="rounded-[1rem] border border-border/80 bg-slate-50 p-4">
-      <div className="flex items-center gap-2">
-        {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+    <div className="rounded-lg border border-border/80 bg-slate-50 p-2.5">
+      <div className="flex items-center gap-1.5">
+        {Icon ? <Icon className="h-3 w-3 text-slate-400" /> : null}
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
           {label}
         </p>
       </div>
-      <p className="mt-3 text-sm leading-6 text-slate-800">{value}</p>
+      <p className="mt-1.5 text-xs leading-5 text-slate-700">{value}</p>
     </div>
   );
 }
