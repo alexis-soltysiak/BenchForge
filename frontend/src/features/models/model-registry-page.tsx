@@ -475,7 +475,7 @@ export function ModelRegistryPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 lg:px-10 lg:py-10 xl:ml-auto xl:mr-0">
+    <div className="px-5 py-8 lg:px-10 lg:py-10">
       <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_28%),linear-gradient(135deg,_rgba(239,246,255,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
