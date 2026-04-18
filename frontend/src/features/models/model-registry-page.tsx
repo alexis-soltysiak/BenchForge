@@ -5,7 +5,6 @@ import {
   CircleGauge,
   Database,
   HardDrive,
-  PencilLine,
   Plus,
   Search,
   Shield,
@@ -596,16 +595,22 @@ export function ModelRegistryPage() {
                       <tr
                         key={model.id}
                         className={cn(
-                          "border-t border-border/70 transition-colors",
+                          "cursor-pointer border-t border-border/70 transition-colors",
                           isSelected && "bg-sky-50/70",
                         )}
+                        onClick={() => {
+                          openEditModal(model);
+                        }}
                       >
                         <td className="px-5 py-4 align-top">
                           <div className="flex items-start gap-3">
                             <Button
                               aria-label={`Test connection for ${model.display_name}`}
                               disabled={testConnectionMutation.isPending}
-                              onClick={() => testConnectionMutation.mutate(model)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                testConnectionMutation.mutate(model);
+                              }}
                               size="iconSm"
                               title={`Test connection for ${model.display_name}`}
                               type="button"
@@ -619,19 +624,12 @@ export function ModelRegistryPage() {
                               />
                             </Button>
                             <div className="min-w-0 space-y-1">
-                              <button
+                              <p
                                 className="block w-full truncate text-left text-sm font-semibold text-slate-950 transition hover:text-sky-900"
-                                onClick={() => {
-                                  startTransition(() => {
-                                    setSelectedModel(model);
-                                    setFeedback(null);
-                                  });
-                                }}
                                 title={model.display_name}
-                                type="button"
                               >
                                 {model.display_name}
-                              </button>
+                              </p>
                               <p
                                 className="truncate text-sm text-slate-500"
                                 title={model.model_identifier}
@@ -696,17 +694,8 @@ export function ModelRegistryPage() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-5 py-4 align-top" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
-                            <Button
-                              aria-label={`Edit ${model.display_name}`}
-                              size="iconSm"
-                              title={`Edit ${model.display_name}`}
-                              variant="soft"
-                              onClick={() => openEditModal(model)}
-                            >
-                              <PencilLine className="h-4 w-4" />
-                            </Button>
                             <Button
                               aria-label={`Archive ${model.display_name}`}
                               size="iconSm"

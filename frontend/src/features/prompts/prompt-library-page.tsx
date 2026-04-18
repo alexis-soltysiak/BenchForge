@@ -2,7 +2,6 @@ import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState, useTransition } from "react";
 import {
   FileText,
-  PencilLine,
   Plus,
   Search,
   Shapes,
@@ -361,24 +360,18 @@ export function PromptLibraryPage() {
                         <tr
                           key={prompt.id}
                           className={cn(
-                            "border-t border-border/70 transition-colors",
+                            "cursor-pointer border-t border-border/70 transition-colors",
                             isSelected && "bg-amber-50/70",
                           )}
-                        >
+                        onClick={() => {
+                          openEditModal(prompt);
+                        }}
+                      >
                           <td className="px-5 py-4 align-top">
                             <div className="space-y-1">
-                              <button
-                                className="text-left text-sm font-semibold text-slate-950 transition hover:text-amber-900"
-                                onClick={() => {
-                                  startTransition(() => {
-                                    setSelectedPrompt(prompt);
-                                    setFeedback(null);
-                                  });
-                                }}
-                                type="button"
-                              >
+                              <p className="text-sm font-semibold text-slate-950 transition hover:text-amber-900">
                                 {prompt.name}
-                              </button>
+                              </p>
                               <p className="max-w-sm text-sm text-slate-500">
                                 {prompt.description ?? "No description"}
                               </p>
@@ -413,17 +406,8 @@ export function PromptLibraryPage() {
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-5 py-4 align-top">
+                          <td className="px-5 py-4 align-top" onClick={(event) => event.stopPropagation()}>
                             <div className="flex justify-end gap-1.5">
-                              <Button
-                                aria-label={`Edit ${prompt.name}`}
-                                size="iconSm"
-                                title={`Edit ${prompt.name}`}
-                                variant="soft"
-                                onClick={() => openEditModal(prompt)}
-                              >
-                                <PencilLine className="h-4 w-4" />
-                              </Button>
                               <Button
                                 aria-label={`Archive ${prompt.name}`}
                                 disabled={prompt.is_archived || archiveMutation.isPending}

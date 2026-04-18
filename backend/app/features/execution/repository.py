@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.features.runs.models import CandidateResponse, SessionRun
+from app.features.runs.models import CandidateResponse, SessionRun, SessionRunModelSnapshot
 
 
 class ExecutionRepository:
@@ -39,7 +39,19 @@ class ExecutionRepository:
         result = await self.session.execute(
             select(CandidateResponse)
             .where(CandidateResponse.id == response_id)
-            .options(selectinload(CandidateResponse.metric))
+            .options(
+                selectinload(CandidateResponse.metric),
+                selectinload(CandidateResponse.model_snapshot),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_model_snapshot(self, run_id: int, model_snapshot_id: int) -> SessionRunModelSnapshot | None:
+        result = await self.session.execute(
+            select(SessionRunModelSnapshot).where(
+                SessionRunModelSnapshot.run_id == run_id,
+                SessionRunModelSnapshot.id == model_snapshot_id,
+            )
         )
         return result.scalar_one_or_none()
 

@@ -10,6 +10,20 @@ const sizeClasses = {
   md: "max-w-2xl",
   lg: "max-w-4xl",
   xl: "max-w-5xl",
+  xxl: "max-w-[88rem]",
+} as const;
+
+const toneGlows = {
+  amber: "bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.14),_transparent_52%)]",
+  emerald:
+    "bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.16),_transparent_52%)]",
+  sky: "bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.14),_transparent_52%)]",
+} as const;
+
+const toneEyebrows = {
+  amber: "border-amber-200 bg-amber-50 text-amber-900",
+  emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  sky: "border-sky-200 bg-sky-50 text-sky-900",
 } as const;
 
 export function Modal({
@@ -18,6 +32,7 @@ export function Modal({
   onClose,
   open,
   size = "lg",
+  tone = "amber",
   title,
 }: {
   children: ReactNode;
@@ -25,6 +40,7 @@ export function Modal({
   onClose: () => void;
   open: boolean;
   size?: keyof typeof sizeClasses;
+  tone?: keyof typeof toneGlows;
   title: string;
 }) {
   useEffect(() => {
@@ -69,11 +85,16 @@ export function Modal({
           )}
           role="dialog"
         >
-          <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.14),_transparent_52%)]" />
           <div className="relative border-b border-slate-200/80 px-6 py-5 sm:px-7">
+            <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-32", toneGlows[tone])} />
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <p
+                  className={cn(
+                    "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]",
+                    toneEyebrows[tone],
+                  )}
+                >
                   Workspace Editor
                 </p>
                 <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">

@@ -81,7 +81,6 @@ async def get_run_report_pdf(
         return FileResponse(
             path=pdf_path,
             media_type="application/pdf",
-            filename=f"run-{run_id}.pdf",
         )
     except ReportError as exc:
         detail = str(exc)

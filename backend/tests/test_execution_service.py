@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.features.execution.service import ExecutionService, LocalExecutionNotReadyError
-from app.features.runs.models import CandidateResponse
+from app.features.runs.models import CandidateResponse, SessionRunModelSnapshot
 
 
 @pytest.mark.asyncio
@@ -71,3 +71,101 @@ async def test_get_local_next_raises_when_no_local_model_left() -> None:
 
     with pytest.raises(LocalExecutionNotReadyError):
         await service.get_local_next(1)
+
+
+@pytest.mark.asyncio
+async def test_retry_local_candidate_response_allows_missing_current_confirmation() -> None:
+    service = ExecutionService(SimpleNamespace())
+
+    response = CandidateResponse(
+        id=37,
+        run_id=3,
+        prompt_snapshot_id=11,
+        model_snapshot_id=22,
+        status="failed",
+        retry_count=1,
+    )
+    model_snapshot = SessionRunModelSnapshot(
+        id=22,
+        run_id=3,
+        source_model_profile_id=7,
+        role="candidate",
+        display_name="Qwen 3.6 35B A3B - LM Studio Local",
+        provider_type="lmstudio",
+        api_style="openai_compatible",
+        runtime_type="local",
+        machine_label=None,
+        endpoint_url="http://localhost:1234/v1",
+        model_identifier="qwen-local",
+        timeout_seconds=60,
+        context_window=None,
+        pricing_input_per_million=None,
+        pricing_output_per_million=None,
+        local_load_instructions=None,
+    )
+    run = SimpleNamespace(
+        id=3,
+        status="waiting_local",
+        notes=None,
+        prompt_snapshots=[],
+        model_snapshots=[model_snapshot],
+        candidate_responses=[response],
+    )
+
+    class Repository:
+        async def get_run(self, run_id: int):
+            assert run_id == 3
+            return run
+
+        async def get_candidate_response(self, response_id: int):
+            assert response_id == 37
+            return response
+
+    service.repository = Repository()  # type: ignore[assignment]
+
+    async def fake_prepare_execution_task(*args, **kwargs):
+        return SimpleNamespace()
+
+    async def fake_execute_prepared_tasks(tasks):
+        response.status = "completed"
+
+    async def fake_advance_run_after_candidate_execution(run_arg):
+        return None
+
+    service._prepare_execution_task = fake_prepare_execution_task  # type: ignore[method-assign]
+    service._execute_prepared_tasks = fake_execute_prepared_tasks  # type: ignore[method-assign]
+    service._advance_run_after_candidate_execution = fake_advance_run_after_candidate_execution  # type: ignore[method-assign]
+
+    payload = await service.retry_candidate_response(3, 37)
+
+    assert payload.id == 37
+    assert payload.status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_advance_run_after_candidate_execution_marks_ready_for_manual_judging() -> None:
+    service = ExecutionService(SimpleNamespace())
+    run = SimpleNamespace(
+        id=5,
+        status="running_candidates",
+        model_snapshots=[
+            SimpleNamespace(id=20, role="candidate", runtime_type="remote"),
+            SimpleNamespace(id=30, role="judge", runtime_type="remote"),
+        ],
+        candidate_responses=[
+            SimpleNamespace(model_snapshot_id=20, status="completed"),
+        ],
+    )
+    commit_calls = 0
+
+    class Repository:
+        async def commit(self) -> None:
+            nonlocal commit_calls
+            commit_calls += 1
+
+    service.repository = Repository()  # type: ignore[assignment]
+
+    await service._advance_run_after_candidate_execution(run)
+
+    assert run.status == "ready_for_judging"
+    assert commit_calls == 1

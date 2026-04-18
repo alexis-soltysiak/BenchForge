@@ -13,6 +13,7 @@ class ReportsRepository:
     async def get_run(self, run_id: int) -> SessionRun | None:
         result = await self.session.execute(
             select(SessionRun)
+            .execution_options(populate_existing=True)
             .where(SessionRun.id == run_id)
             .options(
                 selectinload(SessionRun.prompt_snapshots),
