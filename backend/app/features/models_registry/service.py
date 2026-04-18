@@ -8,7 +8,8 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_value, encrypt_value
-from app.core.security import build_bearer_token, mask_secret
+from app.core.security import build_bearer_token
+from app.features.models_registry.builtin_seed import BUILTIN_MODEL_PROFILE_SEEDS
 from app.features.models_registry.models import ModelProfile
 from app.features.models_registry.repository import ModelProfileRepository
 from app.features.models_registry.schemas import (
@@ -57,14 +58,9 @@ def serialize_model_profile(model_profile: ModelProfile) -> ModelProfileRead:
         provider_type=model_profile.provider_type,
         api_style=model_profile.api_style,
         runtime_type=model_profile.runtime_type,
-        machine_label=model_profile.machine_label,
         endpoint_url=model_profile.endpoint_url,
         model_identifier=model_profile.model_identifier,
-        secret_masked=mask_secret(
-            decrypt_value(model_profile.secret_encrypted)
-            if model_profile.secret_encrypted
-            else None
-        ),
+        has_secret=model_profile.secret_encrypted is not None,
         timeout_seconds=model_profile.timeout_seconds,
         context_window=model_profile.context_window,
         pricing_input_per_million=(
@@ -98,6 +94,7 @@ class ModelProfileService:
         self,
         include_archived: bool,
     ) -> tuple[list[ModelProfileRead], int]:
+        await self.ensure_builtin_model_profiles()
         items, total = await self.repository.list_model_profiles(include_archived)
         return [serialize_model_profile(item) for item in items], total
 
@@ -121,9 +118,6 @@ class ModelProfileService:
             provider_type=payload.provider_type.strip(),
             api_style=payload.api_style.strip(),
             runtime_type=payload.runtime_type,
-            machine_label=payload.machine_label.strip()
-            if payload.machine_label
-            else None,
             endpoint_url=payload.endpoint_url.strip(),
             model_identifier=payload.model_identifier.strip(),
             secret_encrypted=encrypt_value(payload.secret) if payload.secret else None,
@@ -136,8 +130,12 @@ class ModelProfileService:
             is_active=payload.is_active,
             is_archived=False,
         )
+        if model_profile.runtime_type == "local":
+            model_profile.pricing_input_per_million = Decimal("0")
+            model_profile.pricing_output_per_million = Decimal("0")
         self.repository.add(model_profile)
         await self.repository.commit()
+        await self.repository.refresh(model_profile)
         return serialize_model_profile(model_profile)
 
     async def update_model_profile(
@@ -166,10 +164,6 @@ class ModelProfileService:
             model_profile.api_style = updates["api_style"].strip()
         if "runtime_type" in updates and updates["runtime_type"] is not None:
             model_profile.runtime_type = updates["runtime_type"]
-        if "machine_label" in updates:
-            model_profile.machine_label = (
-                updates["machine_label"].strip() if updates["machine_label"] else None
-            )
         if "endpoint_url" in updates and updates["endpoint_url"] is not None:
             model_profile.endpoint_url = updates["endpoint_url"].strip()
         if "model_identifier" in updates and updates["model_identifier"] is not None:
@@ -197,8 +191,50 @@ class ModelProfileService:
         if "is_active" in updates and updates["is_active"] is not None:
             model_profile.is_active = updates["is_active"]
 
+        if model_profile.runtime_type == "local":
+            model_profile.pricing_input_per_million = Decimal("0")
+            model_profile.pricing_output_per_million = Decimal("0")
+
         await self.repository.commit()
+        await self.repository.refresh(model_profile)
         return serialize_model_profile(model_profile)
+
+    async def ensure_builtin_model_profiles(self) -> int:
+        created_count = 0
+
+        for seed in BUILTIN_MODEL_PROFILE_SEEDS:
+            existing = await self.repository.get_model_profile_by_slug(
+                slugify(seed.display_name)
+            )
+            if existing is not None:
+                continue
+
+            model_profile = ModelProfile(
+                display_name=seed.display_name,
+                slug=slugify(seed.display_name),
+                role=seed.role,
+                provider_type=seed.provider_type,
+                api_style=seed.api_style,
+                runtime_type=seed.runtime_type,
+                endpoint_url=seed.endpoint_url,
+                model_identifier=seed.model_identifier,
+                secret_encrypted=encrypt_value(seed.secret) if seed.secret else None,
+                timeout_seconds=seed.timeout_seconds,
+                context_window=None,
+                pricing_input_per_million=seed.pricing_input_per_million,
+                pricing_output_per_million=seed.pricing_output_per_million,
+                notes=seed.notes,
+                local_load_instructions=seed.local_load_instructions,
+                is_active=seed.is_active,
+                is_archived=False,
+            )
+            self.repository.add(model_profile)
+            created_count += 1
+
+        if created_count:
+            await self.repository.commit()
+
+        return created_count
 
     async def archive_model_profile(self, model_id: int) -> ModelProfileRead:
         model_profile = await self.repository.get_model_profile(model_id)
@@ -208,6 +244,7 @@ class ModelProfileService:
         model_profile.is_active = False
         model_profile.is_archived = True
         await self.repository.commit()
+        await self.repository.refresh(model_profile)
         return serialize_model_profile(model_profile)
 
     async def test_connection(

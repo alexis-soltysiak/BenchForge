@@ -1,10 +1,12 @@
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   Cable,
   CircleGauge,
   Database,
   HardDrive,
+  TriangleAlert,
   Plus,
   Search,
   Shield,
@@ -16,7 +18,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   archiveModelProfile,
   createModelProfile,
-  fetchMachineLabels,
   fetchModelProfiles,
   testModelProfileConnection,
   updateModelProfile,
@@ -44,7 +45,6 @@ type ModelFormState = {
   providerType: string;
   apiStyle: string;
   runtimeType: "remote" | "local";
-  machineLabel: string;
   endpointUrl: string;
   modelIdentifier: string;
   secret: string;
@@ -61,13 +61,17 @@ type ConnectionFeedbackState = ConnectionTestResponse & {
   modelId: number;
 };
 
+type ToastState = {
+  message: string;
+  kind: "success";
+};
+
 const emptyForm: ModelFormState = {
   displayName: "",
   role: "candidate",
   providerType: "openai",
   apiStyle: "openai_compatible",
   runtimeType: "remote",
-  machineLabel: "",
   endpointUrl: "https://api.openai.com/v1/chat/completions",
   modelIdentifier: "gpt-5.2",
   secret: "",
@@ -195,7 +199,6 @@ function toFormState(model: ModelProfile): ModelFormState {
     providerType: model.provider_type,
     apiStyle: model.api_style,
     runtimeType: model.runtime_type,
-    machineLabel: model.machine_label ?? "",
     endpointUrl: model.endpoint_url,
     modelIdentifier: model.model_identifier,
     secret: "",
@@ -210,20 +213,24 @@ function toFormState(model: ModelProfile): ModelFormState {
 }
 
 function toPayload(state: ModelFormState): ModelProfilePayload {
+  const pricingInputPerMillion =
+    state.runtimeType === "local" ? "0" : state.pricingInputPerMillion.trim() || null;
+  const pricingOutputPerMillion =
+    state.runtimeType === "local" ? "0" : state.pricingOutputPerMillion.trim() || null;
+
   return {
     display_name: state.displayName.trim(),
     role: state.role,
     provider_type: state.providerType.trim(),
     api_style: state.apiStyle.trim(),
     runtime_type: state.runtimeType,
-    machine_label: state.machineLabel.trim() || null,
     endpoint_url: state.endpointUrl.trim(),
     model_identifier: state.modelIdentifier.trim(),
     ...(state.secret.trim() ? { secret: state.secret.trim() } : {}),
     timeout_seconds: Number(state.timeoutSeconds),
     context_window: state.contextWindow ? Number(state.contextWindow) : null,
-    pricing_input_per_million: state.pricingInputPerMillion.trim() || null,
-    pricing_output_per_million: state.pricingOutputPerMillion.trim() || null,
+    pricing_input_per_million: pricingInputPerMillion,
+    pricing_output_per_million: pricingOutputPerMillion,
     notes: state.notes.trim() || null,
     local_load_instructions: state.localLoadInstructions.trim() || null,
     is_active: state.isActive,
@@ -242,7 +249,6 @@ function matchesSearch(model: ModelProfile, search: string): boolean {
     model.role,
     model.endpoint_url,
     model.model_identifier,
-    model.machine_label ?? "",
   ]
     .join(" ")
     .toLowerCase();
@@ -258,9 +264,12 @@ export function ModelRegistryPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelProfile | null>(null);
+  const [warningModel, setWarningModel] = useState<ModelProfile | null>(null);
+  const [warningAnchor, setWarningAnchor] = useState<DOMRect | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [formState, setFormState] = useState<ModelFormState>(emptyForm);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [connectionFeedback, setConnectionFeedback] =
     useState<ConnectionFeedbackState | null>(null);
   const [testingModelId, setTestingModelId] = useState<number | null>(null);
@@ -268,15 +277,12 @@ export function ModelRegistryPage() {
   const lastSuggestedApiStyleRef = useRef<string | null>(null);
   const lastSuggestedEndpointRef = useRef<string | null>(null);
   const lastSuggestedModelRef = useRef<string | null>(null);
+  const warningCloseTimerRef = useRef<number | null>(null);
+  const toastCloseTimerRef = useRef<number | null>(null);
 
   const modelsQuery = useQuery({
     queryKey: ["model-profiles", showArchived],
     queryFn: () => fetchModelProfiles(showArchived),
-  });
-
-  const machineLabelsQuery = useQuery({
-    queryKey: ["machine-labels"],
-    queryFn: fetchMachineLabels,
   });
 
   useEffect(() => {
@@ -300,6 +306,35 @@ export function ModelRegistryPage() {
     }
   }, [selectedModel, showArchived]);
 
+  useEffect(() => {
+    if (warningModel && !matchesArchiveState(warningModel, showArchived)) {
+      setWarningModel(null);
+    }
+  }, [warningModel, showArchived]);
+
+  useEffect(
+    () => () => {
+      if (warningCloseTimerRef.current !== null) {
+        window.clearTimeout(warningCloseTimerRef.current);
+      }
+      if (toastCloseTimerRef.current !== null) {
+        window.clearTimeout(toastCloseTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const showToast = (message: string) => {
+    if (toastCloseTimerRef.current !== null) {
+      window.clearTimeout(toastCloseTimerRef.current);
+    }
+    setToast({ message, kind: "success" });
+    toastCloseTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastCloseTimerRef.current = null;
+    }, 5000);
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (payload: ModelProfilePayload) => {
       if (selectedModel) {
@@ -309,7 +344,8 @@ export function ModelRegistryPage() {
     },
     onSuccess: async (model) => {
       await queryClient.invalidateQueries({ queryKey: ["model-profiles"] });
-      setFeedback(
+      setFeedback(null);
+      showToast(
         selectedModel
           ? `Model "${model.display_name}" updated.`
           : `Model "${model.display_name}" created.`,
@@ -331,7 +367,8 @@ export function ModelRegistryPage() {
     mutationFn: archiveModelProfile,
     onSuccess: async (model) => {
       await queryClient.invalidateQueries({ queryKey: ["model-profiles"] });
-      setFeedback(`Model "${model.display_name}" archived.`);
+      setFeedback(null);
+      showToast(`Model "${model.display_name}" archived.`);
       setIsEditorOpen(false);
       startTransition(() => {
         setSelectedModel(null);
@@ -398,6 +435,10 @@ export function ModelRegistryPage() {
   const modelIdentifierSuggestions =
     getProviderPreset(formState.providerType)?.modelIdentifiers ?? [];
   const suggestedEndpointUrl = getSuggestedEndpointUrl(formState);
+  const hasStoredSecret = selectedModel?.has_secret ?? false;
+  const hasFormSecret = formState.secret.trim().length > 0;
+  const remoteSecretMissing =
+    formState.runtimeType === "remote" && !(hasStoredSecret || hasFormSecret);
 
   const updateFormWithSuggestions = (
     updater: (current: ModelFormState) => ModelFormState,
@@ -465,6 +506,35 @@ export function ModelRegistryPage() {
       setFeedback(null);
     });
     setIsEditorOpen(true);
+  };
+
+  const openWarning = (model: ModelProfile) => {
+    if (warningCloseTimerRef.current !== null) {
+      window.clearTimeout(warningCloseTimerRef.current);
+      warningCloseTimerRef.current = null;
+    }
+    setWarningModel(model);
+  };
+
+  const showWarning = (
+    model: ModelProfile,
+    anchorElement: HTMLElement | null,
+  ) => {
+    if (anchorElement) {
+      setWarningAnchor(anchorElement.getBoundingClientRect());
+    }
+    openWarning(model);
+  };
+
+  const closeWarningSoon = () => {
+    if (warningCloseTimerRef.current !== null) {
+      window.clearTimeout(warningCloseTimerRef.current);
+    }
+    warningCloseTimerRef.current = window.setTimeout(() => {
+      setWarningModel(null);
+      setWarningAnchor(null);
+      warningCloseTimerRef.current = null;
+    }, 120);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -568,8 +638,7 @@ export function ModelRegistryPage() {
                   <th className="w-[10%] px-5 py-3 font-semibold">Role</th>
                   <th className="w-[15%] px-5 py-3 font-semibold">Provider</th>
                   <th className="w-[10%] px-5 py-3 font-semibold">Runtime</th>
-                  <th className="w-[7%] px-5 py-3 font-semibold">Machine</th>
-                  <th className="w-[10%] px-5 py-3 font-semibold">Status</th>
+                  <th className="w-[14%] px-5 py-3 font-semibold">Status</th>
                   <th className="w-[8%] px-5 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -590,6 +659,7 @@ export function ModelRegistryPage() {
                     const isTestingConnection = testingModelId === model.id;
                     const rowConnectionFeedback =
                       connectionFeedback?.modelId === model.id ? connectionFeedback : null;
+                    const isUnusable = model.runtime_type === "remote" && !model.has_secret;
 
                     return (
                       <tr
@@ -597,16 +667,17 @@ export function ModelRegistryPage() {
                         className={cn(
                           "cursor-pointer border-t border-border/70 transition-colors",
                           isSelected && "bg-sky-50/70",
+                          isUnusable && "bg-slate-50/80 text-slate-500 opacity-75",
                         )}
                         onClick={() => {
                           openEditModal(model);
                         }}
                       >
-                        <td className="px-5 py-4 align-top">
+                        <td className="relative px-5 py-4 align-top">
                           <div className="flex items-start gap-3">
                             <Button
                               aria-label={`Test connection for ${model.display_name}`}
-                              disabled={testConnectionMutation.isPending}
+                              disabled={testConnectionMutation.isPending || isUnusable}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 testConnectionMutation.mutate(model);
@@ -624,12 +695,32 @@ export function ModelRegistryPage() {
                               />
                             </Button>
                             <div className="min-w-0 space-y-1">
-                              <p
-                                className="block w-full truncate text-left text-sm font-semibold text-slate-950 transition hover:text-sky-900"
-                                title={model.display_name}
-                              >
-                                {model.display_name}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                {isUnusable ? (
+                                  <button
+                                    aria-label={`Explain missing secret for ${model.display_name}`}
+                                    className="inline-flex shrink-0 items-center justify-center rounded-full text-amber-600 transition hover:text-amber-700"
+                                    onClick={(event) => event.stopPropagation()}
+                                    onMouseEnter={(event) =>
+                                      showWarning(
+                                        model,
+                                        event.currentTarget as HTMLElement,
+                                      )
+                                    }
+                                    onMouseLeave={closeWarningSoon}
+                                    type="button"
+                                    title="Missing secret"
+                                  >
+                                    <TriangleAlert className="h-4 w-4" />
+                                  </button>
+                                ) : null}
+                                <p
+                                  className="block w-full truncate text-left text-sm font-semibold text-slate-950 transition hover:text-sky-900"
+                                  title={model.display_name}
+                                >
+                                  {model.display_name}
+                                </p>
+                              </div>
                               <p
                                 className="truncate text-sm text-slate-500"
                                 title={model.model_identifier}
@@ -675,15 +766,6 @@ export function ModelRegistryPage() {
                         <td className="px-5 py-4 align-top">
                           <RuntimeBadge runtimeType={model.runtime_type} />
                         </td>
-                        
-                        <td className="px-5 py-4 align-top text-sm text-slate-500">
-                          <span
-                            className="block truncate"
-                            title={model.machine_label ?? "None"}
-                          >
-                            {model.machine_label ?? "None"}
-                          </span>
-                        </td>
                         <td className="px-5 py-4 align-top">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant={model.is_archived ? "muted" : "success"}>
@@ -692,6 +774,7 @@ export function ModelRegistryPage() {
                             {!model.is_active && !model.is_archived ? (
                               <Badge variant="neutral">Inactive</Badge>
                             ) : null}
+                            {isUnusable ? <Badge variant="muted">Missing secret</Badge> : null}
                           </div>
                         </td>
                         <td className="px-5 py-4 align-top" onClick={(event) => event.stopPropagation()}>
@@ -814,31 +897,22 @@ export function ModelRegistryPage() {
               <Select
                 value={formState.runtimeType}
                 onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    runtimeType: event.target.value as ModelFormState["runtimeType"],
-                  }))
+                  setFormState((current) => {
+                    const runtimeType = event.target.value as ModelFormState["runtimeType"];
+                    return {
+                      ...current,
+                      runtimeType,
+                      pricingInputPerMillion:
+                        runtimeType === "local" ? "0" : current.pricingInputPerMillion,
+                      pricingOutputPerMillion:
+                        runtimeType === "local" ? "0" : current.pricingOutputPerMillion,
+                    };
+                  })
                 }
               >
                 <option value="remote">Remote</option>
                 <option value="local">Local</option>
               </Select>
-            </Field>
-            <Field
-              hint='Example: "Mac Studio - Lab A"'
-              label="Machine label"
-            >
-              <Input
-                list="machine-label-options"
-                placeholder="Optional machine label"
-                value={formState.machineLabel}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    machineLabel: event.target.value,
-                  }))
-                }
-              />
             </Field>
           </div>
 
@@ -886,15 +960,27 @@ export function ModelRegistryPage() {
           </Field>
 
           <Field
-            hint="Leave empty to keep the existing secret unchanged."
+            hint={
+              formState.runtimeType === "local"
+                ? "Local runtime does not require a secret."
+                : remoteSecretMissing
+                  ? "Remote models need a secret before they are usable."
+                  : hasStoredSecret
+                  ? "Leave empty to keep the existing secret unchanged."
+                  : "Remote models need a secret before they are usable."
+            }
             label="Secret"
           >
             <div className="space-y-2">
               <Input
                 placeholder={
-                  selectedModel?.secret_masked
-                    ? `Stored: ${selectedModel.secret_masked}`
-                    : "Optional bearer token"
+                  formState.runtimeType === "local"
+                    ? "Not required for local runtime"
+                    : remoteSecretMissing
+                      ? "Optional bearer token"
+                      : hasStoredSecret
+                      ? "Leave blank to keep stored secret"
+                      : "Optional bearer token"
                 }
                 type="password"
                 value={formState.secret}
@@ -905,9 +991,19 @@ export function ModelRegistryPage() {
                   }))
                 }
               />
-              <p className="text-xs text-slate-500">
-                Secrets are stored encrypted and returned masked only.
-              </p>
+              {formState.runtimeType === "local" ? (
+                <p className="text-xs text-slate-500">
+                  No secret is needed for local runtimes.
+                </p>
+              ) : remoteSecretMissing ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
+                  Remote models without a secret are marked unusable until one is set.
+                </div>
+              ) : hasStoredSecret ? (
+                <p className="text-xs text-slate-500">
+                  A secret is already stored. Leave this blank to keep it unchanged.
+                </p>
+              ) : null}
             </div>
           </Field>
 
@@ -948,12 +1044,17 @@ export function ModelRegistryPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              hint='Example: "0.15"'
+              hint={
+                formState.runtimeType === "local"
+                  ? "Local runtimes are forced to 0."
+                  : 'Example: "0.15"'
+              }
               label="Input pricing / 1M"
             >
               <Input
                 inputMode="decimal"
                 placeholder="Optional"
+                disabled={formState.runtimeType === "local"}
                 value={formState.pricingInputPerMillion}
                 onChange={(event) =>
                   setFormState((current) => ({
@@ -964,12 +1065,17 @@ export function ModelRegistryPage() {
               />
             </Field>
             <Field
-              hint='Example: "0.60"'
+              hint={
+                formState.runtimeType === "local"
+                  ? "Local runtimes are forced to 0."
+                  : 'Example: "0.60"'
+              }
               label="Output pricing / 1M"
             >
               <Input
                 inputMode="decimal"
                 placeholder="Optional"
+                disabled={formState.runtimeType === "local"}
                 value={formState.pricingOutputPerMillion}
                 onChange={(event) =>
                   setFormState((current) => ({
@@ -1086,12 +1192,38 @@ export function ModelRegistryPage() {
             <option key={modelIdentifier} value={modelIdentifier} />
           ))}
         </datalist>
-        <datalist id="machine-label-options">
-          {machineLabelsQuery.data?.map((label) => (
-            <option key={label} value={label} />
-          ))}
-        </datalist>
       </Modal>
+
+      {warningModel && warningAnchor
+        ? createPortal(
+            <div
+              className="fixed z-[999] w-72 rounded-2xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs leading-5 text-amber-950 shadow-xl backdrop-blur-sm"
+              onMouseEnter={() => openWarning(warningModel)}
+              onMouseLeave={closeWarningSoon}
+              style={{
+                left: Math.min(warningAnchor.left, window.innerWidth - 288 - 12),
+                top: warningAnchor.bottom + 8,
+              }}
+            >
+              <p className="font-semibold">Secret missing</p>
+              <p className="mt-1">
+                This remote model cannot be used until a secret is configured.
+              </p>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {toast
+        ? createPortal(
+            <div className="fixed bottom-5 right-5 z-[1000] w-[22rem] rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 shadow-xl">
+              <p className="font-semibold">Done</p>
+              <p className="mt-1 leading-6">{toast.message}</p>
+            </div>,
+            document.body,
+          )
+        : null}
+
     </div>
   );
 }
@@ -1123,7 +1255,7 @@ function RoleBadge({ role }: { role: ModelProfile["role"] }) {
 function TableEmptyRow({ message }: { message: string }) {
   return (
     <tr className="border-t border-border/70">
-      <td className="px-5 py-12 text-center text-sm text-slate-500" colSpan={8}>
+      <td className="px-5 py-12 text-center text-sm text-slate-500" colSpan={6}>
         {message}
       </td>
     </tr>

@@ -21,10 +21,6 @@ export function fetchModelProfiles(
   );
 }
 
-export function fetchMachineLabels(): Promise<string[]> {
-  return apiRequest<string[]>("/model-profiles/machine-labels");
-}
-
 export function createModelProfile(
   payload: ModelProfilePayload,
 ): Promise<ModelProfile> {
@@ -62,4 +58,3 @@ export function testModelProfileConnection(
     },
   );
 }
-

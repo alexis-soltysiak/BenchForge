@@ -12,10 +12,9 @@ class ModelProfileRead(BaseModel):
     provider_type: str
     api_style: str
     runtime_type: str
-    machine_label: str | None
     endpoint_url: str
     model_identifier: str
-    secret_masked: str | None
+    has_secret: bool
     timeout_seconds: int
     context_window: int | None
     pricing_input_per_million: Decimal | None
@@ -34,7 +33,6 @@ class ModelProfileCreate(BaseModel):
     provider_type: str = Field(min_length=1, max_length=64)
     api_style: str = Field(min_length=1, max_length=64)
     runtime_type: str = Field(pattern="^(remote|local)$")
-    machine_label: str | None = Field(default=None, max_length=200)
     endpoint_url: str = Field(min_length=1, max_length=500)
     model_identifier: str = Field(min_length=1, max_length=255)
     secret: str | None = None
@@ -53,7 +51,6 @@ class ModelProfileUpdate(BaseModel):
     provider_type: str | None = Field(default=None, min_length=1, max_length=64)
     api_style: str | None = Field(default=None, min_length=1, max_length=64)
     runtime_type: str | None = Field(default=None, pattern="^(remote|local)$")
-    machine_label: str | None = Field(default=None, max_length=200)
     endpoint_url: str | None = Field(default=None, min_length=1, max_length=500)
     model_identifier: str | None = Field(default=None, min_length=1, max_length=255)
     secret: str | None = None

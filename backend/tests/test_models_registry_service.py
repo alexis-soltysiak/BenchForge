@@ -21,7 +21,7 @@ def test_model_slugify_normalizes_values() -> None:
     assert slugify("###") == "model"
 
 
-def test_serialize_model_profile_masks_secret() -> None:
+def test_serialize_model_profile_marks_secret_presence() -> None:
     from app.core.encryption import encrypt_value
 
     model = SimpleNamespace(
@@ -32,7 +32,6 @@ def test_serialize_model_profile_masks_secret() -> None:
         provider_type="openai",
         api_style="openai_compatible",
         runtime_type="remote",
-        machine_label=None,
         endpoint_url="https://example.com/v1/models",
         model_identifier="gpt-4o-mini",
         secret_encrypted=encrypt_value("super-secret"),
@@ -50,7 +49,8 @@ def test_serialize_model_profile_masks_secret() -> None:
 
     serialized = serialize_model_profile(model)
 
-    assert serialized.secret_masked == "********cret"
+    assert serialized.has_secret is True
+    assert "secret_masked" not in serialized.model_dump()
 
 
 @pytest.mark.asyncio
@@ -95,3 +95,46 @@ def test_model_profile_create_schema_accepts_decimal_values() -> None:
     )
 
     assert payload.pricing_input_per_million == Decimal("0.1500")
+
+
+@pytest.mark.asyncio
+async def test_create_model_profile_forces_local_pricing_to_zero() -> None:
+    service = ModelProfileService(SimpleNamespace())
+    created = []
+
+    class Repository:
+        async def get_model_profile_by_slug(self, slug: str):
+            return None
+
+        def add(self, model_profile):
+            model_profile.id = 1
+            model_profile.created_at = datetime.now(UTC)
+            model_profile.updated_at = datetime.now(UTC)
+            created.append(model_profile)
+
+        async def refresh(self, model_profile) -> None:
+            return None
+
+        async def commit(self) -> None:
+            return None
+
+    service.repository = Repository()  # type: ignore[assignment]
+
+    payload = ModelProfileCreate(
+        display_name="Local Model",
+        role="candidate",
+        provider_type="lmstudio",
+        api_style="openai_compatible",
+        runtime_type="local",
+        endpoint_url="http://127.0.0.1:1234/v1/chat/completions",
+        model_identifier="local-model",
+        pricing_input_per_million=Decimal("1.0000"),
+        pricing_output_per_million=Decimal("2.0000"),
+    )
+
+    result = await service.create_model_profile(payload)
+
+    assert created[0].pricing_input_per_million == Decimal("0")
+    assert created[0].pricing_output_per_million == Decimal("0")
+    assert result.pricing_input_per_million == Decimal("0")
+    assert result.pricing_output_per_million == Decimal("0")

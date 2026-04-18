@@ -6,10 +6,9 @@ export type ModelProfile = {
   provider_type: string;
   api_style: string;
   runtime_type: "remote" | "local";
-  machine_label: string | null;
   endpoint_url: string;
   model_identifier: string;
-  secret_masked: string | null;
+  has_secret: boolean;
   timeout_seconds: number;
   context_window: number | null;
   pricing_input_per_million: string | null;
@@ -33,7 +32,6 @@ export type ModelProfilePayload = {
   provider_type: string;
   api_style: string;
   runtime_type: "remote" | "local";
-  machine_label: string | null;
   endpoint_url: string;
   model_identifier: string;
   secret?: string | null;
@@ -51,4 +49,3 @@ export type ConnectionTestResponse = {
   status_code: number | null;
   detail: string;
 };
-
