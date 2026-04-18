@@ -35,6 +35,16 @@ class JudgingRepository:
         )
         return result.scalars().all()
 
+    async def get_batch(self, batch_id: int) -> JudgeBatch | None:
+        result = await self.session.execute(
+            select(JudgeBatch)
+            .where(JudgeBatch.id == batch_id)
+            .options(
+                selectinload(JudgeBatch.evaluation).selectinload(JudgeEvaluation.candidates),
+            )
+        )
+        return result.scalar_one_or_none()
+
     def add_batch(self, batch: JudgeBatch) -> None:
         self.session.add(batch)
 

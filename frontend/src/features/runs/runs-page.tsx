@@ -32,6 +32,7 @@ import {
   generateRunReport,
   resumeRun,
   retryCandidateResponse,
+  retryJudgeBatch,
   retryRunJudging,
   startLocalCurrent,
   startRemoteCandidate,
@@ -259,21 +260,30 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [startingRemoteIds, setStartingRemoteIds] = useState<number[]>([]);
   const [retryingResponseIds, setRetryingResponseIds] = useState<number[]>([]);
+  const [retryingBatchIds, setRetryingBatchIds] = useState<number[]>([]);
 
   const runQuery = useQuery({
     queryKey: ["runs", runId],
     queryFn: () => fetchRun(runId),
     refetchInterval: (query) => {
       const run = query.state.data as Run | undefined;
-      return run && !terminalStatuses.has(run.status) ? 4000 : false;
+      if (run && !terminalStatuses.has(run.status)) return 4000;
+      if (retryingResponseIds.length > 0) return 4000;
+      if (retryingBatchIds.length > 0) return 4000;
+      return false;
     },
   });
 
   const responsesQuery = useQuery({
     queryKey: ["runs", runId, "responses"],
     queryFn: () => fetchRunResponses(runId),
-    refetchInterval: () =>
-      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
+    refetchInterval: (query) => {
+      if (runQuery.data && !terminalStatuses.has(runQuery.data.status)) return 4000;
+      if (retryingResponseIds.length > 0) return 4000;
+      const items = (query.state.data as { items: CandidateResponse[] } | undefined)?.items ?? [];
+      if (items.some((r) => r.status === "pending" || r.status === "running")) return 4000;
+      return false;
+    },
   });
 
   const hasLocalCandidates =
@@ -292,8 +302,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const judgingQuery = useQuery({
     queryKey: ["runs", runId, "judging"],
     queryFn: () => fetchRunJudging(runId),
-    refetchInterval: () =>
-      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
+    refetchInterval: () => {
+      if (runQuery.data && !terminalStatuses.has(runQuery.data.status)) return 4000;
+      if (retryingBatchIds.length > 0) return 4000;
+      return false;
+    },
   });
 
   useEffect(() => {
@@ -412,6 +425,19 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
       setFeedback(error instanceof ApiError ? error.message : "Unable to retry judging.");
     },
   });
+
+  const handleRetryBatch = async (batchId: number) => {
+    setRetryingBatchIds((current) => [...current, batchId]);
+    try {
+      await retryJudgeBatch(runId, batchId);
+      setFeedback("Batch retried.");
+      await refreshRunData();
+    } catch (error) {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to retry batch.");
+    } finally {
+      setRetryingBatchIds((current) => current.filter((item) => item !== batchId));
+    }
+  };
 
   const startJudgingMutation = useMutation({
     mutationFn: () => startRunJudging(runId),
@@ -659,10 +685,10 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                             selectedRun.model_snapshots,
                             response.model_snapshot_id,
                           );
-                          const isRunActive = !terminalStatuses.has(selectedRun.status);
                           const isRowLoading =
                             retryingResponseIds.includes(response.id) ||
-                            ((response.status === "pending" || response.status === "running") && isRunActive);
+                            response.status === "pending" ||
+                            response.status === "running";
 
                           return (
                               <tr
@@ -763,10 +789,12 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                       isLoading={judgingQuery.isLoading}
                       isStarting={startJudgingMutation.isPending}
                       isRetrying={retryJudgingMutation.isPending}
+                      retryingBatchIds={retryingBatchIds}
                       canStart={allCandidatesReady && (!judging || judging.items.length === 0)}
                       judging={judging}
                       onStart={() => startJudgingMutation.mutate()}
                       onRetry={() => retryJudgingMutation.mutate()}
+                      onRetryBatch={handleRetryBatch}
                       promptSnapshots={selectedRun.prompt_snapshots}
                       onSelectBatch={setSelectedJudgeBatchId}
                       selectedBatchId={selectedJudgeBatchId}
@@ -1410,7 +1438,7 @@ function StatusPill({ label, status }: { label?: string; status: string }) {
     <span
       className={cn(
         "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize",
-        status === "completed" && "bg-red-100 text-red-900",
+        status === "completed" && "bg-emerald-100 text-emerald-900",
         ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(status) &&
           "bg-amber-100 text-amber-900",
         ["failed", "cancelled"].includes(status) && "bg-rose-100 text-rose-900",
@@ -1715,10 +1743,12 @@ function JudgeBatchPanel({
   isLoading,
   isStarting,
   isRetrying,
+  retryingBatchIds,
   canStart,
   judging,
   onStart,
   onRetry,
+  onRetryBatch,
   promptSnapshots,
   onSelectBatch,
   selectedBatchId,
@@ -1726,14 +1756,18 @@ function JudgeBatchPanel({
   isLoading: boolean;
   isStarting: boolean;
   isRetrying: boolean;
+  retryingBatchIds: number[];
   canStart: boolean;
   judging: RunJudging | undefined;
   onStart: () => void;
   onRetry: () => void;
+  onRetryBatch: (batchId: number) => void;
   promptSnapshots: RunPromptSnapshot[];
   onSelectBatch: (batchId: number) => void;
   selectedBatchId: number | null;
 }) {
+  const isJudgingActive = isStarting || isRetrying || retryingBatchIds.length > 0;
+
   if (isLoading) {
     return <p className="text-sm text-slate-500">Loading judge batches...</p>;
   }
@@ -1745,9 +1779,16 @@ function JudgeBatchPanel({
           title="No judge batches yet"
           description="Phase 1 is complete. Start judging manually to create one judge batch per prompt."
         />
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button disabled={!canStart || isStarting} onClick={onStart} variant="secondary">
-            Start judging
+            {isStarting ? (
+              <>
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                Judging in progress…
+              </>
+            ) : (
+              "Start judging"
+            )}
           </Button>
         </div>
       </div>
@@ -1756,6 +1797,14 @@ function JudgeBatchPanel({
 
   return (
     <div className="space-y-4">
+      {isJudgingActive ? (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-amber-600" />
+          <p className="text-sm font-medium text-amber-900">
+            {isStarting || isRetrying ? "Running all judge batches…" : "Retrying batch…"}
+          </p>
+        </div>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-3">
         <SummaryStat label="Completed" value={String(judging.completed_batches)} />
         <SummaryStat label="Failed" value={String(judging.failed_batches)} />
@@ -1764,34 +1813,56 @@ function JudgeBatchPanel({
       <div className="space-y-2">
         {judging.items.map((batch) => {
           const prompt = promptById(promptSnapshots, batch.prompt_snapshot_id);
+          const isBatchRetrying = retryingBatchIds.includes(batch.id);
 
           return (
-            <button
+            <div
               key={batch.id}
               className={cn(
-                "flex w-full items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 text-left transition hover:bg-slate-100",
+                "flex w-full items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 transition",
                 selectedBatchId === batch.id
                   ? "border-slate-200 bg-slate-50"
                   : "border-border/80 bg-slate-50",
               )}
-              onClick={() => onSelectBatch(batch.id)}
-              type="button"
             >
-              <div>
+              <button
+                className="min-w-0 flex-1 text-left"
+                onClick={() => onSelectBatch(batch.id)}
+                type="button"
+              >
                 <p className="text-sm font-medium text-slate-950">
                   {prompt?.name ?? `Prompt snapshot #${batch.prompt_snapshot_id}`}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   Batch {batch.batch_index} · {batch.evaluation?.candidates.length ?? 0} candidates
                 </p>
+              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {isBatchRetrying ? (
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin text-amber-500" />
+                ) : null}
+                <StatusPill status={isBatchRetrying ? "running" : batch.status} />
+                {batch.status === "failed" && !isBatchRetrying ? (
+                  <Button
+                    disabled={isJudgingActive}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRetryBatch(batch.id);
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                  >
+                    Retry
+                  </Button>
+                ) : null}
               </div>
-              <StatusPill status={batch.status} />
-            </button>
+            </div>
           );
         })}
       </div>
-      <Button disabled={isRetrying || isStarting} onClick={onRetry} variant="secondary">
-        Retry judging
+      <Button disabled={isJudgingActive} onClick={onRetry} variant="secondary">
+        Retry all failed
       </Button>
     </div>
   );

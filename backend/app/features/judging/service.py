@@ -142,6 +142,42 @@ class JudgingService:
 
         return await self._run_judging(run)
 
+    async def retry_batch(self, run_id: int, batch_id: int) -> RunJudgingRead:
+        run = await self.repository.get_run(run_id)
+        if run is None:
+            raise JudgingError(f"Run {run_id} not found.")
+
+        batch = await self.repository.get_batch(batch_id)
+        if batch is None or batch.run_id != run_id:
+            raise JudgingError(f"Judge batch {batch_id} not found for run {run_id}.")
+
+        batch.status = "pending"
+        batch.error_message = None
+        batch.completed_at = None
+        run.status = "judging"
+        await self.repository.commit()
+
+        try:
+            await self._execute_batch(run, batch)
+        except (httpx.HTTPError, JudgingError, ValueError) as exc:
+            batch.status = "failed"
+            batch.completed_at = datetime.now(UTC)
+            batch.error_message = str(exc)
+
+        all_batches = list(await self.repository.list_batches(run_id))
+        still_failed = any(b.status == "failed" for b in all_batches)
+
+        if still_failed:
+            run.status = "failed"
+            await self.repository.commit()
+        else:
+            run.status = "aggregating"
+            await self.repository.commit()
+            await self._run_aggregation_stage(run.id)
+
+        refreshed_batches = list(await self.repository.list_batches(run.id))
+        return self._serialize_run_judging(run, refreshed_batches)
+
     def _serialize_run_judging(
         self,
         run: SessionRun,

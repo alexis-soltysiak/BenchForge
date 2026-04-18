@@ -67,3 +67,21 @@ async def retry_run_judging(
             else status.HTTP_400_BAD_REQUEST
         )
         raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@router.post("/runs/{run_id}/judging/batches/{batch_id}/retry", response_model=RunJudgingRead)
+async def retry_judge_batch(
+    run_id: int,
+    batch_id: int,
+    service: JudgingService = judging_service_dependency,
+) -> RunJudgingRead:
+    try:
+        return await service.retry_batch(run_id, batch_id)
+    except JudgingError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in detail.lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail) from exc

@@ -97,6 +97,12 @@ export function retryRunJudging(runId: number): Promise<RunJudging> {
   });
 }
 
+export function retryJudgeBatch(runId: number, batchId: number): Promise<RunJudging> {
+  return apiRequest<RunJudging>(`/runs/${runId}/judging/batches/${batchId}/retry`, {
+    method: "POST",
+  });
+}
+
 export function generateRunReport(runId: number): Promise<{ html_report_path: string | null; report_status: string; run_id: number }> {
   return apiRequest(`/runs/${runId}/report/generate`, {
     method: "POST",
