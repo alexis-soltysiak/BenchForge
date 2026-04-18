@@ -1,11 +1,16 @@
 import type { FormEvent, ReactNode } from "react";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
+  Check,
+  Archive,
   FileText,
   Plus,
   Search,
+  RotateCcw,
   Shapes,
   Sparkles,
+  Tag,
+  X,
   Trash2,
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -109,9 +114,110 @@ function matchesArchiveState(prompt: Prompt, showArchived: boolean): boolean {
   return showArchived ? prompt.is_archived : !prompt.is_archived;
 }
 
+function matchesCategory(prompt: Prompt, categoryId: string): boolean {
+  return categoryId === "all" || String(prompt.category.id) === categoryId;
+}
+
+function matchesTags(prompt: Prompt, tags: string[]): boolean {
+  if (tags.length === 0) {
+    return true;
+  }
+
+  const promptTags = new Set(prompt.tags.map((tag) => tag.trim().toLowerCase()));
+  return tags.every((tag) => promptTags.has(tag.toLowerCase()));
+}
+
+function uniqueTags(prompts: Prompt[]): string[] {
+  return Array.from(
+    new Set(
+      prompts.flatMap((prompt) =>
+        prompt.tags.map((tag) => tag.trim()).filter(Boolean),
+      ),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+function getCategoryLabel(
+  categories: Prompt["category"][],
+  selectedCategoryId: string,
+): string {
+  if (selectedCategoryId === "all") {
+    return "All categories";
+  }
+
+  return (
+    categories.find((category) => String(category.id) === selectedCategoryId)
+      ?.name ?? "Selected category"
+  );
+}
+
+type PromptFilterState = {
+  showArchived: boolean;
+  search: string;
+  selectedCategoryId: string;
+  selectedTags: string[];
+};
+
+const PROMPT_FILTERS_STORAGE_KEY = "benchforge.prompt-library.filters";
+
+function readPromptFilterState(): PromptFilterState {
+  if (typeof window === "undefined") {
+    return {
+      showArchived: false,
+      search: "",
+      selectedCategoryId: "all",
+      selectedTags: [],
+    };
+  }
+
+  const raw = window.localStorage.getItem(PROMPT_FILTERS_STORAGE_KEY);
+  if (!raw) {
+    return {
+      showArchived: false,
+      search: "",
+      selectedCategoryId: "all",
+      selectedTags: [],
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<PromptFilterState>;
+    return {
+      showArchived: Boolean(parsed.showArchived),
+      search: typeof parsed.search === "string" ? parsed.search : "",
+      selectedCategoryId:
+        typeof parsed.selectedCategoryId === "string"
+          ? parsed.selectedCategoryId
+          : "all",
+      selectedTags: Array.isArray(parsed.selectedTags)
+        ? parsed.selectedTags.filter((tag): tag is string => typeof tag === "string")
+        : [],
+    };
+  } catch {
+    return {
+      showArchived: false,
+      search: "",
+      selectedCategoryId: "all",
+      selectedTags: [],
+    };
+  }
+}
+
 export function PromptLibraryPage() {
-  const [showArchived, setShowArchived] = useState(false);
-  const [search, setSearch] = useState("");
+  const initialPromptFilters = readPromptFilterState();
+  const [showArchived, setShowArchived] = useState(
+    initialPromptFilters.showArchived,
+  );
+  const [search, setSearch] = useState(initialPromptFilters.search);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    initialPromptFilters.selectedCategoryId,
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    initialPromptFilters.selectedTags,
+  );
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const [isTagsMenuOpen, setIsTagsMenuOpen] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [formState, setFormState] = useState<PromptFormState>(emptyForm);
@@ -147,6 +253,18 @@ export function PromptLibraryPage() {
       setSelectedPrompt(null);
     }
   }, [selectedPrompt, showArchived]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      PROMPT_FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        showArchived,
+        search,
+        selectedCategoryId,
+        selectedTags,
+      }),
+    );
+  }, [search, selectedCategoryId, selectedTags, showArchived]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: PromptPayload) => {
@@ -194,10 +312,29 @@ export function PromptLibraryPage() {
   const scopedPrompts = (promptsQuery.data?.items ?? []).filter((prompt) =>
     matchesArchiveState(prompt, showArchived),
   );
-  const visiblePrompts = scopedPrompts.filter((prompt) =>
-    matchesSearch(prompt, search),
+  const promptTags = uniqueTags(scopedPrompts);
+  const categoryOptions = categoriesQuery.data ?? [];
+  const categoryLabel = getCategoryLabel(categoryOptions, selectedCategoryId);
+  const tagOptions = useMemo(
+    () => Array.from(new Set([...promptTags, ...selectedTags])).sort(
+      (left, right) => left.localeCompare(right),
+    ),
+    [promptTags, selectedTags],
+  );
+  const suggestedTags = tagOptions.filter(
+    (tag) => !selectedTags.some((item) => item.toLowerCase() === tag.toLowerCase()),
+  );
+  const visiblePrompts = scopedPrompts.filter(
+    (prompt) =>
+      matchesSearch(prompt, search) &&
+      matchesCategory(prompt, selectedCategoryId) &&
+      matchesTags(prompt, selectedTags),
   );
   const categoryCount = categoriesQuery.data?.length ?? 0;
+  const hasAnyFilters =
+    search.trim().length > 0 ||
+    selectedCategoryId !== "all" ||
+    selectedTags.length > 0;
   const loadError =
     (categoriesQuery.error instanceof ApiError && categoriesQuery.error.message) ||
     (promptsQuery.error instanceof ApiError && promptsQuery.error.message) ||
@@ -229,6 +366,25 @@ export function PromptLibraryPage() {
     event.preventDefault();
     setFeedback(null);
     await saveMutation.mutateAsync(toPayload(formState));
+  };
+
+  const addTag = (tag: string) => {
+    const normalized = tag.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setSelectedTags((current) =>
+      current.some((item) => item.toLowerCase() === normalized.toLowerCase())
+        ? current
+        : [...current, normalized],
+    );
+    setTagDraft("");
+    setIsTagsMenuOpen(true);
+  };
+
+  const removeTag = (tag: string) => {
+    setSelectedTags((current) => current.filter((item) => item !== tag));
   };
 
   const selectedPromptId = selectedPrompt?.id ?? null;
@@ -279,39 +435,293 @@ export function PromptLibraryPage() {
         </section>
 
         <section className="mt-8 space-y-6">
-          <Card className="overflow-hidden border-border/70 bg-white/90 shadow-sm">
-            <div className="border-b border-border/80 px-5 py-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-950">
-                    Global Prompt Library
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Browse existing prompts and switch between active and archived
-                    entries.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <label className="relative block min-w-64">
+          <Card className="overflow-visible border-border/70 bg-white/90 shadow-sm">
+            <div className="relative z-30 border-b border-border/80 px-5 py-4">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.88fr)_minmax(0,1.1fr)_auto] xl:items-stretch">
+                  <label className="relative min-h-14 flex-1">
                     <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
                     <Input
-                      className="pl-9"
-                      placeholder="Search prompts, tags, categories"
+                      className="h-14 pl-9"
+                      placeholder="Search names, descriptions, tags"
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                     />
                   </label>
-                  <Button
-                    variant={showArchived ? "secondary" : "ghost"}
-                    onClick={() => setShowArchived((current) => !current)}
-                  >
-                    {showArchived ? "Show unarchived" : "Show archived"}
-                  </Button>
-                  <Button onClick={openCreateModal}>
-                    <Plus className="h-4 w-4" />
-                    New prompt
-                  </Button>
+
+                  <div className="relative z-40 min-w-0">
+                    <button
+                      className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-amber-300 hover:bg-amber-50/60"
+                      type="button"
+                      onClick={() =>
+                        setIsCategoryMenuOpen((current) => !current)
+                      }
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Category
+                        </p>
+                        <p className="truncate text-sm font-semibold text-slate-950">
+                          {categoryLabel}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedCategoryId !== "all" ? (
+                          <Badge variant="accent">Filtered</Badge>
+                        ) : null}
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Browse
+                        </span>
+                      </div>
+                    </button>
+
+                    {isCategoryMenuOpen ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
+                        <div className="border-b border-border/70 bg-gradient-to-b from-amber-50 to-white px-4 py-3">
+                          <p className="text-sm font-semibold text-slate-950">
+                            Choose a category
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Narrow the library to one family of prompts.
+                          </p>
+                        </div>
+                        <div className="max-h-72 overflow-y-auto p-2">
+                          <button
+                            className={cn(
+                              "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
+                              selectedCategoryId === "all"
+                                ? "bg-amber-100 text-amber-950"
+                                : "hover:bg-slate-50",
+                            )}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategoryId("all");
+                              setIsCategoryMenuOpen(false);
+                            }}
+                          >
+                            <span className="font-medium">All categories</span>
+                            {selectedCategoryId === "all" ? (
+                              <Check className="h-4 w-4" />
+                            ) : null}
+                          </button>
+                          {categoryOptions.map((category) => {
+                            const isSelected =
+                              selectedCategoryId === String(category.id);
+                            return (
+                              <button
+                                key={category.id}
+                                className={cn(
+                                  "flex w-full items-start justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition",
+                                  isSelected
+                                    ? "bg-sky-100 text-sky-950"
+                                    : "hover:bg-slate-50",
+                                )}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategoryId(String(category.id));
+                                  setIsCategoryMenuOpen(false);
+                                }}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block font-medium">
+                                    {category.name}
+                                  </span>
+                                  {category.description ? (
+                                    <span className="block text-xs text-slate-500">
+                                      {category.description}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                {isSelected ? (
+                                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="relative z-40 min-w-0">
+                    <button
+                      className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-amber-300 hover:bg-amber-50/60"
+                      type="button"
+                      onClick={() => setIsTagsMenuOpen((current) => !current)}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Tags
+                        </p>
+                        <div className="mt-1 flex min-h-6 flex-wrap items-center gap-2">
+                          {selectedTags.length > 0 ? (
+                            selectedTags.slice(0, 3).map((tag) => (
+                              <Badge key={tag} variant="accent">
+                                {tag}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-sm font-semibold text-slate-950">
+                              Add or remove tags
+                            </span>
+                          )}
+                          {selectedTags.length > 3 ? (
+                            <Badge variant="neutral">
+                              +{selectedTags.length - 3} more
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-slate-400" />
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Manage
+                        </span>
+                      </div>
+                    </button>
+
+                    {isTagsMenuOpen ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
+                        <div className="border-b border-border/70 bg-gradient-to-b from-amber-50 to-white px-4 py-3">
+                          <p className="text-sm font-semibold text-slate-950">
+                            Manage tags
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Add tags to refine the library, or remove them to broaden it.
+                          </p>
+                        </div>
+
+                        <div className="space-y-4 p-4">
+                          <div className="flex gap-2">
+                            <Input
+                              className="flex-1"
+                              placeholder="Add a tag"
+                              value={tagDraft}
+                              onChange={(event) => setTagDraft(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  addTag(tagDraft);
+                                }
+                              }}
+                            />
+                            <Button type="button" onClick={() => addTag(tagDraft)}>
+                              Add
+                            </Button>
+                          </div>
+
+                          {selectedTags.length > 0 ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  Active tags
+                                </span>
+                                <Button
+                                  size="sm"
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() => setSelectedTags([])}
+                                >
+                                  Clear all
+                                </Button>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {selectedTags.map((tag) => (
+                                  <button
+                                    key={tag}
+                                    className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+                                    type="button"
+                                    onClick={() => removeTag(tag)}
+                                    title={`Remove ${tag}`}
+                                  >
+                                    {tag}
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                Suggestions
+                              </span>
+                              {suggestedTags.length > 0 ? (
+                                <span className="text-xs text-slate-400">
+                                  Click to add
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-2">
+                              {suggestedTags.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {suggestedTags.map((tag) => (
+                                    <button
+                                      key={tag}
+                                      className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900"
+                                      type="button"
+                                      onClick={() => addTag(tag)}
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                      {tag}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="px-2 py-3 text-sm text-slate-400">
+                                  No remaining tags to suggest.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                <div className="relative z-40 flex flex-wrap items-center gap-3 xl:justify-end">
+                    <Button
+                      disabled={!hasAnyFilters}
+                      type="button"
+                      size="sm"
+                      variant={hasAnyFilters ? "secondary" : "ghost"}
+                      className="h-9 rounded-full px-3 text-xs font-semibold"
+                      aria-label="Reset filters"
+                      title="Reset filters"
+                      onClick={() => {
+                        setSearch("");
+                        setSelectedCategoryId("all");
+                        setSelectedTags([]);
+                        setTagDraft("");
+                        setIsCategoryMenuOpen(false);
+                        setIsTagsMenuOpen(false);
+                      }}
+                      >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+
+                    <Button
+                      aria-label={showArchived ? "Show unarchived prompts" : "Show archived prompts"}
+                      className={cn(
+                        showArchived &&
+                          "border-amber-300 bg-amber-100 text-amber-950 shadow-[0_14px_28px_-18px_rgba(180,83,9,0.45)] hover:bg-amber-200",
+                      )}
+                      title={showArchived ? "Show unarchived" : "Show archived"}
+                      type="button"
+                      variant={showArchived ? "secondary" : "ghost"}
+                      size="icon"
+                      onClick={() => setShowArchived((current) => !current)}
+                    >
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                    <Button onClick={openCreateModal}>
+                      <Plus className="h-4 w-4" />
+                      New prompt
+                    </Button>
+                  </div>
                 </div>
+
               </div>
             </div>
 
@@ -327,7 +737,12 @@ export function PromptLibraryPage() {
               </div>
             ) : null}
 
-            <div className="overflow-x-auto">
+            <div
+              className={cn(
+                "relative z-10 overflow-x-auto",
+                showArchived && "border-l-4 border-amber-300 bg-amber-50/20 pl-0",
+              )}
+            >
               <table className="min-w-full text-left">
                 <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
                   <tr>
