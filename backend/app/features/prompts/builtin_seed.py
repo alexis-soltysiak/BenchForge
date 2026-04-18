@@ -174,4 +174,78 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         ),
         tags=("builtin", "mvp", "coding", "python", "design"),
     ),
+    BuiltinPromptSeed(
+        slug="logic-temporal-paradox",
+        name="logic_temporal_paradox",
+        category_slug="reasoning",
+        description="Solve a complex scheduling puzzle with conflicting temporal constraints.",
+        user_prompt_text=(
+            "Alice, Bob, and Charlie are scheduling a meeting. Alice is only free "
+            "when Bob is busy. Bob is busy every day from 2pm to 4pm. Charlie is "
+            "free only on Tuesday before 3pm and Thursday after 1pm. Alice is "
+            "busy all day Tuesday. Determine if there is a 30-minute window "
+            "where all three can meet. Walk through your reasoning step-by-step."
+        ),
+        evaluation_notes=(
+            "Reward models that identify the impossibility early or correctly "
+            "isolate the Thursday window if it exists. Penalize hallucinated free time."
+        ),
+        tags=("builtin", "advanced", "logic", "reasoning"),
+    ),
+    BuiltinPromptSeed(
+        slug="design-idempotent-payment",
+        name="design_idempotent_payment",
+        category_slug="coding",
+        description="Design a distributed, idempotent payment processing system.",
+        user_prompt_text=(
+            "Design a system for processing payments that guarantees idempotency "
+            "across a distributed environment. Explain how you handle a scenario "
+            "where the client loses connection after sending a request but before "
+            "receiving a response. Provide a high-level Python pseudo-code implementation "
+            "using a Redis-based locking mechanism."
+        ),
+        evaluation_notes=(
+            "Reward mention of idempotency keys, atomic operations, and 'exactly-once' "
+            "semantics. Penalize generic answers that ignore network failure edge cases."
+        ),
+        tags=("builtin", "advanced", "coding", "system-design"),
+    ),
+    BuiltinPromptSeed(
+        slug="critique-fallacious-argument",
+        name="critique_fallacious_argument",
+        category_slug="reasoning",
+        description="Identify and name logical fallacies within a provided persuasive text.",
+        user_prompt_text=(
+            "Analyze the following argument: 'Our competitors are pushing for "
+            "AI regulation because they are scared of our innovation. If we "
+            "regulate AI now, we are essentially inviting a digital dark age. "
+            "Every major tech leader who supports regulation also has a history "
+            "of failed product launches.' Identify at least three logical fallacies "
+            "used here and explain why they weaken the argument."
+        ),
+        evaluation_notes=(
+            "Reward correct identification of Ad Hominem, Slippery Slope, and "
+            "Straw Man/Motivated Reasoning. Penalize vague 'it sounds biased' answers."
+        ),
+        tags=("builtin", "advanced", "reasoning", "critical-thinking"),
+    ),
+    BuiltinPromptSeed(
+        slug="transform-messy-logs-json",
+        name="transform_messy_logs_json",
+        category_slug="structured-output",
+        description="Convert unstructured legacy logs into a nested, validated JSON schema.",
+        user_prompt_text=(
+            "Convert the following raw server logs into a valid JSON array. "
+            "Each object must have a `timestamp` in ISO 8601, a `severity` level "
+            "mapped to an integer (0-5), and a `metadata` object containing "
+            "extracted IP addresses. IMPORTANT: If a log line contains 'DEBUG', "
+            "omit it entirely. If an IP is from a private range (192.168.x.x), "
+            "mask it as 'INTERNAL'."
+        ),
+        evaluation_notes=(
+            "Reward strict adherence to the masking and omission rules. "
+            "Penalize any invalid JSON or missed 'DEBUG' lines."
+        ),
+        tags=("builtin", "advanced", "structured-output", "json", "regex"),
+    ),
 )
