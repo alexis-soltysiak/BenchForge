@@ -240,12 +240,12 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
     judging?.items.find((item) => item.id === selectedJudgeBatchId) ?? null;
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 lg:px-10 lg:py-10 xl:ml-auto xl:mr-0">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_32%),linear-gradient(135deg,_rgba(239,246,255,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
+    <div className="px-5 py-8 lg:px-10 lg:py-10">
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(239,68,68,0.18),_transparent_32%),linear-gradient(135deg,_rgba(255,239,239,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
         <div className="relative flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_48rem] xl:items-end">
           <div className="max-w-3xl space-y-4">
-            <span className="inline-flex rounded-full border border-teal-300 bg-teal-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-teal-950">
+            <span className="inline-flex rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-red-950">
               Execution Monitor
             </span>
             <div className="space-y-3">
@@ -263,28 +263,28 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
               compact
               icon={Activity}
               label="Visible Runs"
-              tone="teal"
+              tone="red"
               value={String(visibleRuns.length)}
             />
             <MetricCard
               compact
               icon={Bot}
               label="Responses"
-              tone="teal"
+              tone="red"
               value={String(selectedRun?.candidate_response_count ?? 0)}
             />
             <MetricCard
               compact
               icon={SquareTerminal}
               label="Local Queue"
-              tone="teal"
+              tone="red"
               value={String(localNextQuery.data?.pending_prompt_count ?? 0)}
             />
             <MetricCard
               compact
               icon={Gavel}
               label="Judge Batches"
-              tone="teal"
+              tone="red"
               value={String(judging?.completed_batches ?? 0)}
             />
           </div>
@@ -296,7 +296,7 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
           <div className="border-b border-border/80 px-5 py-4">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-slate-950">Runs List</h2>
+                <h2 className="text-xl font-semibold text-red-800">Runs List</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Browse immutable run snapshots and reopen their operational detail.
                 </p>
@@ -328,8 +328,8 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
                 <button
                   key={item.id}
                   className={cn(
-                    "block w-full px-5 py-4 text-left transition hover:bg-teal-50/70",
-                    selectedRunId === item.id && "bg-teal-50",
+                    "block w-full px-5 py-4 text-left transition hover:bg-red-50/70",
+                    selectedRunId === item.id && "bg-red-50",
                   )}
                   onClick={() => {
                     setSelectedRunId(item.id);
@@ -400,7 +400,7 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
               </div>
 
               {feedback ? (
-                <div className="mt-5 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
                   {feedback}
                 </div>
               ) : null}
@@ -430,14 +430,14 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
                     key={step.title}
                     className={cn(
                       "rounded-[1.4rem] border px-4 py-4",
-                      step.state === "done" && "border-emerald-200 bg-emerald-50",
+                      step.state === "done" && "border-red-200 bg-red-50",
                       step.state === "active" && "border-amber-200 bg-amber-50",
                       step.state === "pending" && "border-border/80 bg-slate-50",
                     )}
                   >
                     <div className="flex items-center gap-2">
                       {step.state === "done" ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        <CheckCircle2 className="h-4 w-4 text-red-600" />
                       ) : step.state === "active" ? (
                         <LoaderCircle className="h-4 w-4 animate-spin text-amber-600" />
                       ) : (
@@ -491,8 +491,8 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
                           <tr
                             key={response.id}
                             className={cn(
-                              "cursor-pointer transition hover:bg-teal-50/60",
-                              selectedResponseId === response.id && "bg-teal-50",
+                              "cursor-pointer transition hover:bg-red-50/60",
+                              selectedResponseId === response.id && "bg-red-50",
                             )}
                             onClick={() => setSelectedResponseId(response.id)}
                           >
@@ -684,7 +684,7 @@ function StatusPill({ label, status }: { label?: string; status: string }) {
     <span
       className={cn(
         "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize",
-        status === "completed" && "bg-emerald-100 text-emerald-900",
+        status === "completed" && "bg-red-100 text-red-900",
         ["running", "running_candidates", "waiting_local", "judging", "aggregating", "reporting"].includes(status) &&
           "bg-amber-100 text-amber-900",
         ["failed", "cancelled"].includes(status) && "bg-rose-100 text-rose-900",
@@ -995,9 +995,9 @@ function JudgeBatchPanel({
           <button
             key={batch.id}
             className={cn(
-              "flex w-full items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 text-left transition hover:bg-teal-50/60",
+              "flex w-full items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 text-left transition hover:bg-red-50/60",
               selectedBatchId === batch.id
-                ? "border-teal-200 bg-teal-50"
+                ? "border-red-200 bg-red-50"
                 : "border-border/80 bg-slate-50",
             )}
             onClick={() => onSelectBatch(batch.id)}
@@ -1118,7 +1118,7 @@ function JudgeCandidateCard({
             scoreToneClasses(candidate.overall_score, "soft"),
           )}
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-700">
             Overall
           </p>
           <p className="mt-1 text-2xl font-semibold">
@@ -1237,14 +1237,14 @@ function EmptyStatePanel({
       className={cn(
         "rounded-[1.4rem] border p-4",
         tone === "success"
-          ? "border-emerald-200 bg-emerald-50"
+          ? "border-red-200 bg-red-50"
           : "border-border/80 bg-slate-50",
       )}
     >
       <p
         className={cn(
           "text-sm font-semibold",
-          tone === "success" ? "text-emerald-950" : "text-slate-950",
+          tone === "success" ? "text-red-950" : "text-slate-950",
         )}
       >
         {title}
@@ -1252,7 +1252,7 @@ function EmptyStatePanel({
       <p
         className={cn(
           "mt-2 text-sm",
-          tone === "success" ? "text-emerald-900" : "text-slate-600",
+          tone === "success" ? "text-red-900" : "text-slate-600",
         )}
       >
         {description}
@@ -1368,13 +1368,13 @@ function scoreToneClasses(
 
   if (parsed >= 85) {
     return variant === "badge"
-      ? "bg-emerald-100 text-emerald-900"
-      : "border-emerald-200 bg-emerald-50 text-emerald-950";
+      ? "bg-red-100 text-red-900"
+      : "border-red-200 bg-red-50 text-red-950";
   }
   if (parsed >= 70) {
     return variant === "badge"
-      ? "bg-teal-100 text-teal-900"
-      : "border-teal-200 bg-teal-50 text-teal-950";
+      ? "bg-red-100 text-red-900"
+      : "border-red-200 bg-red-50 text-red-950";
   }
   if (parsed >= 55) {
     return variant === "badge"

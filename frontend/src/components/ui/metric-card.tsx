@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-type MetricTone = "slate" | "sky" | "amber" | "emerald" | "teal";
+type MetricTone = "slate" | "sky" | "amber" | "emerald" | "teal" | "red";
 
 const metricToneStyles: Record<
   MetricTone,
@@ -42,6 +42,12 @@ const metricToneStyles: Record<
     iconShell: "border-teal-200/80 bg-teal-50/95",
     iconColor: "text-teal-700",
     valueAccent: "bg-teal-200",
+  },
+  red: {
+    dot: "bg-red-500",
+    iconShell: "border-red-200/80 bg-red-50/95",
+    iconColor: "text-red-700",
+    valueAccent: "bg-red-200",
   },
 };
 

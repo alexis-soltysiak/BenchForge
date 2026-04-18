@@ -101,6 +101,9 @@ class ModelProfileService:
         items, total = await self.repository.list_model_profiles(include_archived)
         return [serialize_model_profile(item) for item in items], total
 
+    async def get_distinct_machine_labels(self) -> list[str]:
+        return await self.repository.get_distinct_machine_labels()
+
     async def get_model_profile(self, model_id: int) -> ModelProfileRead:
         model_profile = await self.repository.get_model_profile(model_id)
         if model_profile is None:
@@ -118,7 +121,9 @@ class ModelProfileService:
             provider_type=payload.provider_type.strip(),
             api_style=payload.api_style.strip(),
             runtime_type=payload.runtime_type,
-            machine_label=payload.machine_label.strip() if payload.machine_label else None,
+            machine_label=payload.machine_label.strip()
+            if payload.machine_label
+            else None,
             endpoint_url=payload.endpoint_url.strip(),
             model_identifier=payload.model_identifier.strip(),
             secret_encrypted=encrypt_value(payload.secret) if payload.secret else None,
@@ -178,9 +183,13 @@ class ModelProfileService:
         if "context_window" in updates:
             model_profile.context_window = updates["context_window"]
         if "pricing_input_per_million" in updates:
-            model_profile.pricing_input_per_million = updates["pricing_input_per_million"]
+            model_profile.pricing_input_per_million = updates[
+                "pricing_input_per_million"
+            ]
         if "pricing_output_per_million" in updates:
-            model_profile.pricing_output_per_million = updates["pricing_output_per_million"]
+            model_profile.pricing_output_per_million = updates[
+                "pricing_output_per_million"
+            ]
         if "notes" in updates:
             model_profile.notes = updates["notes"]
         if "local_load_instructions" in updates:

@@ -17,6 +17,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   archiveModelProfile,
   createModelProfile,
+  fetchMachineLabels,
   fetchModelProfiles,
   testModelProfileConnection,
   updateModelProfile,
@@ -274,6 +275,11 @@ export function ModelRegistryPage() {
     queryFn: () => fetchModelProfiles(showArchived),
   });
 
+  const machineLabelsQuery = useQuery({
+    queryKey: ["machine-labels"],
+    queryFn: fetchMachineLabels,
+  });
+
   useEffect(() => {
     if (!selectedModel) {
       setFormState(emptyForm);
@@ -469,7 +475,7 @@ export function ModelRegistryPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 lg:px-10 lg:py-10 xl:ml-auto xl:mr-0">
+    <div className="px-5 py-8 lg:px-10 lg:py-10">
       <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_28%),linear-gradient(135deg,_rgba(239,246,255,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
@@ -563,7 +569,6 @@ export function ModelRegistryPage() {
                   <th className="w-[10%] px-5 py-3 font-semibold">Role</th>
                   <th className="w-[15%] px-5 py-3 font-semibold">Provider</th>
                   <th className="w-[10%] px-5 py-3 font-semibold">Runtime</th>
-                  <th className="w-[16%] px-5 py-3 font-semibold">Endpoint</th>
                   <th className="w-[7%] px-5 py-3 font-semibold">Machine</th>
                   <th className="w-[10%] px-5 py-3 font-semibold">Status</th>
                   <th className="w-[8%] px-5 py-3 font-semibold">Actions</th>
@@ -672,11 +677,7 @@ export function ModelRegistryPage() {
                         <td className="px-5 py-4 align-top">
                           <RuntimeBadge runtimeType={model.runtime_type} />
                         </td>
-                        <td className="px-5 py-4 align-top text-sm text-slate-500">
-                          <span className="block truncate" title={model.endpoint_url}>
-                            {model.endpoint_url}
-                          </span>
-                        </td>
+                        
                         <td className="px-5 py-4 align-top text-sm text-slate-500">
                           <span
                             className="block truncate"
@@ -839,6 +840,7 @@ export function ModelRegistryPage() {
               label="Machine label"
             >
               <Input
+                list="machine-label-options"
                 placeholder="Optional machine label"
                 value={formState.machineLabel}
                 onChange={(event) =>
@@ -1093,6 +1095,11 @@ export function ModelRegistryPage() {
         <datalist id="model-identifier-options">
           {modelIdentifierSuggestions.map((modelIdentifier) => (
             <option key={modelIdentifier} value={modelIdentifier} />
+          ))}
+        </datalist>
+        <datalist id="machine-label-options">
+          {machineLabelsQuery.data?.map((label) => (
+            <option key={label} value={label} />
           ))}
         </datalist>
       </Modal>
