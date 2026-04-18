@@ -239,7 +239,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <div
-        className={cn("min-h-screen", !isHomeView && "xl:pr-[23rem]")}
+        className={cn("min-h-screen", !isHomeView && "xl:pr-[17.25rem]")}
         style={{
           backgroundImage:
             isHomeView || isRunDetailView
@@ -387,8 +387,8 @@ export function App() {
               </div>
             </div>
 
-            <aside className="fixed inset-y-0 right-0 z-30 hidden w-[21rem] p-5 xl:block">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-[2.4rem] border border-white/70 bg-[linear-gradient(180deg,_rgba(255,255,255,0.86),_rgba(241,245,249,0.78))] px-5 py-6 shadow-[0_34px_110px_-54px_rgba(15,23,42,0.75)] backdrop-blur-xl">
+            <aside className="fixed inset-y-0 right-0 z-30 hidden w-[15.75rem] p-3 xl:block">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(180deg,_rgba(255,255,255,0.86),_rgba(241,245,249,0.78))] px-3.5 py-4 shadow-[0_34px_110px_-54px_rgba(15,23,42,0.75)] backdrop-blur-xl">
                 <div
                   className={cn(
                     "absolute inset-x-0 top-0 h-40",
@@ -404,9 +404,9 @@ export function App() {
                 />
 
                 <div className="relative flex h-full flex-col">
-                  <div className="mb-4 flex justify-end">
+                  <div className="mb-2 flex justify-end">
                     <button
-                      className="group inline-flex min-h-12 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-2 text-slate-700 shadow-[0_18px_36px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
+                      className="group inline-flex min-h-10 items-center rounded-full border border-slate-200/80 bg-white/95 px-2.5 py-1.5 text-slate-700 shadow-[0_18px_36px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
                       onClick={navigateToHome}
                       type="button"
                     >
@@ -424,13 +424,13 @@ export function App() {
                           </span>
                         )}
                       </span>
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-700">
+                      <span className="text-[8.5px] font-semibold uppercase tracking-[0.24em] text-slate-700">
                         BenchForge
                       </span>
                     </button>
                   </div>
 
-                  <nav className="relative mt-8 space-y-3">
+                  <nav className="relative mt-5 space-y-2.5">
                     {navigationItems.map((item, index) => {
                       const Icon = item.icon;
                       const isActive = item.id === view;
@@ -440,7 +440,7 @@ export function App() {
                           key={item.id}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "group flex w-full flex-row-reverse items-center gap-4 rounded-[1.8rem] border px-4 py-4 text-right transition duration-200",
+                            "group flex w-full flex-row-reverse items-center gap-3 rounded-[1.5rem] border px-3.5 py-3.5 text-right transition duration-200",
                             isActive
                               ? "border-slate-900 bg-slate-950 text-white shadow-[0_24px_50px_-30px_rgba(15,23,42,0.95)]"
                               : "border-white/70 bg-white/75 text-slate-700 hover:border-slate-300 hover:bg-white",
@@ -450,24 +450,24 @@ export function App() {
                         >
                           <span
                             className={cn(
-                              "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors",
+                              "flex h-10.5 w-10.5 shrink-0 items-center justify-center rounded-[1rem] transition-colors",
                               isActive
                                 ? "bg-white/12 text-white"
                                 : "bg-slate-100 text-slate-700 group-hover:bg-slate-200",
                             )}
                           >
-                            <Icon className="h-5 w-5" />
+                            <Icon className="h-[1.05rem] w-[1.05rem]" />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center justify-between gap-3">
-                              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                              <span className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                                 0{index + 1}
                               </span>
-                              <span className="truncate text-sm font-semibold">
+                              <span className="truncate text-[0.84rem] font-semibold leading-4">
                                 {item.label}
                               </span>
                             </span>
-                            <span className="mt-1 block text-xs leading-5 text-slate-500">
+                            <span className="mt-0.5 block text-[0.67rem] leading-4 text-slate-500">
                               {item.description}
                             </span>
                           </span>
@@ -476,10 +476,10 @@ export function App() {
                     })}
                   </nav>
 
-                  <div className="mt-auto flex justify-end gap-2 pt-6">
+                  <div className="mt-auto flex justify-end gap-2 pt-5">
                     <button
                       className={cn(
-                        "group inline-flex w-fit items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] transition",
+                        "group inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[8.5px] font-semibold uppercase tracking-[0.18em] transition",
                         view === "contributors"
                           ? "border-slate-950 bg-slate-950 text-white shadow-[0_18px_30px_-24px_rgba(15,23,42,0.85)]"
                           : "border-slate-200 bg-slate-950 text-white/90 hover:border-slate-950 hover:bg-slate-900 hover:text-white",
@@ -495,7 +495,7 @@ export function App() {
                     <button
                       aria-current={view === "settings" ? "page" : undefined}
                       className={cn(
-                        "group inline-flex h-9 w-9 items-center justify-center rounded-full border transition",
+                        "group inline-flex h-[2.125rem] w-[2.125rem] items-center justify-center rounded-full border transition",
                         view === "settings"
                           ? "border-slate-950 bg-slate-950 text-white shadow-[0_18px_30px_-24px_rgba(15,23,42,0.85)]"
                           : "border-slate-200 bg-white/85 text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900",

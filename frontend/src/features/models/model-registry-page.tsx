@@ -711,38 +711,38 @@ export function ModelRegistryPage() {
   };
 
   return (
-    <div className="px-5 py-8 lg:px-10 lg:py-10">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_28%),linear-gradient(135deg,_rgba(239,246,255,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
+    <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
+      <section className="relative overflow-hidden rounded-[1.65rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_28%),linear-gradient(135deg,_rgba(239,246,255,0.98),_rgba(255,255,255,0.96))] p-3.5 shadow-xl lg:p-4">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-4">
-            <span className="inline-flex rounded-full border border-sky-300 bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-950">
+        <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
+          <div className="max-w-[30rem] space-y-2">
+            <span className="inline-flex rounded-full border border-sky-300 bg-sky-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-950">
               Connection Profiles
             </span>
-            <div className="space-y-3">
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">
-                Model Registry
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-600">
-                Manage candidate and judge profiles across remote APIs and local
-                runtimes, with masked secrets and direct endpoint validation.
-              </p>
-            </div>
+            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-slate-950 lg:text-[2.2rem]">
+              Model Registry
+            </h1>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-1.5 sm:grid-cols-3">
             <MetricCard
+              compact
+              className="rounded-[1.2rem]"
               icon={Database}
               label="Visible Models"
               tone="sky"
               value={String(visibleModels.length)}
             />
             <MetricCard
+              compact
+              className="rounded-[1.2rem]"
               icon={CircleGauge}
               label="Candidates"
               tone="sky"
               value={String(roleCounts?.candidates ?? 0)}
             />
             <MetricCard
+              compact
+              className="rounded-[1.2rem]"
               icon={Shield}
               label="Judges"
               tone="sky"
@@ -752,14 +752,14 @@ export function ModelRegistryPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-5">
         <Card className="overflow-visible border-border/70 bg-white/90 shadow-sm">
-          <div className="relative z-30 border-b border-border/80 px-5 py-4">
+          <div className="relative z-30 border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.85fr)_auto] xl:items-stretch">
-              <label className="relative min-h-14">
-                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+              <label className="relative min-h-10">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  className="h-14 pl-9"
+                  className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
                   placeholder="Search names, providers, runtimes"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -768,7 +768,7 @@ export function ModelRegistryPage() {
 
               <div className="relative min-w-0">
                 <button
-                  className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
                   type="button"
                   onClick={() => {
                     setIsRoleMenuOpen((current) => !current);
@@ -780,15 +780,12 @@ export function ModelRegistryPage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Roles
                     </p>
-                    <p className="truncate text-sm font-semibold text-slate-950">
+                    <p className="truncate text-[0.95rem] font-semibold text-slate-950">
                       {selectedRoles.length > 0
                         ? selectedRoles.map(roleLabel).join(", ")
                         : "All roles"}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    Browse
-                  </span>
                 </button>
 
                 {isRoleMenuOpen ? (
@@ -838,7 +835,7 @@ export function ModelRegistryPage() {
 
               <div className="relative min-w-0">
                 <button
-                  className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
                   type="button"
                   onClick={() => {
                     setIsProviderMenuOpen((current) => !current);
@@ -850,15 +847,12 @@ export function ModelRegistryPage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Provider
                     </p>
-                    <p className="truncate text-sm font-semibold text-slate-950">
+                    <p className="truncate text-[0.95rem] font-semibold text-slate-950">
                       {selectedProviderType === "all"
                         ? "All providers"
                         : selectedProviderType}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    Browse
-                  </span>
                 </button>
 
                 {isProviderMenuOpen ? (
@@ -919,7 +913,7 @@ export function ModelRegistryPage() {
 
               <div className="relative min-w-0">
                 <button
-                  className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
                   type="button"
                   onClick={() => {
                     setIsRuntimeMenuOpen((current) => !current);
@@ -931,15 +925,12 @@ export function ModelRegistryPage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Runtime
                     </p>
-                    <p className="truncate text-sm font-semibold text-slate-950">
+                    <p className="truncate text-[0.95rem] font-semibold text-slate-950">
                       {selectedRuntimeType === "all"
                         ? "All runtimes"
                         : selectedRuntimeType}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    Browse
-                  </span>
                 </button>
 
                 {isRuntimeMenuOpen ? (
@@ -1021,7 +1012,7 @@ export function ModelRegistryPage() {
                   >
                     <Archive className="h-4 w-4" />
                   </Button>
-                  <Button onClick={openCreateModal}>
+                  <Button className="h-10 rounded-[1rem] px-4 text-[0.95rem]" onClick={openCreateModal}>
                     <Plus className="h-4 w-4" />
                   New profile
                 </Button>
@@ -1050,14 +1041,14 @@ export function ModelRegistryPage() {
               )}
             >
             <table className="min-w-full table-fixed text-left">
-              <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.14em] text-slate-500">
                 <tr>
-                  <th className="w-[26%] px-5 py-3 font-semibold">Display name</th>
-                  <th className="w-[10%] px-5 py-3 font-semibold">Role</th>
-                  <th className="w-[15%] px-5 py-3 font-semibold">Provider</th>
-                  <th className="w-[10%] px-5 py-3 font-semibold">Runtime</th>
-                  <th className="w-[14%] px-5 py-3 font-semibold">Status</th>
-                  <th className="w-[8%] px-5 py-3 font-semibold">Actions</th>
+                  <th className="w-[26%] px-3 py-2 font-semibold lg:px-3.5">Display name</th>
+                  <th className="w-[10%] px-3 py-2 font-semibold lg:px-3.5">Role</th>
+                  <th className="w-[15%] px-3 py-2 font-semibold lg:px-3.5">Provider</th>
+                  <th className="w-[10%] px-3 py-2 font-semibold lg:px-3.5">Runtime</th>
+                  <th className="w-[14%] px-3 py-2 font-semibold lg:px-3.5">Status</th>
+                  <th className="w-[8%] px-3 py-2 font-semibold lg:px-3.5">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1091,7 +1082,7 @@ export function ModelRegistryPage() {
                           openEditModal(model);
                         }}
                       >
-                        <td className="relative px-5 py-4 align-top">
+                        <td className="relative px-3 py-2.5 align-top lg:px-3.5">
                           <div className="flex items-start gap-3">
                             <Button
                               aria-label={`Test connection for ${model.display_name}`}
@@ -1133,14 +1124,14 @@ export function ModelRegistryPage() {
                                   </button>
                                 ) : null}
                                 <p
-                                  className="block w-full truncate text-left text-sm font-semibold text-slate-950 transition hover:text-sky-900"
+                                  className="block w-full truncate text-left text-[0.95rem] font-semibold text-slate-950 transition hover:text-sky-900"
                                   title={model.display_name}
                                 >
                                   {model.display_name}
                                 </p>
                               </div>
                               <p
-                                className="truncate text-sm text-slate-500"
+                                className="truncate text-[0.92rem] text-slate-500"
                                 title={model.model_identifier}
                               >
                                 {model.model_identifier}
@@ -1172,19 +1163,19 @@ export function ModelRegistryPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <RoleBadge role={model.role} />
                         </td>
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <div className="flex flex-col gap-2">
                             <Badge variant="accent">{model.provider_type}</Badge>
                             <Badge variant="neutral">{model.api_style}</Badge>
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <RuntimeBadge runtimeType={model.runtime_type} />
                         </td>
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant={model.is_archived ? "muted" : "success"}>
                               {model.is_archived ? "Archived" : "Active"}
@@ -1195,7 +1186,7 @@ export function ModelRegistryPage() {
                             {isUnusable ? <Badge variant="muted">Missing secret</Badge> : null}
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-top" onClick={(event) => event.stopPropagation()}>
+                        <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             <Button
                               aria-label={`Archive ${model.display_name}`}

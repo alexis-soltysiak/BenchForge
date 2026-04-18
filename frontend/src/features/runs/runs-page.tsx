@@ -117,27 +117,22 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
   };
 
   return (
-    <div className="px-5 py-8 lg:px-10 lg:py-10">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.16),_transparent_30%),linear-gradient(135deg,_rgba(255,244,245,0.92),_rgba(255,255,255,0.98)_44%,_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
+    <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
+      <section className="relative overflow-hidden rounded-[1.65rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.16),_transparent_30%),linear-gradient(135deg,_rgba(255,244,245,0.92),_rgba(255,255,255,0.98)_44%,_rgba(255,255,255,0.96))] p-3.5 shadow-xl lg:p-4">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-        <div className="relative flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_48rem] xl:items-end">
-          <div className="max-w-3xl space-y-4">
-            <span className="inline-flex rounded-full border border-rose-200 bg-white/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-700">
+        <div className="relative flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center xl:gap-4">
+          <div className="max-w-[30rem] space-y-2">
+            <span className="inline-flex rounded-full border border-rose-200 bg-white/85 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-700">
               Execution Monitor
             </span>
-            <div className="space-y-3">
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">
-                Runs
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-600">
-                Track benchmark progress, inspect candidate outputs, and guide local
-                execution when an operator needs to take over.
-              </p>
-            </div>
+            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-slate-950 lg:text-[2.2rem]">
+              Runs
+            </h1>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={Activity}
               label="Visible Runs"
               tone="red"
@@ -145,6 +140,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             />
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={CheckCircle2}
               label="Completed"
               tone="red"
@@ -152,6 +148,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             />
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={SquareTerminal}
               label="Active Runs"
               tone="red"
@@ -159,6 +156,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             />
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={Gavel}
               label="Reports Ready"
               tone="red"
@@ -168,20 +166,17 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-5">
         <Card className="overflow-hidden border-border/70 bg-white/90 shadow-sm">
-          <div className="border-b border-border/80 px-5 py-4">
+          <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-slate-950">Runs List</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Browse immutable run snapshots and reopen their operational detail.
-                </p>
+                <h2 className="text-lg font-semibold text-slate-950">Runs List</h2>
               </div>
               <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  className="pl-9"
+                  className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
                   placeholder="Search runs"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -200,9 +195,9 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
 
           <div className="divide-y divide-border/70">
             {runsQuery.isLoading ? (
-              <div className="px-5 py-12 text-sm text-slate-500">Loading runs...</div>
+              <div className="px-4 py-10 text-[0.92rem] text-slate-500">Loading runs...</div>
             ) : visibleRuns.length === 0 ? (
-              <div className="px-5 py-8">
+              <div className="px-4 py-7">
                 <EmptyStatePanel
                   title="No runs found"
                   description="Launch a benchmark from the Sessions page to create the first immutable run snapshot."
@@ -212,7 +207,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               visibleRuns.map((item) => (
                 <button
                   key={item.id}
-                  className="block w-full px-5 py-4 text-left transition hover:bg-slate-50"
+                  className="block w-full px-3.5 py-3 text-left transition hover:bg-slate-50"
                   onClick={() => {
                     onOpenRun(item.id);
                   }}
@@ -220,8 +215,8 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-semibold text-slate-950">{item.name}</p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="text-[0.95rem] font-semibold text-slate-950">{item.name}</p>
+                      <p className="mt-1 text-[0.92rem] text-slate-500">
                         Session #{item.session_id} · {item.prompt_count} prompts ·{" "}
                         {item.model_count} models
                       </p>

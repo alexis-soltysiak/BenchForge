@@ -425,38 +425,38 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   };
 
   return (
-    <div className="px-5 py-8 lg:px-10 lg:py-10">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),_transparent_32%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
+    <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
+      <section className="relative overflow-hidden rounded-[1.65rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),_transparent_32%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(255,255,255,0.96))] p-3.5 shadow-xl lg:p-4">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-4">
-            <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-950">
+        <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
+          <div className="max-w-[30rem] space-y-2">
+            <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-950">
               Benchmark Setup
             </span>
-            <div className="space-y-3">
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">
-                Sessions
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-600">
-                Assemble prompts, candidate models, and a judge into reusable benchmark
-                sessions ready for launch.
-              </p>
-            </div>
+            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-slate-950 lg:text-[2.2rem]">
+              Sessions
+            </h1>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-1.5 sm:grid-cols-3">
             <MetricCard
+              compact
+              className="rounded-[1.2rem]"
               icon={Layers3}
               label="Visible Sessions"
               tone="emerald"
               value={String(visibleSessions.length)}
             />
             <MetricCard
+              compact
+              className="rounded-[1.2rem]"
               icon={Users}
               label="Prompt Library"
               tone="emerald"
               value={String(promptsQuery.data?.total ?? 0)}
             />
             <MetricCard
+              compact
+              className="rounded-[1.2rem]"
               icon={ShieldCheck}
               label="Model Registry"
               tone="emerald"
@@ -466,33 +466,32 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         </div>
       </section>
 
-      <section className="mt-8 space-y-6">
+      <section className="mt-5 space-y-5">
         <Card className="border-border/70 bg-white/90 shadow-sm">
-          <div className="border-b border-border/80 px-5 py-4">
+          <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-950">Sessions List</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Browse and manage benchmark session definitions.
-                </p>
+                <h2 className="text-lg font-semibold text-slate-950">Sessions List</h2>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <label className="relative block min-w-64">
-                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
-                    className="pl-9"
+                    className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
                     placeholder="Search sessions"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                   />
                 </label>
                 <Button
+                  className="h-10 rounded-[1rem] px-3.5 text-[0.95rem]"
                   variant={showArchived ? "secondary" : "ghost"}
                   onClick={() => setShowArchived((current) => !current)}
                 >
                   {showArchived ? "Show unarchived" : "Show archived"}
                 </Button>
                 <Button
+                  className="h-10 rounded-[1rem] px-3.5 text-[0.95rem]"
                   disabled={!selectedSession}
                   onClick={() =>
                     selectedSession && openSelectionModal(selectedSession, "prompts")
@@ -502,7 +501,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                   <SlidersHorizontal className="h-4 w-4" />
                   Configure selection
                 </Button>
-                <Button onClick={openCreateModal}>
+                <Button className="h-10 rounded-[1rem] px-4 text-[0.95rem]" onClick={openCreateModal}>
                   <Plus className="h-4 w-4" />
                   New session
                 </Button>
@@ -540,14 +539,14 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
           <div className="overflow-x-auto overflow-y-visible">
             <table className="min-w-full text-left">
-              <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.14em] text-slate-500">
                 <tr>
-                  <th className="px-5 py-3 font-semibold">Session</th>
-                  <th className="px-5 py-3 font-semibold">Composition</th>
-                  <th className="px-5 py-3 font-semibold">Rubric</th>
-                  <th className="px-5 py-3 font-semibold">Updated</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold text-right">Actions</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">Session</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">Composition</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">Rubric</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">Updated</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">Status</th>
+                  <th className="px-3 py-2 font-semibold text-right lg:px-3.5">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -579,17 +578,17 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                           });
                         }}
                       >
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <div className="space-y-1">
-                            <p className="text-sm font-semibold text-slate-950 transition hover:text-emerald-800">
+                            <p className="text-[0.95rem] font-semibold text-slate-950 transition hover:text-emerald-800">
                               {session.name}
                             </p>
-                            <p className="max-w-sm text-sm text-slate-500">
+                            <p className="max-w-sm text-[0.92rem] text-slate-500">
                               {session.description ?? "No description"}
                             </p>
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-top text-sm text-slate-500">
+                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-slate-500 lg:px-3.5">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="neutral">{session.prompts.length} prompts</Badge>
                             <Badge variant="neutral">
@@ -598,20 +597,20 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             <Badge variant="neutral">{session.judges.length} judges</Badge>
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-top text-sm text-slate-500">
+                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-slate-500 lg:px-3.5">
                           {session.rubric_version}
                         </td>
-                        <td className="px-5 py-4 align-top text-sm text-slate-500">
+                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-slate-500 lg:px-3.5">
                           {formatDate(session.updated_at)}
                         </td>
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <Badge
                             variant={session.status === "archived" ? "muted" : "success"}
                           >
                             {session.status}
                           </Badge>
                         </td>
-                        <td className="px-5 py-4 align-top" onClick={(event) => event.stopPropagation()}>
+                        <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             <ActionIconButton
                               aria-label={`Configure ${session.name}`}

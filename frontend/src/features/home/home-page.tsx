@@ -123,7 +123,7 @@ export function HomePage({
   const [markUnavailable, setMarkUnavailable] = useState(false);
 
   return (
-    <div className="relative isolate overflow-hidden px-5 pb-10 pt-6 lg:px-10 lg:pt-8">
+    <div className="relative isolate overflow-hidden px-4 pb-8 pt-4 lg:px-8 lg:pt-5">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-8rem] top-[-8rem] h-72 w-72 rounded-full bg-amber-200/35 blur-3xl" />
         <div className="absolute right-[-7rem] top-32 h-80 w-80 rounded-full bg-sky-200/30 blur-3xl" />
@@ -131,15 +131,15 @@ export function HomePage({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.06),_transparent_30%)]" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl space-y-10">
-        <header className="flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/70 px-5 py-4 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-col gap-3 rounded-[1.6rem] border border-white/70 bg-white/70 px-4 py-3 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="group inline-flex min-h-14 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-2 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]">
+            <div className="group inline-flex min-h-12 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-1.5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]">
                 {!markUnavailable ? (
                   <img
                     alt=""
-                    className="h-5 w-5 object-contain"
+                    className="h-4 w-4 object-contain"
                     onError={() => setMarkUnavailable(true)}
                     src="/branding/benchforge-mark.png"
                   />
@@ -148,17 +148,17 @@ export function HomePage({
                 )}
               </div>
               <div className="ml-3 min-w-0">
-                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.34em] text-slate-600">
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-600">
                   BenchForge
                 </p>
-                <p className="truncate text-xs text-slate-500">
+                <p className="truncate text-[11px] text-slate-500">
                   Benchmark studio
                 </p>
               </div>
             </div>
 
             <div className="hidden sm:block">
-              <p className="text-sm text-slate-600">
+              <p className="text-[0.92rem] text-slate-600">
                 Benchmark studio for prompts, models, sessions and runs.
               </p>
             </div>
@@ -182,17 +182,17 @@ export function HomePage({
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-          <div className="space-y-6">
+        <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+          <div className="space-y-4">
             <Badge className="bg-slate-950 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white">
               How it works
             </Badge>
 
-            <div className="max-w-3xl space-y-5">
-              <h1 className="font-display text-5xl font-semibold tracking-tight text-slate-950 sm:text-6xl">
+            <div className="max-w-3xl space-y-3">
+              <h1 className="font-display text-[2.85rem] font-semibold tracking-tight text-slate-950 sm:text-[3.5rem]">
                 Construis un parcours de benchmark lisible, du prompt au run.
               </h1>
-              <p className="max-w-2xl text-lg leading-8 text-slate-600">
+              <p className="max-w-2xl text-[1rem] leading-7 text-slate-600">
                 BenchForge est un espace simple et auto-hébergeable pour
                 comparer des modèles avec la même base de test. Tu crées les
                 prompts, tu enregistres les modèles, tu assembles les sessions,
@@ -200,7 +200,7 @@ export function HomePage({
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2.5">
               <Button className="rounded-full" onClick={onNavigateToSessions}>
                 Explorer les sessions
                 <ArrowRight className="h-4 w-4" />
@@ -215,7 +215,7 @@ export function HomePage({
               </Button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-2.5 sm:grid-cols-3">
               {[
                 {
                   title: "Structuré",
@@ -232,12 +232,12 @@ export function HomePage({
               ].map((item) => (
                 <Card
                   key={item.title}
-                  className="border-white/80 bg-white/80 p-4 shadow-[0_18px_50px_-35px_rgba(15,23,42,0.45)]"
+                  className="border-white/80 bg-white/80 p-3 shadow-[0_18px_50px_-35px_rgba(15,23,42,0.45)]"
                 >
-                  <p className="text-sm font-semibold text-slate-950">
+                  <p className="text-[0.92rem] font-semibold text-slate-950">
                     {item.title}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <p className="mt-1.5 text-[0.82rem] leading-5 text-slate-600">
                     {item.text}
                   </p>
                 </Card>
@@ -245,67 +245,67 @@ export function HomePage({
             </div>
           </div>
 
-          <Card className="relative overflow-hidden border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(248,250,252,0.92))] p-5 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.5)]">
+          <Card className="relative overflow-hidden border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(248,250,252,0.92))] p-4 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.5)]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.05),_transparent_45%)]" />
-            <div className="relative space-y-5">
-              <div className="flex items-start justify-between gap-4">
+            <div className="relative space-y-4">
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
                     Pipeline
                   </p>
-                  <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-slate-950">
+                  <h2 className="mt-1.5 font-display text-[1.35rem] font-semibold tracking-tight text-slate-950">
                     Prompts, modèles, sessions, runs.
                   </h2>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right">
+                <div className="rounded-[1rem] border border-slate-200 bg-white px-2.5 py-1.5 text-right">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                     Objectif
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">
+                  <p className="mt-1 text-[0.82rem] font-semibold text-slate-950">
                     Comparer, décider, recommencer.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {flowSteps.map((step, index) => {
                   const Icon = step.icon;
                   const tone = toneClasses[step.tone];
                   return (
                     <div key={step.id} className="relative">
                       {index < flowSteps.length - 1 ? (
-                        <div className="absolute left-6 top-[4.6rem] h-10 w-px bg-gradient-to-b from-slate-200 to-transparent" />
+                        <div className="absolute left-5 top-[3.85rem] h-7 w-px bg-gradient-to-b from-slate-200 to-transparent" />
                       ) : null}
-                      <div className="flex gap-4 rounded-[1.6rem] border border-slate-200 bg-white/90 p-4 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.45)]">
+                      <div className="flex gap-3 rounded-[1.35rem] border border-slate-200 bg-white/90 p-3 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.45)]">
                         <div
                           className={cn(
-                            "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1",
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] ring-1",
                             tone.ring,
                             tone.chip,
                           )}
                         >
-                          <Icon className="h-5 w-5" />
+                          <Icon className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-400">
                                 0{index + 1}
                               </p>
-                              <h3 className="mt-1 text-base font-semibold text-slate-950">
+                              <h3 className="mt-0.5 text-[0.92rem] font-semibold text-slate-950">
                                 {step.title}
                               </h3>
                             </div>
                             <span
                               className={cn(
-                                "rounded-full bg-gradient-to-r px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]",
+                                "rounded-full bg-gradient-to-r px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em]",
                                 tone.chip,
                               )}
                             >
                               {step.subtitle}
                             </span>
                           </div>
-                          <p className="mt-3 text-sm leading-6 text-slate-600">
+                          <p className="mt-2 text-[0.8rem] leading-5 text-slate-600">
                             {step.description}
                           </p>
                         </div>
