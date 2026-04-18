@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadErrorState } from "@/components/ui/load-error-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -415,6 +416,13 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     (promptsQuery.error instanceof ApiError && promptsQuery.error.message) ||
     (modelsQuery.error instanceof ApiError && modelsQuery.error.message) ||
     null;
+  const retryLoad = () => {
+    void Promise.all([
+      sessionsQuery.refetch(),
+      promptsQuery.refetch(),
+      modelsQuery.refetch(),
+    ]);
+  };
 
   return (
     <div className="px-5 py-8 lg:px-10 lg:py-10">
@@ -503,9 +511,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           </div>
 
           {loadError ? (
-            <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-900">
-              {loadError}
-            </div>
+            <LoadErrorState
+              message={loadError}
+              onRetry={retryLoad}
+              resourceLabel="sessions"
+            />
           ) : null}
 
           {feedback ? (
@@ -680,9 +690,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
           {loadError ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {loadError}
-            </div>
+            <LoadErrorState compact message={loadError} resourceLabel="sessions" />
           ) : null}
 
           <Field

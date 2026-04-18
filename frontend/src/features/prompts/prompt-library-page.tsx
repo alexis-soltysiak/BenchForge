@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadErrorState } from "@/components/ui/load-error-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -339,6 +340,9 @@ export function PromptLibraryPage() {
     (categoriesQuery.error instanceof ApiError && categoriesQuery.error.message) ||
     (promptsQuery.error instanceof ApiError && promptsQuery.error.message) ||
     null;
+  const retryLoad = () => {
+    void Promise.all([categoriesQuery.refetch(), promptsQuery.refetch()]);
+  };
 
   const openCreateModal = () => {
     startTransition(() => {
@@ -726,9 +730,11 @@ export function PromptLibraryPage() {
             </div>
 
             {loadError ? (
-              <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-900">
-                {loadError}
-              </div>
+              <LoadErrorState
+                message={loadError}
+                onRetry={retryLoad}
+                resourceLabel="the prompt library"
+              />
             ) : null}
 
             {feedback ? (
@@ -854,9 +860,7 @@ export function PromptLibraryPage() {
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
           {loadError ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {loadError}
-            </div>
+            <LoadErrorState compact message={loadError} resourceLabel="the prompt library" />
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
