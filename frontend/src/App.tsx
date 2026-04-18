@@ -5,10 +5,12 @@ import {
   FileText,
   Layers3,
   Sparkles,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { ContributorsPage } from "@/features/contributors/contributors-page";
 import { ModelRegistryPage } from "@/features/models/model-registry-page";
 import { PromptLibraryPage } from "@/features/prompts/prompt-library-page";
 import { RunDetailPage, RunsPage } from "@/features/runs/runs-page";
@@ -16,7 +18,7 @@ import { SessionsPage } from "@/features/sessions/sessions-page";
 import { queryClient } from "@/lib/query-client";
 import { cn } from "@/lib/utils";
 
-type View = "prompts" | "models" | "sessions" | "runs";
+type View = "prompts" | "models" | "sessions" | "runs" | "contributors";
 
 const navigationItems: Array<{
   id: View;
@@ -87,6 +89,13 @@ const viewThemes: Record<
       "bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.14),_transparent_55%)]",
     railOrb: "bg-[rgba(239,68,68,0.09)]",
   },
+  contributors: {
+    brandAccent: "text-slate-950",
+    pageGlow: "rgba(0, 0, 0, 0.05)",
+    railGlow:
+      "bg-[radial-gradient(circle_at_top_right,_rgba(0,0,0,0.18),_transparent_58%)]",
+    railOrb: "bg-[rgba(0,0,0,0.08)]",
+  },
 };
 
 export function App() {
@@ -110,7 +119,12 @@ export function App() {
       }
 
       const nextView = segments[0];
-      if (nextView === "prompts" || nextView === "models" || nextView === "sessions") {
+      if (
+        nextView === "prompts" ||
+        nextView === "models" ||
+        nextView === "sessions" ||
+        nextView === "contributors"
+      ) {
         setView(nextView);
         setSelectedRunId(null);
         return;
@@ -126,7 +140,8 @@ export function App() {
   }, []);
 
   const navigateToView = (nextView: View) => {
-    window.location.hash = nextView === "sessions" ? "/sessions" : `/${nextView}`;
+    window.location.hash =
+      nextView === "sessions" ? "/sessions" : `/${nextView}`;
   };
 
   const navigateToRun = (runId: number) => {
@@ -141,6 +156,8 @@ export function App() {
     navigationItems.find((item) => item.id === view) ?? navigationItems[0];
   const activeTheme = viewThemes[view];
   const isRunDetailView = view === "runs" && selectedRunId !== null;
+  const activeSectionLabel =
+    view === "contributors" ? "Contributors" : activeView.label;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -159,12 +176,12 @@ export function App() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div className="space-y-2">
                     <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-sm">
-                      <Sparkles className={cn("h-3.5 w-3.5", activeTheme.brandAccent)} />
+                      <Sparkles className="h-3.5 w-3.5 text-slate-700" />
                       BenchForge Workspace
                     </span>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                        {activeView.label}
+                        {activeSectionLabel}
                       </p>
                       <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
                         Navigation rail
@@ -172,8 +189,8 @@ export function App() {
                     </div>
                   </div>
                   <p className="max-w-sm text-sm leading-6 text-slate-600">
-                    Desktop gets the right-side sticky navigation. Mobile keeps the
-                    same sections in a lighter compact strip.
+                    Desktop gets the right-side sticky navigation. Mobile keeps
+                    the same sections in a lighter compact strip.
                   </p>
                 </div>
 
@@ -198,13 +215,17 @@ export function App() {
                         <span
                           className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
-                            isActive ? "bg-white/12 text-white" : "bg-slate-100 text-slate-700",
+                            isActive
+                              ? "bg-white/12 text-white"
+                              : "bg-slate-100 text-slate-700",
                           )}
                         >
                           <Icon className="h-5 w-5" />
                         </span>
                         <span className="min-w-0">
-                          <span className="block text-sm font-semibold">{item.label}</span>
+                          <span className="block text-sm font-semibold">
+                            {item.label}
+                          </span>
                           <span
                             className={cn(
                               "mt-0.5 block text-xs leading-5",
@@ -218,6 +239,24 @@ export function App() {
                     );
                   })}
                 </nav>
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    className={cn(
+                      "group inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] transition",
+                      view === "contributors"
+                        ? "border-slate-900 bg-slate-950 text-white shadow-lg shadow-slate-900/15"
+                        : "border-slate-200 bg-white/75 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-800",
+                    )}
+                    onClick={() => navigateToView("contributors")}
+                    title="Open contributors"
+                    type="button"
+                  >
+                    <UsersRound className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Credits</span>
+                    <span className="sr-only">Open contributors</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -225,7 +264,12 @@ export function App() {
 
         <aside className="fixed inset-y-0 right-0 z-30 hidden w-[21rem] p-5 xl:block">
           <div className="relative flex h-full flex-col overflow-hidden rounded-[2.4rem] border border-white/70 bg-[linear-gradient(180deg,_rgba(255,255,255,0.86),_rgba(241,245,249,0.78))] px-5 py-6 shadow-[0_34px_110px_-54px_rgba(15,23,42,0.75)] backdrop-blur-xl">
-            <div className={cn("absolute inset-x-0 top-0 h-40", activeTheme.railGlow)} />
+            <div
+              className={cn(
+                "absolute inset-x-0 top-0 h-40",
+                activeTheme.railGlow,
+              )}
+            />
             <div className="absolute -left-12 top-24 h-44 w-44 rounded-full bg-[rgba(15,23,42,0.04)] blur-3xl" />
             <div
               className={cn(
@@ -235,25 +279,11 @@ export function App() {
             />
 
             <div className="relative flex h-full flex-col">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-3 text-right">
-                  <span className="inline-flex items-center gap-2 self-end rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-sm">
-                    <Sparkles className={cn("h-3.5 w-3.5", activeTheme.brandAccent)} />
-                    BenchForge
-                  </span>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                      Right Rail
-                    </p>
-                    <h1 className="font-display text-[2.15rem] font-semibold leading-none tracking-tight text-slate-950">
-                      Break the grid
-                    </h1>
-                    <p className="text-sm leading-6 text-slate-600">
-                      Navigation moves to the right to give the workspace a less
-                      predictable shape.
-                    </p>
-                  </div>
-                </div>
+              <div className="mb-4 flex justify-end">
+                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-sm">
+                  <Sparkles className="h-3.5 w-3.5 text-slate-700" />
+                  BenchForge
+                </span>
               </div>
 
               <nav className="relative mt-8 space-y-3">
@@ -286,22 +316,14 @@ export function App() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center justify-between gap-3">
-                          <span
-                            className={cn(
-                              "text-[11px] font-semibold uppercase tracking-[0.22em]",
-                              isActive ? "text-slate-300" : "text-slate-400",
-                            )}
-                          >
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                             0{index + 1}
                           </span>
-                          <span className="truncate text-sm font-semibold">{item.label}</span>
+                          <span className="truncate text-sm font-semibold">
+                            {item.label}
+                          </span>
                         </span>
-                        <span
-                          className={cn(
-                            "mt-1 block text-xs leading-5",
-                            isActive ? "text-slate-300" : "text-slate-500",
-                          )}
-                        >
+                        <span className="mt-1 block text-xs leading-5 text-slate-500">
                           {item.description}
                         </span>
                       </span>
@@ -310,6 +332,22 @@ export function App() {
                 })}
               </nav>
 
+              <div className="mt-auto flex justify-end pt-6">
+                <button
+                  className={cn(
+                    "group inline-flex w-fit items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] transition",
+                    view === "contributors"
+                      ? "border-slate-950 bg-slate-950 text-white shadow-[0_18px_30px_-24px_rgba(15,23,42,0.85)]"
+                      : "border-slate-200 bg-slate-950 text-white/90 hover:border-slate-950 hover:bg-slate-900 hover:text-white",
+                  )}
+                  onClick={() => navigateToView("contributors")}
+                  title="Open contributors"
+                  type="button"
+                >
+                  <UsersRound className="h-3.5 w-3.5 text-white/90" />
+                  <span>Credits</span>
+                </button>
+              </div>
             </div>
           </div>
         </aside>
@@ -324,6 +362,7 @@ export function App() {
               }}
             />
           ) : null}
+          {view === "contributors" ? <ContributorsPage /> : null}
           {view === "runs" && selectedRunId === null ? (
             <RunsPage onOpenRun={navigateToRun} />
           ) : null}
