@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadErrorState } from "@/components/ui/load-error-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -568,6 +569,9 @@ export function ModelRegistryPage() {
   );
   const loadError =
     (modelsQuery.error instanceof ApiError && modelsQuery.error.message) || null;
+  const retryLoad = () => {
+    void modelsQuery.refetch();
+  };
   const hasAnyFilters =
     search.trim().length > 0 ||
     selectedRoles.length > 0 ||
@@ -1026,9 +1030,11 @@ export function ModelRegistryPage() {
           </div>
 
           {loadError ? (
-            <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-900">
-              {loadError}
-            </div>
+            <LoadErrorState
+              message={loadError}
+              onRetry={retryLoad}
+              resourceLabel="the model registry"
+            />
           ) : null}
 
           {feedback ? (
@@ -1225,9 +1231,7 @@ export function ModelRegistryPage() {
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
           {loadError ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {loadError}
-            </div>
+            <LoadErrorState compact message={loadError} resourceLabel="the model registry" />
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">

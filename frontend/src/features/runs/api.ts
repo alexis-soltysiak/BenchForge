@@ -1,4 +1,4 @@
-import { API_URL, ApiError, apiRequest } from "@/lib/api";
+import { API_URL, ApiError, apiRequest, buildNetworkErrorMessage } from "@/lib/api";
 
 import type {
   CandidateResponse,
@@ -113,15 +113,8 @@ export async function downloadRunReportPdf(runId: number): Promise<void> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/runs/${runId}/report/pdf`);
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Network request failed.";
-    throw new ApiError(
-      `Unable to reach the API at ${API_URL}. Check that the backend is running and CORS allows the frontend origin. (${message})`,
-      0,
-    );
+  } catch {
+    throw new ApiError(buildNetworkErrorMessage(API_URL), 0);
   }
 
   if (!response.ok) {

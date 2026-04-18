@@ -19,6 +19,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadErrorState } from "@/components/ui/load-error-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -65,6 +66,18 @@ type RunPhaseKey = "phase1" | "phase2" | "phase3";
 
 const terminalStatuses = new Set(["completed", "failed", "cancelled"]);
 
+function isServiceAvailabilityError(message: string | null): boolean {
+  if (!message) {
+    return false;
+  }
+
+  const normalizedMessage = message.toLowerCase();
+  return (
+    normalizedMessage.includes("database unavailable") ||
+    normalizedMessage.includes("backend unavailable")
+  );
+}
+
 export function RunsPage({ onOpenRun }: RunsPageProps) {
   const [search, setSearch] = useState("");
   const [previewRun, setPreviewRun] = useState<{ id: number; name: string } | null>(null);
@@ -97,6 +110,11 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
     ),
   ).length;
   const readyReports = visibleRuns.filter((item) => item.report_status === "completed").length;
+  const loadError =
+    (runsQuery.error instanceof ApiError && runsQuery.error.message) || null;
+  const retryLoad = () => {
+    void runsQuery.refetch();
+  };
 
   return (
     <div className="px-5 py-8 lg:px-10 lg:py-10">
@@ -171,6 +189,14 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               </label>
             </div>
           </div>
+
+          {loadError ? (
+            <LoadErrorState
+              message={loadError}
+              onRetry={retryLoad}
+              resourceLabel="runs"
+            />
+          ) : null}
 
           <div className="divide-y divide-border/70">
             {runsQuery.isLoading ? (
@@ -506,6 +532,20 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
         ? 0.65
         : 0
     : 0;
+  const loadError =
+    (runQuery.error instanceof ApiError && runQuery.error.message) ||
+    (responsesQuery.error instanceof ApiError && responsesQuery.error.message) ||
+    (localNextQuery.error instanceof ApiError && localNextQuery.error.message) ||
+    (judgingQuery.error instanceof ApiError && judgingQuery.error.message) ||
+    null;
+  const retryLoad = () => {
+    void Promise.all([
+      runQuery.refetch(),
+      responsesQuery.refetch(),
+      localNextQuery.refetch(),
+      judgingQuery.refetch(),
+    ]);
+  };
 
   return (
     <div className="px-5 py-8 lg:px-10 lg:py-10">
@@ -588,10 +628,32 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
               </div>
             </div>
 
-            {feedback ? (
-              <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                {feedback}
+            {loadError ? (
+              <div className="mt-5">
+                <LoadErrorState
+                  compact
+                  message={loadError}
+                  onRetry={retryLoad}
+                  resourceLabel="this run"
+                />
               </div>
+            ) : null}
+
+            {feedback ? (
+              isServiceAvailabilityError(feedback) ? (
+                <div className="mt-5">
+                  <LoadErrorState
+                    compact
+                    message={feedback}
+                    onRetry={retryLoad}
+                    resourceLabel="run operations"
+                  />
+                </div>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+                  {feedback}
+                </div>
+              )
             ) : null}
           </Card>
 
