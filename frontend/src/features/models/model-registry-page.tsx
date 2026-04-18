@@ -2,6 +2,8 @@ import type { FormEvent, ReactNode } from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import {
+  Check,
+  Archive,
   Cable,
   CircleGauge,
   Database,
@@ -9,6 +11,7 @@ import {
   TriangleAlert,
   Plus,
   Search,
+  RotateCcw,
   Shield,
   TestTube2,
   Trash2,
@@ -65,6 +68,74 @@ type ToastState = {
   message: string;
   kind: "success";
 };
+
+type ModelFilterState = {
+  showArchived: boolean;
+  search: string;
+  selectedRoles: ModelFormState["role"][];
+  selectedProviderType: string;
+  selectedRuntimeType: string;
+};
+
+const MODEL_FILTERS_STORAGE_KEY = "benchforge.model-registry.filters";
+
+function readModelFilterState(): ModelFilterState {
+  if (typeof window === "undefined") {
+    return {
+      showArchived: false,
+      search: "",
+      selectedRoles: [],
+      selectedProviderType: "all",
+      selectedRuntimeType: "all",
+    };
+  }
+
+  const raw = window.localStorage.getItem(MODEL_FILTERS_STORAGE_KEY);
+  if (!raw) {
+    return {
+      showArchived: false,
+      search: "",
+      selectedRoles: [],
+      selectedProviderType: "all",
+      selectedRuntimeType: "all",
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<ModelFilterState>;
+    const validRoles = new Set<ModelFormState["role"]>([
+      "candidate",
+      "judge",
+      "both",
+    ]);
+    return {
+      showArchived: Boolean(parsed.showArchived),
+      search: typeof parsed.search === "string" ? parsed.search : "",
+      selectedRoles: Array.isArray(parsed.selectedRoles)
+        ? parsed.selectedRoles.filter(
+            (role): role is ModelFormState["role"] =>
+              typeof role === "string" && validRoles.has(role as ModelFormState["role"]),
+          )
+        : [],
+      selectedProviderType:
+        typeof parsed.selectedProviderType === "string"
+          ? parsed.selectedProviderType
+          : "all",
+      selectedRuntimeType:
+        typeof parsed.selectedRuntimeType === "string"
+          ? parsed.selectedRuntimeType
+          : "all",
+    };
+  } catch {
+    return {
+      showArchived: false,
+      search: "",
+      selectedRoles: [],
+      selectedProviderType: "all",
+      selectedRuntimeType: "all",
+    };
+  }
+}
 
 const emptyForm: ModelFormState = {
   displayName: "",
@@ -161,7 +232,7 @@ const providerPresets: Record<string, ProviderPreset> = {
   },
 };
 
-const providerOptions = Object.keys(providerPresets);
+const providerPresetKeys = Object.keys(providerPresets);
 const apiStyleOptions = ["openai_compatible", "huggingface"];
 
 function normalizePresetKey(value: string): string {
@@ -260,9 +331,63 @@ function matchesArchiveState(model: ModelProfile, showArchived: boolean): boolea
   return showArchived ? model.is_archived : !model.is_archived;
 }
 
+function matchesRole(model: ModelProfile, roles: ModelFormState["role"][]): boolean {
+  return roles.length === 0 || roles.includes(model.role);
+}
+
+function matchesProvider(model: ModelProfile, providerType: string): boolean {
+  return providerType === "all" || model.provider_type === providerType;
+}
+
+function matchesRuntime(model: ModelProfile, runtimeType: string): boolean {
+  return runtimeType === "all" || model.runtime_type === runtimeType;
+}
+
+function roleLabel(role: ModelFormState["role"]): string {
+  if (role === "candidate") {
+    return "Candidate";
+  }
+  if (role === "judge") {
+    return "Judge";
+  }
+  return "Both";
+}
+
+function roleDescription(role: ModelFormState["role"]): string {
+  if (role === "candidate") {
+    return "Generates benchmark answers";
+  }
+  if (role === "judge") {
+    return "Scores model outputs";
+  }
+  return "Can do both jobs";
+}
+
+function uniqueProviderTypes(models: ModelProfile[]): string[] {
+  return Array.from(
+    new Set(
+      models
+        .map((model) => model.provider_type.trim())
+        .filter((providerType) => providerType.length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
 export function ModelRegistryPage() {
-  const [showArchived, setShowArchived] = useState(false);
-  const [search, setSearch] = useState("");
+  const initialModelFilters = readModelFilterState();
+  const [showArchived, setShowArchived] = useState(
+    initialModelFilters.showArchived,
+  );
+  const [search, setSearch] = useState(initialModelFilters.search);
+  const [selectedRoles, setSelectedRoles] = useState<
+    ModelFormState["role"][]
+  >(initialModelFilters.selectedRoles);
+  const [selectedProviderType, setSelectedProviderType] = useState(
+    initialModelFilters.selectedProviderType,
+  );
+  const [selectedRuntimeType, setSelectedRuntimeType] = useState(
+    initialModelFilters.selectedRuntimeType,
+  );
   const [selectedModel, setSelectedModel] = useState<ModelProfile | null>(null);
   const [warningModel, setWarningModel] = useState<ModelProfile | null>(null);
   const [warningAnchor, setWarningAnchor] = useState<DOMRect | null>(null);
@@ -273,6 +398,9 @@ export function ModelRegistryPage() {
   const [connectionFeedback, setConnectionFeedback] =
     useState<ConnectionFeedbackState | null>(null);
   const [testingModelId, setTestingModelId] = useState<number | null>(null);
+  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
+  const [isProviderMenuOpen, setIsProviderMenuOpen] = useState(false);
+  const [isRuntimeMenuOpen, setIsRuntimeMenuOpen] = useState(false);
   const [, startTransition] = useTransition();
   const lastSuggestedApiStyleRef = useRef<string | null>(null);
   const lastSuggestedEndpointRef = useRef<string | null>(null);
@@ -311,6 +439,19 @@ export function ModelRegistryPage() {
       setWarningModel(null);
     }
   }, [warningModel, showArchived]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      MODEL_FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        showArchived,
+        search,
+        selectedRoles,
+        selectedProviderType,
+        selectedRuntimeType,
+      }),
+    );
+  }, [search, selectedRoles, selectedProviderType, selectedRuntimeType, showArchived]);
 
   useEffect(
     () => () => {
@@ -413,11 +554,25 @@ export function ModelRegistryPage() {
   const scopedModels = (modelsQuery.data?.items ?? []).filter((model) =>
     matchesArchiveState(model, showArchived),
   );
-  const visibleModels = scopedModels.filter((model) =>
-    matchesSearch(model, search),
+  const providerTypeOptions = Array.from(
+    new Set([...uniqueProviderTypes(scopedModels), selectedProviderType]),
+  )
+    .filter((providerType) => providerType !== "all")
+    .sort((left, right) => left.localeCompare(right));
+  const visibleModels = scopedModels.filter(
+    (model) =>
+      matchesSearch(model, search) &&
+      matchesRole(model, selectedRoles) &&
+      matchesProvider(model, selectedProviderType) &&
+      matchesRuntime(model, selectedRuntimeType),
   );
   const loadError =
     (modelsQuery.error instanceof ApiError && modelsQuery.error.message) || null;
+  const hasAnyFilters =
+    search.trim().length > 0 ||
+    selectedRoles.length > 0 ||
+    selectedProviderType !== "all" ||
+    selectedRuntimeType !== "all";
 
   const roleCounts = scopedModels.reduce(
     (acc, item) => {
@@ -543,6 +698,14 @@ export function ModelRegistryPage() {
     await saveMutation.mutateAsync(toPayload(formState));
   };
 
+  const toggleRole = (role: ModelFormState["role"]) => {
+    setSelectedRoles((current) =>
+      current.includes(role)
+        ? current.filter((item) => item !== role)
+        : [...current, role],
+    );
+  };
+
   return (
     <div className="px-5 py-8 lg:px-10 lg:py-10">
       <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_28%),linear-gradient(135deg,_rgba(239,246,255,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
@@ -586,32 +749,276 @@ export function ModelRegistryPage() {
       </section>
 
       <section className="mt-8">
-        <Card className="overflow-hidden border-border/70 bg-white/90 shadow-sm">
-          <div className="border-b border-border/80 px-5 py-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-950">
-                  Shared Model Profiles
-                </h2>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <label className="relative block min-w-64">
-                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    className="pl-9"
-                    placeholder="Search names, providers, runtimes"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </label>
-                <Button
-                  variant={showArchived ? "secondary" : "ghost"}
-                  onClick={() => setShowArchived((current) => !current)}
+        <Card className="overflow-visible border-border/70 bg-white/90 shadow-sm">
+          <div className="relative z-30 border-b border-border/80 px-5 py-4">
+            <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.85fr)_auto] xl:items-stretch">
+              <label className="relative min-h-14">
+                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                <Input
+                  className="h-14 pl-9"
+                  placeholder="Search names, providers, runtimes"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+
+              <div className="relative min-w-0">
+                <button
+                  className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  type="button"
+                  onClick={() => {
+                    setIsRoleMenuOpen((current) => !current);
+                    setIsProviderMenuOpen(false);
+                    setIsRuntimeMenuOpen(false);
+                  }}
                 >
-                  {showArchived ? "Show unarchived" : "Show archived"}
-                </Button>
-                <Button onClick={openCreateModal}>
-                  <Plus className="h-4 w-4" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      Roles
+                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      {selectedRoles.length > 0
+                        ? selectedRoles.map(roleLabel).join(", ")
+                        : "All roles"}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Browse
+                  </span>
+                </button>
+
+                {isRoleMenuOpen ? (
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
+                    <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-950">Pick roles</p>
+                      <p className="text-xs text-slate-500">
+                        Select one or more registry roles.
+                      </p>
+                    </div>
+                    <div className="space-y-2 p-2">
+                      {(["candidate", "judge", "both"] as const).map((role) => {
+                        const isSelected = selectedRoles.includes(role);
+                        return (
+                          <button
+                            key={role}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition",
+                              isSelected
+                                ? "bg-sky-100 text-sky-950"
+                                : "hover:bg-slate-50",
+                            )}
+                            type="button"
+                            onClick={() => toggleRole(role)}
+                          >
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium">
+                                {roleLabel(role)}
+                              </span>
+                              <span className="block text-xs text-slate-500">
+                                {roleDescription(role)}
+                              </span>
+                            </span>
+                            <Check
+                              className={cn(
+                                "h-4 w-4 shrink-0",
+                                isSelected ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="relative min-w-0">
+                <button
+                  className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  type="button"
+                  onClick={() => {
+                    setIsProviderMenuOpen((current) => !current);
+                    setIsRoleMenuOpen(false);
+                    setIsRuntimeMenuOpen(false);
+                  }}
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      Provider
+                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      {selectedProviderType === "all"
+                        ? "All providers"
+                        : selectedProviderType}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Browse
+                  </span>
+                </button>
+
+                {isProviderMenuOpen ? (
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
+                    <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-950">
+                        Choose a provider
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Narrow the registry to one provider.
+                      </p>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto p-2">
+                      <button
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
+                          selectedProviderType === "all"
+                            ? "bg-sky-100 text-sky-950"
+                            : "hover:bg-slate-50",
+                        )}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProviderType("all");
+                          setIsProviderMenuOpen(false);
+                        }}
+                      >
+                        <span className="font-medium">All providers</span>
+                        {selectedProviderType === "all" ? (
+                          <Check className="h-4 w-4" />
+                        ) : null}
+                      </button>
+                      {providerTypeOptions.map((providerType) => {
+                        const isSelected = selectedProviderType === providerType;
+                        return (
+                          <button
+                            key={providerType}
+                            className={cn(
+                              "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
+                              isSelected
+                                ? "bg-sky-100 text-sky-950"
+                                : "hover:bg-slate-50",
+                            )}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProviderType(providerType);
+                              setIsProviderMenuOpen(false);
+                            }}
+                          >
+                            <span className="font-medium">{providerType}</span>
+                            {isSelected ? <Check className="h-4 w-4" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="relative min-w-0">
+                <button
+                  className="flex h-14 w-full items-center justify-between rounded-2xl border border-border/80 bg-white px-4 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  type="button"
+                  onClick={() => {
+                    setIsRuntimeMenuOpen((current) => !current);
+                    setIsRoleMenuOpen(false);
+                    setIsProviderMenuOpen(false);
+                  }}
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      Runtime
+                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      {selectedRuntimeType === "all"
+                        ? "All runtimes"
+                        : selectedRuntimeType}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Browse
+                  </span>
+                </button>
+
+                {isRuntimeMenuOpen ? (
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
+                    <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-950">
+                        Choose a runtime
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Filter for remote or local model profiles.
+                      </p>
+                    </div>
+                    <div className="space-y-2 p-2">
+                      {(["all", "remote", "local"] as const).map((runtime) => {
+                        const isSelected = selectedRuntimeType === runtime;
+                        const label =
+                          runtime === "all"
+                            ? "All runtimes"
+                            : runtime === "remote"
+                              ? "Remote"
+                              : "Local";
+                        return (
+                          <button
+                            key={runtime}
+                            className={cn(
+                              "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
+                              isSelected
+                                ? "bg-sky-100 text-sky-950"
+                                : "hover:bg-slate-50",
+                            )}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRuntimeType(runtime);
+                              setIsRuntimeMenuOpen(false);
+                            }}
+                          >
+                            <span className="font-medium">{label}</span>
+                            {isSelected ? <Check className="h-4 w-4" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                  <Button
+                    disabled={!hasAnyFilters}
+                    type="button"
+                    size="sm"
+                    variant={hasAnyFilters ? "secondary" : "ghost"}
+                    className="h-9 rounded-full px-3 text-xs font-semibold"
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    onClick={() => {
+                      setSearch("");
+                      setSelectedRoles([]);
+                      setSelectedProviderType("all");
+                      setSelectedRuntimeType("all");
+                      setIsRoleMenuOpen(false);
+                      setIsProviderMenuOpen(false);
+                      setIsRuntimeMenuOpen(false);
+                    }}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    aria-label={showArchived ? "Show unarchived models" : "Show archived models"}
+                    className={cn(
+                      showArchived &&
+                        "border-sky-300 bg-sky-100 text-sky-950 shadow-[0_14px_28px_-18px_rgba(37,99,235,0.45)] hover:bg-sky-200",
+                    )}
+                    title={showArchived ? "Show unarchived" : "Show archived"}
+                    type="button"
+                    variant={showArchived ? "secondary" : "ghost"}
+                    size="icon"
+                    onClick={() => setShowArchived((current) => !current)}
+                  >
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={openCreateModal}>
+                    <Plus className="h-4 w-4" />
                   New profile
                 </Button>
               </div>
@@ -630,7 +1037,12 @@ export function ModelRegistryPage() {
             </div>
           ) : null}
 
-          <div className="overflow-x-auto">
+            <div
+              className={cn(
+                "relative z-10 overflow-x-auto",
+                showArchived && "border-l-4 border-sky-300 bg-sky-50/20 pl-0",
+              )}
+            >
             <table className="min-w-full table-fixed text-left">
               <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
@@ -1176,7 +1588,7 @@ export function ModelRegistryPage() {
           </div>
         </form>
         <datalist id="provider-type-options">
-          {providerOptions.map((provider) => (
+          {providerPresetKeys.map((provider) => (
             <option key={provider} value={provider}>
               {providerPresets[provider].label}
             </option>
