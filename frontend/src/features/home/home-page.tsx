@@ -10,6 +10,7 @@ import {
   Target,
   Workflow,
 } from "lucide-react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,6 +120,8 @@ export function HomePage({
   onNavigateToRuns,
   onNavigateToCredits,
 }: HomePageProps) {
+  const [markUnavailable, setMarkUnavailable] = useState(false);
+
   return (
     <div className="relative isolate overflow-hidden px-5 pb-10 pt-6 lg:px-10 lg:pt-8">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -130,14 +133,31 @@ export function HomePage({
 
       <div className="relative mx-auto max-w-7xl space-y-10">
         <header className="flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/70 px-5 py-4 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_20px_30px_-20px_rgba(15,23,42,0.85)]">
-              <Sparkles className="h-5 w-5" />
+          <div className="flex items-center gap-4">
+            <div className="group inline-flex min-h-14 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-2 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]">
+                {!markUnavailable ? (
+                  <img
+                    alt=""
+                    className="h-5 w-5 object-contain"
+                    onError={() => setMarkUnavailable(true)}
+                    src="/branding/benchforge-mark.png"
+                  />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+              </div>
+              <div className="ml-3 min-w-0">
+                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.34em] text-slate-600">
+                  BenchForge
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  Benchmark studio
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                BenchForge
-              </p>
+
+            <div className="hidden sm:block">
               <p className="text-sm text-slate-600">
                 Benchmark studio for prompts, models, sessions and runs.
               </p>
