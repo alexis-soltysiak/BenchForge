@@ -17,6 +17,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   archiveModelProfile,
   createModelProfile,
+  fetchMachineLabels,
   fetchModelProfiles,
   testModelProfileConnection,
   updateModelProfile,
@@ -272,6 +273,11 @@ export function ModelRegistryPage() {
   const modelsQuery = useQuery({
     queryKey: ["model-profiles", showArchived],
     queryFn: () => fetchModelProfiles(showArchived),
+  });
+
+  const machineLabelsQuery = useQuery({
+    queryKey: ["machine-labels"],
+    queryFn: fetchMachineLabels,
   });
 
   useEffect(() => {
@@ -563,7 +569,6 @@ export function ModelRegistryPage() {
                   <th className="w-[10%] px-5 py-3 font-semibold">Role</th>
                   <th className="w-[15%] px-5 py-3 font-semibold">Provider</th>
                   <th className="w-[10%] px-5 py-3 font-semibold">Runtime</th>
-                  <th className="w-[16%] px-5 py-3 font-semibold">Endpoint</th>
                   <th className="w-[7%] px-5 py-3 font-semibold">Machine</th>
                   <th className="w-[10%] px-5 py-3 font-semibold">Status</th>
                   <th className="w-[8%] px-5 py-3 font-semibold">Actions</th>
@@ -672,11 +677,7 @@ export function ModelRegistryPage() {
                         <td className="px-5 py-4 align-top">
                           <RuntimeBadge runtimeType={model.runtime_type} />
                         </td>
-                        <td className="px-5 py-4 align-top text-sm text-slate-500">
-                          <span className="block truncate" title={model.endpoint_url}>
-                            {model.endpoint_url}
-                          </span>
-                        </td>
+                        
                         <td className="px-5 py-4 align-top text-sm text-slate-500">
                           <span
                             className="block truncate"
@@ -839,6 +840,7 @@ export function ModelRegistryPage() {
               label="Machine label"
             >
               <Input
+                list="machine-label-options"
                 placeholder="Optional machine label"
                 value={formState.machineLabel}
                 onChange={(event) =>
@@ -1093,6 +1095,11 @@ export function ModelRegistryPage() {
         <datalist id="model-identifier-options">
           {modelIdentifierSuggestions.map((modelIdentifier) => (
             <option key={modelIdentifier} value={modelIdentifier} />
+          ))}
+        </datalist>
+        <datalist id="machine-label-options">
+          {machineLabelsQuery.data?.map((label) => (
+            <option key={label} value={label} />
           ))}
         </datalist>
       </Modal>

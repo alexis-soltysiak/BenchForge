@@ -33,6 +33,13 @@ async def list_model_profiles(
     return ModelProfileListResponse(items=items, total=total)
 
 
+@router.get("/model-profiles/machine-labels")
+async def list_machine_labels(
+    service: ModelProfileService = Depends(get_model_profile_service),
+) -> list[str]:
+    return await service.get_distinct_machine_labels()
+
+
 @router.post(
     "/model-profiles",
     response_model=ModelProfileRead,
@@ -53,7 +60,9 @@ async def get_model_profile(
     try:
         return await service.get_model_profile(model_id)
     except ModelProfileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
 @router.patch("/model-profiles/{model_id}", response_model=ModelProfileRead)
@@ -65,7 +74,9 @@ async def update_model_profile(
     try:
         return await service.update_model_profile(model_id, payload)
     except ModelProfileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
 @router.post("/model-profiles/{model_id}/archive", response_model=ModelProfileRead)
@@ -76,7 +87,9 @@ async def archive_model_profile(
     try:
         return await service.archive_model_profile(model_id)
     except ModelProfileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
 @router.post(
@@ -93,4 +106,6 @@ async def test_model_profile_connection(
     try:
         return await service.test_connection(model_id, payload)
     except ModelProfileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc

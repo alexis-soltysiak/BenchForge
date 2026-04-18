@@ -1,12 +1,16 @@
-import type { FormEvent, ReactNode } from "react";
-import { useEffect, useState, useTransition } from "react";
+import type { ComponentProps, FormEvent, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
+  BadgeInfo,
   Copy,
   Layers3,
   PencilLine,
   Plus,
+  Rocket,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   Users,
 } from "lucide-react";
@@ -105,11 +109,15 @@ function matchesArchiveState(session: Session, showArchived: boolean): boolean {
   return showArchived ? session.status === "archived" : session.status !== "archived";
 }
 
+type SessionSelectionStep = "prompts" | "candidates" | "judges";
+
 export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => void }) {
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+  const [selectionStep, setSelectionStep] = useState<SessionSelectionStep>("prompts");
   const [formState, setFormState] = useState<SessionFormState>(emptyForm);
   const [promptSearch, setPromptSearch] = useState("");
   const [candidateSearch, setCandidateSearch] = useState("");
@@ -143,6 +151,24 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       setSelectedSession(null);
     }
   }, [selectedSession, showArchived]);
+
+  useEffect(() => {
+    if (!selectedSession || !sessionsQuery.data) {
+      return;
+    }
+
+    const freshSession = sessionsQuery.data.items.find(
+      (session) => session.id === selectedSession.id,
+    );
+
+    if (!freshSession) {
+      return;
+    }
+
+    if (freshSession.updated_at !== selectedSession.updated_at) {
+      setSelectedSession(freshSession);
+    }
+  }, [selectedSession, sessionsQuery.data]);
 
   const refreshSessions = async () => {
     await queryClient.invalidateQueries({ queryKey: ["sessions"] });
@@ -340,6 +366,18 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     setIsEditorOpen(true);
   };
 
+  const openSelectionModal = (
+    session: Session,
+    step: SessionSelectionStep = "prompts",
+  ) => {
+    startTransition(() => {
+      setSelectedSession(session);
+      setSelectionStep(step);
+      setFeedback(null);
+    });
+    setIsSelectionOpen(true);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFeedback(null);
@@ -395,353 +433,219 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         </div>
       </section>
 
-      <section className="mt-8 grid gap-6 xl:grid-cols-[0.9fr_1.5fr]">
-        <Card className="overflow-hidden border-border/70 bg-white/90 shadow-sm">
+      <section className="mt-8 space-y-6">
+        <Card className="border-border/70 bg-white/90 shadow-sm">
           <div className="border-b border-border/80 px-5 py-4">
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-slate-950">Sessions List</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Browse and manage benchmark session definitions.
                 </p>
               </div>
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-                <Input
-                  className="pl-9"
-                  placeholder="Search sessions"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </label>
-              <Button
-                variant={showArchived ? "secondary" : "ghost"}
-                onClick={() => setShowArchived((current) => !current)}
-              >
-                {showArchived ? "Show unarchived" : "Show archived"}
-              </Button>
-              <Button onClick={openCreateModal}>
-                <Plus className="h-4 w-4" />
-                New session
-              </Button>
-              <Button
-                aria-label={
-                  selectedSession ? `Edit ${selectedSession.name}` : "Edit session"
-                }
-                disabled={!selectedSession}
-                onClick={() => selectedSession && openEditModal(selectedSession)}
-                size="iconSm"
-                title={selectedSession ? `Edit ${selectedSession.name}` : "Edit session"}
-                variant="soft"
-              >
-                <PencilLine className="h-4 w-4" />
-              </Button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <label className="relative block min-w-64">
+                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Search sessions"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                </label>
+                <Button
+                  variant={showArchived ? "secondary" : "ghost"}
+                  onClick={() => setShowArchived((current) => !current)}
+                >
+                  {showArchived ? "Show unarchived" : "Show archived"}
+                </Button>
+                <Button
+                  disabled={!selectedSession}
+                  onClick={() =>
+                    selectedSession && openSelectionModal(selectedSession, "prompts")
+                  }
+                  variant="secondary"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Configure selection
+                </Button>
+                <Button onClick={openCreateModal}>
+                  <Plus className="h-4 w-4" />
+                  New session
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className="divide-y divide-border/70">
-            {sessionsQuery.isLoading ? (
-              <div className="px-5 py-12 text-sm text-slate-500">Loading sessions...</div>
-            ) : visibleSessions.length === 0 ? (
-              <div className="px-5 py-12 text-sm text-slate-500">
-                {showArchived
-                  ? "No archived sessions yet."
-                  : "No sessions found. Create a benchmark session with seeded prompts and registered models to launch your first run."}
-              </div>
-            ) : (
-              visibleSessions.map((session) => (
-                <button
-                  key={session.id}
-                  className={cn(
-                    "block w-full px-5 py-4 text-left transition hover:bg-emerald-50/70",
-                    selectedSessionId === session.id && "bg-emerald-50",
-                  )}
-                  onClick={() => {
-                    startTransition(() => {
-                      setSelectedSession(session);
-                      setFeedback(null);
-                    });
-                  }}
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-950">{session.name}</p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {session.description ?? "No description"}
-                      </p>
-                    </div>
-                    <Badge variant={session.status === "archived" ? "muted" : "success"}>
-                      {session.status}
-                    </Badge>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                    <span>{session.prompts.length} prompts</span>
-                    <span>{session.candidates.length} candidates</span>
-                    <span>{session.judges.length} judges</span>
-                    <span>Updated {formatDate(session.updated_at)}</span>
-                  </div>
-                </button>
-              ))
-            )}
+          {loadError ? (
+            <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-900">
+              {loadError}
+            </div>
+          ) : null}
+
+          {feedback ? (
+            <div className="border-b border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-950">
+              {feedback}
+            </div>
+          ) : null}
+
+          {(isPending ||
+            saveMutation.isPending ||
+            archiveMutation.isPending ||
+            duplicateMutation.isPending) && (
+            <div className="border-b border-border/70 px-5 py-3 text-sm text-slate-500">
+              Syncing changes...
+            </div>
+          )}
+          {launchMutation.isPending && (
+            <div className="border-b border-border/70 px-5 py-3 text-sm text-slate-500">
+              Launching run...
+            </div>
+          )}
+
+          <div className="overflow-x-auto overflow-y-visible">
+            <table className="min-w-full text-left">
+              <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+                <tr>
+                  <th className="px-5 py-3 font-semibold">Session</th>
+                  <th className="px-5 py-3 font-semibold">Composition</th>
+                  <th className="px-5 py-3 font-semibold">Rubric</th>
+                  <th className="px-5 py-3 font-semibold">Updated</th>
+                  <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-5 py-3 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessionsQuery.isLoading ? (
+                  <TableEmptyRow message="Loading sessions..." />
+                ) : visibleSessions.length === 0 ? (
+                  <TableEmptyRow
+                    message={
+                      showArchived
+                        ? "No archived sessions yet."
+                        : "No sessions found. Create a benchmark session with seeded prompts and registered models to launch your first run."
+                    }
+                  />
+                ) : (
+                  visibleSessions.map((session) => {
+                    const isSelected = selectedSessionId === session.id;
+
+                    return (
+                      <tr
+                        key={session.id}
+                        className={cn(
+                          "border-t border-border/70 transition-colors",
+                          isSelected && "bg-emerald-50/60",
+                        )}
+                      >
+                        <td className="px-5 py-4 align-top">
+                          <div className="space-y-1">
+                            <button
+                              className="text-left text-sm font-semibold text-slate-950 transition hover:text-emerald-800"
+                              onClick={() => {
+                                startTransition(() => {
+                                  setSelectedSession(session);
+                                  setFeedback(null);
+                                });
+                              }}
+                              type="button"
+                            >
+                              {session.name}
+                            </button>
+                            <p className="max-w-sm text-sm text-slate-500">
+                              {session.description ?? "No description"}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 align-top text-sm text-slate-500">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="neutral">{session.prompts.length} prompts</Badge>
+                            <Badge variant="neutral">
+                              {session.candidates.length}/{session.max_candidates} candidates
+                            </Badge>
+                            <Badge variant="neutral">{session.judges.length} judges</Badge>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 align-top text-sm text-slate-500">
+                          {session.rubric_version}
+                        </td>
+                        <td className="px-5 py-4 align-top text-sm text-slate-500">
+                          {formatDate(session.updated_at)}
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <Badge
+                            variant={session.status === "archived" ? "muted" : "success"}
+                          >
+                            {session.status}
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <div className="flex justify-end gap-1.5">
+                            <ActionIconButton
+                              aria-label={`Configure ${session.name}`}
+                              description="Open the step-by-step selection flow for prompts, candidates, and judge."
+                              label="Configure"
+                              onClick={() => openSelectionModal(session, "prompts")}
+                              size="iconSm"
+                              variant="soft"
+                            >
+                              <SlidersHorizontal className="h-4 w-4" />
+                            </ActionIconButton>
+                            <ActionIconButton
+                              aria-label={`Edit ${session.name}`}
+                              description="Edit the session name, description, status, candidate limit, and rubric version."
+                              label="Edit"
+                              onClick={() => openEditModal(session)}
+                              size="iconSm"
+                              variant="soft"
+                            >
+                              <PencilLine className="h-4 w-4" />
+                            </ActionIconButton>
+                            <ActionIconButton
+                              aria-label={`Launch ${session.name}`}
+                              description="Create and start a new benchmark run from this session configuration."
+                              disabled={launchMutation.isPending}
+                              label="Launch"
+                              onClick={() => launchMutation.mutate(session.id)}
+                              size="iconSm"
+                              variant="secondary"
+                            >
+                              <Rocket className="h-4 w-4" />
+                            </ActionIconButton>
+                            <ActionIconButton
+                              aria-label={`Duplicate ${session.name}`}
+                              description="Clone this session with its current prompts, candidates, and judge selections."
+                              disabled={duplicateMutation.isPending}
+                              label="Duplicate"
+                              onClick={() => duplicateMutation.mutate(session.id)}
+                              size="iconSm"
+                              variant="secondary"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </ActionIconButton>
+                            <ActionIconButton
+                              aria-label={`Archive ${session.name}`}
+                              description="Archive this session so it disappears from the active list without deleting history."
+                              disabled={
+                                archiveMutation.isPending || session.status === "archived"
+                              }
+                              label="Archive"
+                              onClick={() => archiveMutation.mutate(session.id)}
+                              size="iconSm"
+                              variant="dangerSoft"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </ActionIconButton>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
-
-        <div className="space-y-6">
-          <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-            <div className="space-y-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
-                    Session Overview
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                    {selectedSession ? selectedSession.name : "Select a session"}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {selectedSession
-                      ? "Manage the selected session from here, then curate prompts and models below."
-                      : "Select a session from the list to manage prompts, candidates, judges, and launches."}
-                  </p>
-                </div>
-                <Badge variant={selectedSession ? "accent" : "neutral"}>
-                  {selectedSession ? "Selected" : "Ready"}
-                </Badge>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-border/80 bg-slate-50/80 p-4">
-                {selectedSession ? (
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-950">
-                          {selectedSession.name}
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-slate-500">
-                          {selectedSession.description ?? "No description provided."}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          selectedSession.status === "archived" ? "muted" : "success"
-                        }
-                      >
-                        {selectedSession.status}
-                      </Badge>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <MetricCard
-                        className="bg-white"
-                        icon={Layers3}
-                        label="Prompts"
-                        tone="emerald"
-                        value={String(selectedSession.prompts.length)}
-                      />
-                      <MetricCard
-                        className="bg-white"
-                        icon={Users}
-                        label="Candidates"
-                        tone="emerald"
-                        value={String(selectedSession.candidates.length)}
-                      />
-                      <MetricCard
-                        className="bg-white"
-                        icon={ShieldCheck}
-                        label="Judges"
-                        tone="emerald"
-                        value={String(selectedSession.judges.length)}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm leading-6 text-slate-500">
-                    Pick a session from the list to review its status and launch
-                    benchmark runs.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                {selectedSession ? (
-                  <Button
-                    disabled={launchMutation.isPending}
-                    onClick={() => launchMutation.mutate(selectedSession.id)}
-                  >
-                    Launch benchmark
-                  </Button>
-                ) : null}
-                {selectedSession ? (
-                  <Button
-                    disabled={duplicateMutation.isPending}
-                    onClick={() => duplicateMutation.mutate(selectedSession.id)}
-                    variant="secondary"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Duplicate
-                  </Button>
-                ) : null}
-                {selectedSession ? (
-                  <Button
-                    aria-label={`Archive ${selectedSession.name}`}
-                    disabled={
-                      archiveMutation.isPending || selectedSession.status === "archived"
-                    }
-                    onClick={() => archiveMutation.mutate(selectedSession.id)}
-                    size="iconSm"
-                    title={`Archive ${selectedSession.name}`}
-                    variant="dangerSoft"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                ) : null}
-              </div>
-
-              {loadError ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                  {loadError}
-                </div>
-              ) : null}
-
-              {feedback ? (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
-                  {feedback}
-                </div>
-              ) : null}
-
-              {(isPending ||
-                saveMutation.isPending ||
-                archiveMutation.isPending ||
-                duplicateMutation.isPending) && (
-                <p className="text-sm text-slate-500">Syncing changes...</p>
-              )}
-              {launchMutation.isPending && (
-                <p className="text-sm text-slate-500">Launching run...</p>
-              )}
-            </div>
-          </Card>
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            <SelectionPanel
-              description="Select prompts from the global library."
-              emptyMessage="Create a session to start selecting prompts."
-              search={promptSearch}
-              selectedItems={selectedSession?.prompts.length ?? 0}
-              title="Prompt Selection"
-              onSearchChange={setPromptSearch}
-            >
-              {selectedSession ? (
-                <>
-                  <SelectedList
-                    items={selectedSession.prompts.map((item) => ({
-                      id: item.id,
-                      label: item.prompt_name,
-                      meta: `Order ${item.display_order}`,
-                    }))}
-                    onRemove={(itemId) =>
-                      removePromptMutation.mutate({
-                        sessionId: selectedSession.id,
-                        itemId,
-                      })
-                    }
-                  />
-                  <LibraryList
-                    items={availablePrompts.map((prompt) => ({
-                      id: prompt.id,
-                      label: prompt.name,
-                      meta: prompt.category.name,
-                    }))}
-                    onAdd={(promptId) =>
-                      addPromptMutation.mutate({
-                        sessionId: selectedSession.id,
-                        promptId,
-                      })
-                    }
-                  />
-                </>
-              ) : null}
-            </SelectionPanel>
-
-            <SelectionPanel
-              description="Attach up to 5 candidate models for MVP."
-              emptyMessage="Create a session to start selecting candidates."
-              search={candidateSearch}
-              selectedItems={selectedSession?.candidates.length ?? 0}
-              title="Candidate Selection"
-              onSearchChange={setCandidateSearch}
-            >
-              {selectedSession ? (
-                <>
-                  <SelectedList
-                    items={selectedSession.candidates.map((item) => ({
-                      id: item.id,
-                      label: item.display_name,
-                      meta: `${item.provider_type} / ${item.runtime_type}`,
-                    }))}
-                    onRemove={(itemId) =>
-                      removeCandidateMutation.mutate({
-                        sessionId: selectedSession.id,
-                        itemId,
-                      })
-                    }
-                  />
-                  <LibraryList
-                    items={availableCandidates.map((model) => ({
-                      id: model.id,
-                      label: model.display_name,
-                      meta: `${model.provider_type} / ${model.runtime_type}`,
-                    }))}
-                    onAdd={(modelId) =>
-                      addCandidateMutation.mutate({
-                        sessionId: selectedSession.id,
-                        modelId,
-                      })
-                    }
-                  />
-                </>
-              ) : null}
-            </SelectionPanel>
-
-            <SelectionPanel
-              description="Choose exactly one judge model for MVP."
-              emptyMessage="Create a session to choose a judge."
-              search={judgeSearch}
-              selectedItems={selectedSession?.judges.length ?? 0}
-              title="Judge Selection"
-              onSearchChange={setJudgeSearch}
-            >
-              {selectedSession ? (
-                <>
-                  <SelectedList
-                    items={selectedSession.judges.map((item) => ({
-                      id: item.id,
-                      label: item.display_name,
-                      meta: `${item.provider_type} / ${item.runtime_type}`,
-                    }))}
-                    onRemove={(itemId) =>
-                      removeJudgeMutation.mutate({
-                        sessionId: selectedSession.id,
-                        itemId,
-                      })
-                    }
-                  />
-                  <LibraryList
-                    items={availableJudges.map((model) => ({
-                      id: model.id,
-                      label: model.display_name,
-                      meta: `${model.provider_type} / ${model.runtime_type}`,
-                    }))}
-                    onAdd={(modelId) =>
-                      addJudgeMutation.mutate({
-                        sessionId: selectedSession.id,
-                        modelId,
-                      })
-                    }
-                  />
-                </>
-              ) : null}
-            </SelectionPanel>
-          </div>
-        </div>
       </section>
 
       <Modal
@@ -876,56 +780,176 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           </div>
         </form>
       </Modal>
+
+      <Modal
+        onClose={() => setIsSelectionOpen(false)}
+        open={isSelectionOpen}
+        size="xl"
+        title={selectedSession ? `Configure ${selectedSession.name}` : "Configure session"}
+      >
+        {selectedSession ? (
+          <div className="space-y-4">
+            <SessionStepSwitcher
+              activeStep={selectionStep}
+              onStepChange={setSelectionStep}
+              session={selectedSession}
+            />
+
+            {selectionStep === "prompts" ? (
+              <SelectionWorkspace
+                description="Choose the prompts included in this benchmark session."
+                search={promptSearch}
+                selectedCount={selectedSession.prompts.length}
+                title="Prompts"
+                onSearchChange={setPromptSearch}
+              >
+                <SelectedList
+                  emptyMessage="No prompts selected yet."
+                  items={selectedSession.prompts.map((item) => ({
+                    id: item.id,
+                    label: item.prompt_name,
+                    meta: `Order ${item.display_order}`,
+                  }))}
+                  onRemove={(itemId) =>
+                    removePromptMutation.mutate({
+                      sessionId: selectedSession.id,
+                      itemId,
+                    })
+                  }
+                />
+                <LibraryList
+                  items={availablePrompts.map((prompt) => ({
+                    id: prompt.id,
+                    label: prompt.name,
+                    meta: prompt.category.name,
+                  }))}
+                  onAdd={(promptId) =>
+                    addPromptMutation.mutate({
+                      sessionId: selectedSession.id,
+                      promptId,
+                    })
+                  }
+                />
+              </SelectionWorkspace>
+            ) : null}
+
+            {selectionStep === "candidates" ? (
+              <SelectionWorkspace
+                description={`Attach up to ${selectedSession.max_candidates} candidate models for this run configuration.`}
+                search={candidateSearch}
+                selectedCount={selectedSession.candidates.length}
+                title="Candidates"
+                onSearchChange={setCandidateSearch}
+              >
+                <SelectedList
+                  emptyMessage="No candidate models selected yet."
+                  items={selectedSession.candidates.map((item) => ({
+                    id: item.id,
+                    label: item.display_name,
+                    meta: `${item.provider_type} / ${item.runtime_type}`,
+                  }))}
+                  onRemove={(itemId) =>
+                    removeCandidateMutation.mutate({
+                      sessionId: selectedSession.id,
+                      itemId,
+                    })
+                  }
+                />
+                <LibraryList
+                  items={availableCandidates.map((model) => ({
+                    id: model.id,
+                    label: model.display_name,
+                    meta: `${model.provider_type} / ${model.runtime_type}`,
+                  }))}
+                  onAdd={(modelId) =>
+                    addCandidateMutation.mutate({
+                      sessionId: selectedSession.id,
+                      modelId,
+                    })
+                  }
+                />
+              </SelectionWorkspace>
+            ) : null}
+
+            {selectionStep === "judges" ? (
+              <SelectionWorkspace
+                description="Assign the judge model responsible for evaluation."
+                search={judgeSearch}
+                selectedCount={selectedSession.judges.length}
+                title="Judge"
+                onSearchChange={setJudgeSearch}
+              >
+                <SelectedList
+                  emptyMessage="No judge selected yet."
+                  items={selectedSession.judges.map((item) => ({
+                    id: item.id,
+                    label: item.display_name,
+                    meta: `${item.provider_type} / ${item.runtime_type}`,
+                  }))}
+                  onRemove={(itemId) =>
+                    removeJudgeMutation.mutate({
+                      sessionId: selectedSession.id,
+                      itemId,
+                    })
+                  }
+                />
+                <LibraryList
+                  items={availableJudges.map((model) => ({
+                    id: model.id,
+                    label: model.display_name,
+                    meta: `${model.provider_type} / ${model.runtime_type}`,
+                  }))}
+                  onAdd={(modelId) =>
+                    addJudgeMutation.mutate({
+                      sessionId: selectedSession.id,
+                      modelId,
+                    })
+                  }
+                />
+              </SelectionWorkspace>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
+              <Button onClick={() => setIsSelectionOpen(false)} type="button" variant="soft">
+                Close
+              </Button>
+              {selectionStep !== "judges" ? (
+                <Button
+                  onClick={() =>
+                    setSelectionStep(
+                      selectionStep === "prompts" ? "candidates" : "judges",
+                    )
+                  }
+                  type="button"
+                  variant="secondary"
+                >
+                  Next step
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }
 
-function SelectionPanel({
-  children,
-  description,
-  emptyMessage,
-  search,
-  selectedItems,
-  title,
-  onSearchChange,
-}: {
-  children: ReactNode;
-  description: string;
-  emptyMessage: string;
-  search: string;
-  selectedItems: number;
-  title: string;
-  onSearchChange: (value: string) => void;
-}) {
+function TableEmptyRow({ message }: { message: string }) {
   return (
-    <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-      <div className="space-y-4">
-        <div>
-          <p className="text-sm uppercase tracking-[0.18em] text-slate-500">{title}</p>
-          <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
-            {selectedItems} selected
-          </h3>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
-        </div>
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-          <Input
-            className="pl-9"
-            placeholder="Search library"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-        </label>
-        {children ?? <p className="text-sm text-slate-500">{emptyMessage}</p>}
-      </div>
-    </Card>
+    <tr className="border-t border-border/70">
+      <td className="px-5 py-12 text-center text-sm text-slate-500" colSpan={6}>
+        {message}
+      </td>
+    </tr>
   );
 }
 
 function SelectedList({
+  emptyMessage,
   items,
   onRemove,
 }: {
+  emptyMessage?: string;
   items: Array<{ id: number; label: string; meta: string }>;
   onRemove: (itemId: number) => void;
 }) {
@@ -935,7 +959,7 @@ function SelectedList({
         Selected
       </p>
       {items.length === 0 ? (
-        <p className="text-sm text-slate-400">Nothing selected yet.</p>
+        <p className="text-sm text-slate-400">{emptyMessage ?? "Nothing selected yet."}</p>
       ) : (
         items.map((item) => (
           <div
@@ -952,6 +976,220 @@ function SelectedList({
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+function ActionIconButton({
+  children,
+  description,
+  label,
+  ...props
+}: ComponentProps<typeof Button> & {
+  children: ReactNode;
+  description: string;
+  label: string;
+}) {
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
+
+  useLayoutEffect(() => {
+    if (!isOpen || !triggerRef.current) {
+      return;
+    }
+
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) {
+        return;
+      }
+
+      setPosition({
+        left: rect.left + rect.width / 2,
+        top: rect.top - 18,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      ref={triggerRef}
+      className="relative"
+      onBlur={() => setIsOpen(false)}
+      onFocus={() => setIsOpen(true)}
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <Button {...props}>{children}</Button>
+      {isOpen
+        ? createPortal(
+            <div
+              className="pointer-events-none fixed z-[250] w-64 -translate-x-1/2 -translate-y-full"
+              style={{ left: position.left, top: position.top }}
+            >
+              <div className="relative rounded-2xl border border-slate-200 bg-white/98 p-3 text-left shadow-[0_24px_60px_-22px_rgba(15,23,42,0.45)] ring-1 ring-slate-950/5 backdrop-blur-sm">
+                <div className="absolute -bottom-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-slate-200 bg-white/98" />
+                <div className="relative overflow-hidden rounded-xl border border-slate-100 bg-[linear-gradient(135deg,_rgba(248,250,252,0.96),_rgba(255,255,255,1))] p-3">
+                  <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-emerald-400" />
+                  <div className="flex items-start gap-3 pl-2">
+                    <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 shadow-sm">
+                      <BadgeInfo className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">{label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
+                        {description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
+function SessionStepSwitcher({
+  activeStep,
+  onStepChange,
+  session,
+}: {
+  activeStep: SessionSelectionStep;
+  onStepChange: (step: SessionSelectionStep) => void;
+  session: Session;
+}) {
+  const steps = [
+    {
+      key: "prompts" as const,
+      count: session.prompts.length,
+      icon: Layers3,
+      label: "Prompts",
+      activeClassName:
+        "border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm",
+      idleClassName:
+        "border-border/80 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/60",
+      iconClassName: "bg-emerald-100 text-emerald-900",
+      badgeVariant: "accent" as const,
+    },
+    {
+      key: "candidates" as const,
+      count: session.candidates.length,
+      icon: Users,
+      label: "Candidates",
+      activeClassName:
+        "border-sky-300 bg-sky-50 text-sky-950 shadow-sm",
+      idleClassName:
+        "border-border/80 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50/60",
+      iconClassName: "bg-sky-100 text-sky-900",
+      badgeVariant: "neutral" as const,
+    },
+    {
+      key: "judges" as const,
+      count: session.judges.length,
+      icon: ShieldCheck,
+      label: "Judge",
+      activeClassName:
+        "border-amber-300 bg-amber-50 text-amber-950 shadow-sm",
+      idleClassName:
+        "border-border/80 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50/60",
+      iconClassName: "bg-amber-100 text-amber-900",
+      badgeVariant: "success" as const,
+    },
+  ];
+
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {steps.map((step) => {
+        const Icon = step.icon;
+        const isActive = step.key === activeStep;
+
+        return (
+          <button
+            key={step.key}
+            className={cn(
+              "rounded-[1.5rem] border px-4 py-4 text-left transition",
+              isActive ? step.activeClassName : step.idleClassName,
+            )}
+            onClick={() => onStepChange(step.key)}
+            type="button"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
+                <span
+                  className={cn(
+                    "inline-flex h-10 w-10 items-center justify-center rounded-2xl shadow-sm",
+                    step.iconClassName,
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">{step.label}</p>
+                  <p className="text-xs text-slate-500">{step.count} selected</p>
+                </div>
+              </div>
+              <Badge variant={isActive ? step.badgeVariant : "neutral"}>
+                {isActive ? "Current" : "Open"}
+              </Badge>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SelectionWorkspace({
+  children,
+  description,
+  search,
+  selectedCount,
+  title,
+  onSearchChange,
+}: {
+  children: ReactNode;
+  description: string;
+  search: string;
+  selectedCount: number;
+  title: string;
+  onSearchChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-border/80 bg-white p-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm uppercase tracking-[0.18em] text-slate-500">{title}</p>
+          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+            {selectedCount} selected
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
+        <label className="relative block min-w-full lg:min-w-80">
+          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+          <Input
+            className="pl-9"
+            placeholder={`Search ${title.toLowerCase()} library`}
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+        </label>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {children}
+      </div>
     </div>
   );
 }

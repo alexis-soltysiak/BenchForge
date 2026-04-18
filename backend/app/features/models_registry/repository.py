@@ -36,9 +36,18 @@ class ModelProfileRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_distinct_machine_labels(self) -> list[str]:
+        result = await self.session.execute(
+            select(ModelProfile.machine_label)
+            .where(ModelProfile.machine_label.isnot(None))
+            .where(ModelProfile.machine_label != "")
+            .distinct()
+            .order_by(ModelProfile.machine_label)
+        )
+        return [label for label in result.scalars().all() if label]
+
     def add(self, model_profile: ModelProfile) -> None:
         self.session.add(model_profile)
 
     async def commit(self) -> None:
         await self.session.commit()
-
