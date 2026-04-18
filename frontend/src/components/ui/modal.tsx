@@ -1,0 +1,107 @@
+import type { ReactNode } from "react";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const sizeClasses = {
+  md: "max-w-2xl",
+  lg: "max-w-4xl",
+  xl: "max-w-5xl",
+} as const;
+
+export function Modal({
+  children,
+  description,
+  onClose,
+  open,
+  size = "lg",
+  title,
+}: {
+  children: ReactNode;
+  description?: string;
+  onClose: () => void;
+  open: boolean;
+  size?: keyof typeof sizeClasses;
+  title: string;
+}) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6">
+      <button
+        aria-label="Close modal"
+        className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm"
+        onClick={onClose}
+        type="button"
+      />
+      <div className="relative flex min-h-full items-center justify-center">
+        <div
+          aria-modal="true"
+          className={cn(
+            "relative w-full overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))] shadow-[0_48px_120px_-40px_rgba(15,23,42,0.65)]",
+            sizeClasses[size],
+          )}
+          role="dialog"
+        >
+          <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.14),_transparent_52%)]" />
+          <div className="relative border-b border-slate-200/80 px-6 py-5 sm:px-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Workspace Editor
+                </p>
+                <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
+                  {title}
+                </h2>
+                {description ? (
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                    {description}
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                aria-label="Close modal"
+                onClick={onClose}
+                size="icon"
+                type="button"
+                variant="soft"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="relative max-h-[calc(100vh-10rem)] overflow-y-auto px-6 py-6 sm:px-7">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}

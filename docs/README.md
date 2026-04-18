@@ -20,6 +20,8 @@ This `docs/` folder contains the product, technical, and delivery documentation 
 
 LLM Benchmark Studio is an open-source, self-hostable benchmark tool for evaluating local and remote language models using reusable prompt libraries, benchmark sessions, structured LLM-as-a-judge evaluation, and polished HTML/PDF reports.
 
+For the MVP, the app also ships with a default built-in benchmark prompt library described in `09-seed-prompts.md`.
+
 ## Core principles
 
 - Open-source first
