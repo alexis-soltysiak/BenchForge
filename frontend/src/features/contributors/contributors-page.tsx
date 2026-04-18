@@ -95,8 +95,8 @@ function ContributorItem({
     <Card className="border-slate-200 bg-white shadow-sm">
       <div
         className={cn(
-          "flex items-center gap-4 p-4",
-          variant === "main" ? "sm:p-5" : "sm:p-4",
+          "flex items-center gap-3 p-3",
+          variant === "main" ? "sm:p-4" : "sm:p-3",
         )}
       >
         <GitHubAvatar
@@ -113,7 +113,7 @@ function ContributorItem({
               {variant === "main" ? "master" : "other"}
             </Badge>
           </div>
-          <p className="mt-2 truncate font-mono text-sm text-slate-700">
+          <p className="mt-1.5 truncate font-mono text-[0.92rem] text-slate-700">
             @{contributor.github}
           </p>
         </div>
@@ -131,29 +131,29 @@ export function ContributorsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white px-5 py-8 lg:px-10 lg:py-10">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="border-b border-slate-200 pb-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-2xl space-y-2">
+    <div className="min-h-screen bg-white px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
+      <div className="mx-auto max-w-6xl space-y-5">
+        <header className="border-b border-slate-200 pb-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-slate-500">
               Credits wall
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+            <h1 className="text-[1.9rem] font-semibold tracking-tight text-slate-950 sm:text-[2.2rem]">
               Contributors
             </h1>
           </div>
         </div>
         </header>
 
-        <section className="space-y-4">
+        <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
             Main contributors
           </h2>
           {mainContributors.length === 0 ? (
             <EmptyState text="No main contributors found." />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {mainContributors.map((contributor) => (
                 <ContributorItem
                   key={contributor.github}
@@ -165,14 +165,14 @@ export function ContributorsPage() {
           )}
         </section>
 
-        <section className="space-y-4">
+        <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
             Others
           </h2>
           {otherContributors.length === 0 ? (
             <EmptyState text="No other contributors found." />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {otherContributors.map((contributor) => (
                 <ContributorItem
                   key={contributor.github}
@@ -190,7 +190,7 @@ export function ContributorsPage() {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+    <div className="rounded-[1.2rem] border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-[0.92rem] text-slate-500">
       {text}
     </div>
   );

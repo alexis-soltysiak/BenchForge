@@ -71,15 +71,15 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "rounded-[1.6rem] border border-white/80 bg-white/92 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.28)] backdrop-blur",
-        compact ? "px-3.5 py-3.5" : "px-4.5 py-4.5",
+        "rounded-[1.45rem] border border-white/80 bg-white/92 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.28)] backdrop-blur",
+        compact ? "px-2.5 py-2" : "px-3.5 py-3.5",
         className,
       )}
     >
       <div
         className={cn(
           "relative flex h-full flex-col justify-between",
-          compact ? "min-h-[5.4rem]" : "min-h-[6.9rem]",
+          compact ? "min-h-[3.45rem]" : "min-h-[5.6rem]",
         )}
       >
         <div className="flex items-start justify-between gap-3">
@@ -94,7 +94,7 @@ export function MetricCard({
               <p
                 className={cn(
                   "text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-                  compact ? "max-w-[6rem] leading-5" : "max-w-[8.5rem] leading-5",
+                  compact ? "max-w-[5rem] text-[10px] leading-[0.9rem]" : "max-w-[7rem] leading-5",
                 )}
               >
                 {label}
@@ -105,32 +105,32 @@ export function MetricCard({
             className={cn(
               "inline-flex shrink-0 items-center justify-center rounded-[1rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_20px_-18px_rgba(15,23,42,0.2)]",
               toneStyles.iconShell,
-              compact ? "h-11 w-11" : "h-12 w-12",
+              compact ? "h-8 w-8" : "h-10 w-10",
             )}
           >
             <Icon
               className={cn(
-                compact ? "h-[1.05rem] w-[1.05rem]" : "h-[1.15rem] w-[1.15rem]",
+                compact ? "h-[0.82rem] w-[0.82rem]" : "h-4 w-4",
                 toneStyles.iconColor,
               )}
             />
           </span>
         </div>
 
-        <div className={compact ? "mt-3" : "mt-5"}>
+        <div className={compact ? "mt-1.5" : "mt-3.5"}>
           <p
             className={cn(
               "font-semibold leading-none tracking-tight text-slate-950",
-              compact ? "text-[2.15rem]" : "text-[2.85rem]",
+              compact ? "text-[1.5rem]" : "text-[2.2rem]",
             )}
           >
             {value}
           </p>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-1.5 flex items-center gap-1.5">
             <div
               className={cn(
                 "h-[3px] rounded-full",
-                compact ? "w-9" : "w-12",
+                compact ? "w-6" : "w-9",
                 toneStyles.valueAccent,
               )}
             />

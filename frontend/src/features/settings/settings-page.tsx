@@ -133,16 +133,16 @@ export function SettingsPage({
   };
 
   return (
-    <div className="w-full px-5 pt-5 lg:px-10 xl:pr-6">
-      <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
-        <Card className="h-fit border-white/80 bg-white/80 p-4 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.45)] sm:p-5">
+    <div className="w-full px-3 pt-4 lg:px-6 xl:pr-5">
+      <div className="grid gap-4 xl:grid-cols-[15.5rem_minmax(0,1fr)]">
+        <Card className="h-fit border-white/80 bg-white/80 p-3 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.45)] sm:p-3.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
             Settings
           </p>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-slate-950">
+          <h1 className="mt-1.5 font-display text-[1.65rem] font-semibold tracking-tight text-slate-950">
             Workspace preferences
           </h1>
-          <div className="mt-6 space-y-2">
+          <div className="mt-3 space-y-2">
             {settingsSections.map((section) => {
               const Icon = section.icon;
               const isActive = section.id === activeSection;
@@ -151,7 +151,7 @@ export function SettingsPage({
                 <button
                   key={section.id}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition",
+                    "flex w-full items-center gap-3 rounded-[1rem] border px-3 py-2 text-left transition",
                     isActive
                       ? "border-slate-950 bg-slate-950 text-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.85)]"
                       : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
@@ -161,19 +161,19 @@ export function SettingsPage({
                 >
                   <span
                     className={cn(
-                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem]",
                       isActive ? "bg-white/12" : "bg-slate-100",
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold">
+                      <span className="block text-[0.84rem] font-semibold">
                       {section.title}
                     </span>
                     <span
                       className={cn(
-                        "mt-0.5 block text-xs leading-5",
+                        "mt-0.5 block text-[10px] leading-4",
                         isActive ? "text-slate-300" : "text-slate-500",
                       )}
                     >
@@ -186,21 +186,21 @@ export function SettingsPage({
           </div>
         </Card>
 
-        <div className="space-y-6">
-          <Card className="relative overflow-hidden border-white/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(248,250,252,0.92))] p-6 shadow-[0_32px_90px_-55px_rgba(15,23,42,0.55)]">
-            <div className="absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_top_left,_rgba(15,23,42,0.06),_transparent_60%)]" />
+        <div className="space-y-4">
+          <Card className="relative overflow-hidden border-white/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(248,250,252,0.92))] p-4 shadow-[0_32px_90px_-55px_rgba(15,23,42,0.55)]">
+            <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_left,_rgba(15,23,42,0.06),_transparent_60%)]" />
             <div className="relative">
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
                 {activeSectionMeta?.title ?? "Settings"}
               </p>
-              <h2 className="mt-3 font-display text-4xl font-semibold tracking-tight text-slate-950">
+              <h2 className="mt-2 font-display text-[2rem] font-semibold tracking-tight text-slate-950">
                 {activeSection === "theme"
                   ? "Theme page"
                   : activeSection === "api-keys"
                     ? "API Key page"
                     : "Language page"}
               </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              <p className="mt-2 max-w-2xl text-[0.92rem] leading-6 text-slate-600">
                 {activeSection === "theme"
                   ? "Chaque sélection applique immédiatement une ambiance globale à BenchForge."
                   : activeSection === "api-keys"
@@ -211,7 +211,7 @@ export function SettingsPage({
           </Card>
 
           {activeSection === "theme" ? (
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               {themeOptions.map((option) => {
                 const Icon = option.icon;
                 const isActive = option.id === currentTheme;
@@ -220,7 +220,7 @@ export function SettingsPage({
                   <Card
                     key={option.id}
                     className={cn(
-                      "overflow-hidden border p-4 transition",
+                      "overflow-hidden border p-3.5 transition",
                       isActive
                         ? "border-slate-950 bg-slate-950 text-white shadow-[0_24px_60px_-36px_rgba(15,23,42,0.95)]"
                         : "border-white/80 bg-white/85 hover:-translate-y-0.5 hover:border-slate-300",
@@ -228,20 +228,20 @@ export function SettingsPage({
                   >
                     <div
                       className={cn(
-                        "h-28 rounded-[1.25rem] border",
+                        "h-24 rounded-[1.1rem] border",
                         isActive ? "border-white/10" : "border-slate-200",
                         option.previewClassName,
                       )}
                     />
-                    <div className="mt-4 flex items-start justify-between gap-3">
+                    <div className="mt-3 flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <Icon className="h-4 w-4" />
-                          <p className="text-sm font-semibold">{option.name}</p>
+                          <p className="text-[0.92rem] font-semibold">{option.name}</p>
                         </div>
                         <p
                           className={cn(
-                            "mt-2 text-sm leading-6",
+                            "mt-1.5 text-[0.86rem] leading-5",
                             isActive ? "text-slate-300" : "text-slate-600",
                           )}
                         >
@@ -255,7 +255,7 @@ export function SettingsPage({
                       ) : null}
                     </div>
                     <Button
-                      className="mt-4 w-full"
+                      className="mt-3 w-full h-10 text-[0.92rem]"
                       onClick={() => handleThemeSelect(option.id)}
                       variant={isActive ? "secondary" : "primary"}
                     >
@@ -268,22 +268,22 @@ export function SettingsPage({
           ) : null}
 
           {activeSection === "api-keys" ? (
-            <Card className="border-white/80 bg-white/85 p-6 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)]">
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-5">
+            <Card className="border-white/80 bg-white/85 p-4 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)]">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-4">
                   <div>
                     <label
-                      className="text-sm font-semibold text-slate-900"
+                      className="text-[0.92rem] font-semibold text-slate-900"
                       htmlFor="openai-api-key"
                     >
                       OpenAI API Key
                     </label>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-[0.86rem] text-slate-500">
                       Pour les modèles branchés sur l’API OpenAI.
                     </p>
                     <Input
                       autoComplete="off"
-                      className="mt-3"
+                      className="mt-2 h-10 text-[0.92rem]"
                       id="openai-api-key"
                       onChange={(event) =>
                         setApiKeys((current) => ({
@@ -299,17 +299,17 @@ export function SettingsPage({
 
                   <div>
                     <label
-                      className="text-sm font-semibold text-slate-900"
+                      className="text-[0.92rem] font-semibold text-slate-900"
                       htmlFor="anthropic-api-key"
                     >
                       Anthropic API Key
                     </label>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-[0.86rem] text-slate-500">
                       Pour Claude et les intégrations compatibles.
                     </p>
                     <Input
                       autoComplete="off"
-                      className="mt-3"
+                      className="mt-2 h-10 text-[0.92rem]"
                       id="anthropic-api-key"
                       onChange={(event) =>
                         setApiKeys((current) => ({
@@ -324,20 +324,20 @@ export function SettingsPage({
                   </div>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <div>
                     <label
-                      className="text-sm font-semibold text-slate-900"
+                      className="text-[0.92rem] font-semibold text-slate-900"
                       htmlFor="openrouter-api-key"
                     >
                       OpenRouter API Key
                     </label>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-[0.86rem] text-slate-500">
                       Utile si tu routes plusieurs providers via OpenRouter.
                     </p>
                     <Input
                       autoComplete="off"
-                      className="mt-3"
+                      className="mt-2 h-10 text-[0.92rem]"
                       id="openrouter-api-key"
                       onChange={(event) =>
                         setApiKeys((current) => ({
@@ -351,12 +351,12 @@ export function SettingsPage({
                     />
                   </div>
 
-                  <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 p-3.5">
                     <div className="flex items-center gap-2 text-slate-900">
                       <LockKeyhole className="h-4 w-4" />
-                      <p className="text-sm font-semibold">Local-only storage</p>
+                      <p className="text-[0.92rem] font-semibold">Local-only storage</p>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                    <p className="mt-2 text-[0.86rem] leading-5 text-slate-600">
                       Cette première version stocke les clés dans
                       `localStorage`. C’est pratique pour préparer le wiring UI,
                       mais ce n’est pas encore un coffre-fort applicatif.
@@ -365,18 +365,18 @@ export function SettingsPage({
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Button onClick={handleSaveApiKeys}>Save API keys</Button>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button className="h-10 text-[0.92rem]" onClick={handleSaveApiKeys}>Save API keys</Button>
                 {saveMessage ? (
-                  <p className="text-sm text-slate-500">{saveMessage}</p>
+                  <p className="text-[0.86rem] text-slate-500">{saveMessage}</p>
                 ) : null}
               </div>
             </Card>
           ) : null}
 
           {activeSection === "language" ? (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-              <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+              <div className="grid gap-3 md:grid-cols-2">
                 {languageOptions.map((option) => {
                   const isActive = option.id === selectedLanguage;
 
@@ -384,7 +384,7 @@ export function SettingsPage({
                     <Card
                       key={option.id}
                       className={cn(
-                        "overflow-hidden border p-5 transition",
+                        "overflow-hidden border p-4 transition",
                         isActive
                           ? "border-slate-950 bg-slate-950 text-white shadow-[0_24px_60px_-36px_rgba(15,23,42,0.95)]"
                           : "border-white/80 bg-white/85 hover:-translate-y-0.5 hover:border-slate-300",
@@ -394,17 +394,17 @@ export function SettingsPage({
                         <div className="flex items-center gap-3">
                           <span
                             className={cn(
-                              "flex h-12 w-12 items-center justify-center rounded-2xl",
+                              "flex h-10 w-10 items-center justify-center rounded-[1rem]",
                               isActive ? "bg-white/12" : "bg-slate-100 text-slate-700",
                             )}
                           >
                             <Globe className="h-5 w-5" />
                           </span>
                           <div>
-                            <p className="text-lg font-semibold">{option.nativeLabel}</p>
+                            <p className="text-[1rem] font-semibold">{option.nativeLabel}</p>
                             <p
                               className={cn(
-                                "text-sm",
+                                "text-[0.86rem]",
                                 isActive ? "text-slate-300" : "text-slate-500",
                               )}
                             >
@@ -421,19 +421,19 @@ export function SettingsPage({
 
                       <p
                         className={cn(
-                          "mt-4 text-sm leading-6",
+                          "mt-3 text-[0.86rem] leading-5",
                           isActive ? "text-slate-300" : "text-slate-600",
                         )}
                       >
                         {option.description}
                       </p>
 
-                      <div className="mt-4 inline-flex rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                      <div className="mt-3 inline-flex rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                         {option.badge}
                       </div>
 
                       <Button
-                        className="mt-5 w-full"
+                        className="mt-4 h-10 w-full text-[0.92rem]"
                         onClick={() => setSelectedLanguage(option.id)}
                         variant={isActive ? "secondary" : "primary"}
                       >
@@ -444,25 +444,25 @@ export function SettingsPage({
                 })}
               </div>
 
-              <Card className="border-white/80 bg-white/85 p-5 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)]">
+              <Card className="border-white/80 bg-white/85 p-4 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)]">
                 <div className="flex items-center gap-2 text-slate-900">
                   <Languages className="h-4 w-4" />
-                  <p className="text-sm font-semibold">Preview state</p>
+                  <p className="text-[0.92rem] font-semibold">Preview state</p>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
+                <p className="mt-2.5 text-[0.86rem] leading-5 text-slate-600">
                   Cette version ne change pas encore les textes de l’application.
                   Elle sert uniquement a poser l’UI et le futur emplacement du
                   parametre de langue.
                 </p>
 
-                <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                <div className="mt-4 rounded-[1.2rem] border border-slate-200 bg-slate-50 p-3.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                     Current mock selection
                   </p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-950">
+                  <p className="mt-2 text-[1.5rem] font-semibold text-slate-950">
                     {selectedLanguage === "fr" ? "Français" : "English"}
                   </p>
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-1.5 text-[0.86rem] text-slate-500">
                     Aucun wiring i18n n’est branche pour le moment.
                   </p>
                 </div>
