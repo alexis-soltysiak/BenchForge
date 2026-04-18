@@ -81,11 +81,11 @@ const viewThemes: Record<
     railOrb: "bg-[rgba(16,185,129,0.12)]",
   },
   runs: {
-    brandAccent: "text-teal-500",
-    pageGlow: "rgba(20, 184, 166, 0.14)",
+    brandAccent: "text-red-500",
+    pageGlow: "rgba(239, 68, 68, 0.14)",
     railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(20,184,166,0.18),_transparent_55%)]",
-    railOrb: "bg-[rgba(20,184,166,0.12)]",
+      "bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.18),_transparent_55%)]",
+    railOrb: "bg-[rgba(239,68,68,0.12)]",
   },
 };
 
