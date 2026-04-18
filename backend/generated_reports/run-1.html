@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test 1 Run Report</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #0f172a;
+        --muted: #475569;
+        --line: #dbe4ee;
+        --panel: #f8fafc;
+        --accent: #0f766e;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--ink);
+        background: white;
+        line-height: 1.5;
+      }
+      h1, h2, h3, h4 { margin: 0 0 12px; }
+      .hero {
+        border-bottom: 2px solid var(--line);
+        padding-bottom: 20px;
+        margin-bottom: 28px;
+      }
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .meta div, .candidate, .prompt, .response {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 16px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0 28px;
+      }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+      }
+      th {
+        background: #eef6f6;
+      }
+      .candidate-grid, .prompt-grid {
+        display: grid;
+        gap: 18px;
+      }
+      .prompt-grid {
+        page-break-before: always;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: white;
+        border: 1px solid var(--line);
+        padding: 12px;
+      }
+      @media print {
+        body { padding: 0; }
+        .prompt { page-break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Test 1 Run Report</h1>
+      <p>Test 1 Run</p>
+      <div class="meta">
+        <div>
+          <strong>Run timestamp:</strong> 2026-04-18T08:54:59.394683+00:00
+        </div>
+        <div><strong>Judge used:</strong> gpt-5.4-mini-2026-03-17</div>
+        <div><strong>Prompt count:</strong> 2</div>
+        <div><strong>Candidate count:</strong> 2</div>
+      </div>
+    </section>
+    <section>
+      <h2>Executive Summary</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Candidate</th>
+            <th>Judge score</th>
+            <th>Quality score</th>
+            <th>Cost score</th>
+            <th>Performance score</th>
+            <th>Final global score</th>
+          </tr>
+        </thead>
+        <tbody><tr><td>gpt-5.4-mini-2026-03-17</td><td>94.00</td><td>94.00</td><td>100.00</td><td>100.00</td><td>95.80</td></tr><tr><td>gpt-5.4-nano</td><td>50.50</td><td>50.50</td><td>100.00</td><td>0.00</td><td>50.35</td></tr></tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Candidate Sections</h2>
+      <div class="candidate-grid"><section class='candidate'><h3>gpt-5.4-mini-2026-03-17</h3><p>openai / remote</p><p><strong>Global score:</strong> 95.80</p><p>Average overall score 94.00 across 2 prompts with mean latency 1706 ms.</p><p><strong>Best patterns:</strong> Correct O(n) hashmap-based implementation.; Returns indices immediately upon finding a valid complement.; Clear explanation of the algorithm, complexity, and example usage.</p><p><strong>Weak patterns:</strong> task_title appears to repeat the instruction rather than transform a user request; priority is inferred without evidence; deadline and owner are null, which may be acceptable but indicates limited extraction</p></section><section class='candidate'><h3>gpt-5.4-nano</h3><p>openai / remote</p><p><strong>Global score:</strong> 50.35</p><p>Average overall score 50.50 across 2 prompts with mean latency 1888 ms.</p><p><strong>Best patterns:</strong> Correct O(n) hashmap-based approach.; Returns indices in a single pass with appropriate complement check.; Includes a helpful docstring and states time complexity.</p><p><strong>Weak patterns:</strong> Returns a tuple rather than the example-style list, though this is usually acceptable.; Assumes exactly one solution exists and returns None otherwise, which is slightly less aligned with the standard problem statement than returning a pair unconditionally.; Does not include required keys</p></section></div>
+    </section>
+    <section>
+      <h2>Prompt Sections</h2>
+      <div class="prompt-grid"><section class='prompt'><h3>python_two_sum</h3><p><strong>Category:</strong> Coding</p><pre>Write a Python function `two_sum(nums, target)` that returns the indices of two numbers whose sum equals `target`. Provide an efficient solution.</pre><article class='response'><h4>gpt-5.4-mini-2026-03-17</h4><p><strong>Rank:</strong> 1</p><p><strong>Judge score:</strong> 100.00</p><pre>```python
+def two_sum(nums, target):
+    seen = {}  # number -&gt; index
+
+    for i, num in enumerate(nums):
+        complement = target - num
+        if complement in seen:
+            return [seen[complement], i]
+        seen[num] = i
+
+    return []  # if no solution exists
+```
+
+### How it works
+- Use a dictionary to store numbers we&#x27;ve already seen and their indices.
+- For each number `num`, check whether `target - num` has already appeared.
+- If yes, return the two indices immediately.
+
+### Efficiency
+- **Time complexity:** `O(n)`
+- **Space complexity:** `O(n)`
+
+### Example
+```python
+print(two_sum([2, 7, 11, 15], 9))  # [0, 1]
+```</pre><p>Excellent canonical Two Sum solution with clear explanation and correct efficiency.</p><p>Candidate B gives a textbook optimal solution for Two Sum using a dictionary to store previously seen numbers and their indices. The implementation is correct, efficient, and directly satisfies the prompt’s request for a Python function with an efficient solution. It is well explained, includes complexity analysis, and provides an example. The return type is a list of indices, which aligns with common expectations for this problem. This is the best response in the batch.</p></article><article class='response'><h4>gpt-5.4-nano</h4><p><strong>Rank:</strong> 2</p><p><strong>Judge score:</strong> 96.00</p><pre>```python
+def two_sum(nums, target):
+    &quot;&quot;&quot;
+    Returns indices (i, j) such that nums[i] + nums[j] == target.
+    Assumes exactly one solution exists. Runs in O(n) time.
+    &quot;&quot;&quot;
+    seen = {}  # value -&gt; index
+    for i, x in enumerate(nums):
+        need = target - x
+        if need in seen:
+            return (seen[need], i)
+        seen[x] = i
+    return None  # if no solution exists
+```</pre><p>Correct efficient solution with minor output-format and edge-case differences.</p><p>Candidate A provides a standard and correct single-pass hashmap solution for Two Sum. It runs in O(n) time and O(n) space, which matches the benchmark’s preferred approach. The logic is sound: check for the complement before inserting the current value, ensuring a valid pair is found efficiently. Minor deductions are for returning a tuple instead of a list and for explicitly assuming exactly one solution exists, with a None fallback that is not part of the usual problem specification. Overall, this is a strong answer.</p></article></section><section class='prompt'><h3>generate_task_json</h3><p><strong>Category:</strong> Structured Output</p><pre>Transform the following user request into strict JSON with the keys `task_title`, `priority`, `deadline`, `owner`, and `tags`. Return only the JSON.</pre><article class='response'><h4>gpt-5.4-mini-2026-03-17</h4><p><strong>Rank:</strong> 1</p><p><strong>Judge score:</strong> 88.00</p><pre>{
+  &quot;task_title&quot;: &quot;Transform the following user request into strict JSON with the keys task_title, priority, deadline, owner, and tags.&quot;,
+  &quot;priority&quot;: &quot;medium&quot;,
+  &quot;deadline&quot;: null,
+  &quot;owner&quot;: null,
+  &quot;tags&quot;: [
+    &quot;json&quot;,
+    &quot;data-transformation&quot;,
+    &quot;formatting&quot;
+  ]
+}</pre><p>Well-formed strict JSON with all required keys, but the content is only partially transformed from the prompt itself.</p><p>Candidate A follows the required JSON-only format and includes the exact requested keys: task_title, priority, deadline, owner, and tags. The output is syntactically valid and well structured. However, the task_title merely echoes the instruction instead of transforming a user request, and the priority value appears guessed rather than extracted from any request context. The null deadline and owner are reasonable given the lack of source data, but overall the response is more of a formatted echo than a substantive transformation.</p></article><article class='response'><h4>gpt-5.4-nano</h4><p><strong>Rank:</strong> 2</p><p><strong>Judge score:</strong> 5.00</p><pre>{}</pre><p>Technically valid JSON, but it does not satisfy the prompt’s required structure or content.</p><p>Candidate B returns an empty JSON object, which is syntactically valid but completely misses the benchmark requirements. The prompt explicitly asks for strict JSON containing task_title, priority, deadline, owner, and tags, and for only the JSON to be returned. Since none of those keys are present, the response is not useful for the task beyond being valid JSON syntax.</p></article></section></div>
+    </section>
+  </body>
+</html>

@@ -38,7 +38,11 @@ import {
   removeSessionPrompt,
   updateSession,
 } from "@/features/sessions/api";
-import type { Session, SessionPayload } from "@/features/sessions/types";
+import type {
+  Session,
+  SessionListResponse,
+  SessionPayload,
+} from "@/features/sessions/types";
 import { fetchPrompts } from "@/features/prompts/api";
 import { fetchModelProfiles } from "@/features/models/api";
 import { ApiError } from "@/lib/api";
@@ -165,13 +169,34 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       return;
     }
 
-    if (freshSession.updated_at !== selectedSession.updated_at) {
+    if (freshSession !== selectedSession) {
       setSelectedSession(freshSession);
     }
   }, [selectedSession, sessionsQuery.data]);
 
   const refreshSessions = async () => {
     await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+  };
+
+  const syncSessionState = (session: Session) => {
+    queryClient.setQueriesData(
+      { queryKey: ["sessions"] },
+      (current: SessionListResponse | undefined) => {
+        if (!current) {
+          return current;
+        }
+
+        const existingIndex = current.items.findIndex((item) => item.id === session.id);
+        if (existingIndex === -1) {
+          return current;
+        }
+
+        const nextItems = [...current.items];
+        nextItems[existingIndex] = session;
+        return { ...current, items: nextItems };
+      },
+    );
+    setSelectedSession(session);
   };
 
   const saveMutation = useMutation({
@@ -225,10 +250,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const addPromptMutation = useMutation({
     mutationFn: ({ sessionId, promptId }: { sessionId: number; promptId: number }) =>
       addSessionPrompt(sessionId, promptId),
-    onSuccess: async (session) => {
-      await refreshSessions();
+    onSuccess: (session) => {
+      syncSessionState(session);
       setFeedback("Prompt added to session.");
-      startTransition(() => setSelectedSession(session));
+      void refreshSessions();
     },
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
@@ -237,10 +262,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const removePromptMutation = useMutation({
     mutationFn: ({ sessionId, itemId }: { sessionId: number; itemId: number }) =>
       removeSessionPrompt(sessionId, itemId),
-    onSuccess: async (session) => {
-      await refreshSessions();
+    onSuccess: (session) => {
+      syncSessionState(session);
       setFeedback("Prompt removed from session.");
-      startTransition(() => setSelectedSession(session));
+      void refreshSessions();
     },
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
@@ -249,10 +274,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const addCandidateMutation = useMutation({
     mutationFn: ({ sessionId, modelId }: { sessionId: number; modelId: number }) =>
       addSessionCandidate(sessionId, modelId),
-    onSuccess: async (session) => {
-      await refreshSessions();
+    onSuccess: (session) => {
+      syncSessionState(session);
       setFeedback("Candidate added to session.");
-      startTransition(() => setSelectedSession(session));
+      void refreshSessions();
     },
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
@@ -261,10 +286,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const removeCandidateMutation = useMutation({
     mutationFn: ({ sessionId, itemId }: { sessionId: number; itemId: number }) =>
       removeSessionCandidate(sessionId, itemId),
-    onSuccess: async (session) => {
-      await refreshSessions();
+    onSuccess: (session) => {
+      syncSessionState(session);
       setFeedback("Candidate removed from session.");
-      startTransition(() => setSelectedSession(session));
+      void refreshSessions();
     },
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
@@ -273,10 +298,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const addJudgeMutation = useMutation({
     mutationFn: ({ sessionId, modelId }: { sessionId: number; modelId: number }) =>
       addSessionJudge(sessionId, modelId),
-    onSuccess: async (session) => {
-      await refreshSessions();
+    onSuccess: (session) => {
+      syncSessionState(session);
       setFeedback("Judge added to session.");
-      startTransition(() => setSelectedSession(session));
+      void refreshSessions();
     },
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
@@ -296,10 +321,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const removeJudgeMutation = useMutation({
     mutationFn: ({ sessionId, itemId }: { sessionId: number; itemId: number }) =>
       removeSessionJudge(sessionId, itemId),
-    onSuccess: async (session) => {
-      await refreshSessions();
+    onSuccess: (session) => {
+      syncSessionState(session);
       setFeedback("Judge removed from session.");
-      startTransition(() => setSelectedSession(session));
+      void refreshSessions();
     },
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
@@ -534,24 +559,21 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                       <tr
                         key={session.id}
                         className={cn(
-                          "border-t border-border/70 transition-colors",
+                          "cursor-pointer border-t border-border/70 transition-colors",
                           isSelected && "bg-emerald-50/60",
                         )}
+                        onClick={() => {
+                          startTransition(() => {
+                            setSelectedSession(session);
+                            setFeedback(null);
+                          });
+                        }}
                       >
                         <td className="px-5 py-4 align-top">
                           <div className="space-y-1">
-                            <button
-                              className="text-left text-sm font-semibold text-slate-950 transition hover:text-emerald-800"
-                              onClick={() => {
-                                startTransition(() => {
-                                  setSelectedSession(session);
-                                  setFeedback(null);
-                                });
-                              }}
-                              type="button"
-                            >
+                            <p className="text-sm font-semibold text-slate-950 transition hover:text-emerald-800">
                               {session.name}
-                            </button>
+                            </p>
                             <p className="max-w-sm text-sm text-slate-500">
                               {session.description ?? "No description"}
                             </p>
@@ -579,7 +601,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             {session.status}
                           </Badge>
                         </td>
-                        <td className="px-5 py-4 align-top">
+                        <td className="px-5 py-4 align-top" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             <ActionIconButton
                               aria-label={`Configure ${session.name}`}
@@ -652,6 +674,8 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         description="Create a benchmark session or update the selected one without leaving the setup screen."
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
+        size="xxl"
+        tone="emerald"
         title={selectedSession ? "Edit session" : "Create session"}
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
@@ -785,6 +809,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         onClose={() => setIsSelectionOpen(false)}
         open={isSelectionOpen}
         size="xl"
+        tone="emerald"
         title={selectedSession ? `Configure ${selectedSession.name}` : "Configure session"}
       >
         {selectedSession ? (
@@ -1082,7 +1107,7 @@ function SessionStepSwitcher({
       idleClassName:
         "border-border/80 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/60",
       iconClassName: "bg-emerald-100 text-emerald-900",
-      badgeVariant: "accent" as const,
+      badgeVariant: "success" as const,
     },
     {
       key: "candidates" as const,
@@ -1238,14 +1263,14 @@ function Field({
   label: string;
 }) {
   return (
-    <label className="block space-y-2">
-      <span className="block">
+    <label className="flex h-full flex-col gap-2">
+      <span className="block min-h-[4.75rem]">
         <span className="text-sm font-medium text-slate-700">{label}</span>
         {hint ? (
           <span className="mt-1 block text-xs leading-5 text-slate-500">{hint}</span>
         ) : null}
       </span>
-      {children}
+      <span className="block">{children}</span>
     </label>
   );
 }

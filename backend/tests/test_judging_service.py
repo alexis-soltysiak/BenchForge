@@ -31,6 +31,30 @@ async def test_retry_judging_requires_completed_candidate_matrix() -> None:
         await service.retry_judging(1)
 
 
+@pytest.mark.asyncio
+async def test_start_judging_rejects_runs_that_already_have_batches() -> None:
+    service = JudgingService(SimpleNamespace())
+    run = SimpleNamespace(
+        id=1,
+        status="ready_for_judging",
+        prompt_snapshots=[],
+        model_snapshots=[],
+        candidate_responses=[],
+    )
+
+    class Repository:
+        async def get_run(self, run_id: int):
+            return run
+
+        async def list_batches(self, run_id: int):
+            return [SimpleNamespace(id=1)]
+
+    service.repository = Repository()  # type: ignore[assignment]
+
+    with pytest.raises(JudgingError, match="already started"):
+        await service.start_judging(1)
+
+
 def test_parse_judge_output_validates_labels_and_scores() -> None:
     service = JudgingService(SimpleNamespace())
     anonymized = {

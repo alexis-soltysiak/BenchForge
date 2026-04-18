@@ -7,7 +7,10 @@ from decimal import Decimal
 import httpx
 
 from app.core.security import build_bearer_token
-from app.features.execution.adapters.base import AdapterExecutionResult, BaseInferenceAdapter
+from app.features.execution.adapters.base import (
+    AdapterExecutionResult,
+    BaseInferenceAdapter,
+)
 
 
 class OpenAICompatibleAdapter(BaseInferenceAdapter):
@@ -40,7 +43,9 @@ class OpenAICompatibleAdapter(BaseInferenceAdapter):
 
         started = time.perf_counter()
         async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-            response = await client.post(endpoint_url, json=request_payload, headers=headers)
+            response = await client.post(
+                endpoint_url, json=request_payload, headers=headers
+            )
             response.raise_for_status()
         duration_ms = int((time.perf_counter() - started) * 1000)
 
@@ -85,12 +90,20 @@ def _estimate_cost(
     pricing_input_per_million: str | None,
     pricing_output_per_million: str | None,
 ) -> Decimal | None:
+    has_pricing = (
+        pricing_input_per_million is not None or pricing_output_per_million is not None
+    )
+    if not has_pricing:
+        return None
     if input_tokens is None and output_tokens is None:
         return None
     total = Decimal("0")
     if input_tokens is not None and pricing_input_per_million is not None:
-        total += (Decimal(input_tokens) / Decimal(1_000_000)) * Decimal(pricing_input_per_million)
+        total += (Decimal(input_tokens) / Decimal(1_000_000)) * Decimal(
+            pricing_input_per_million
+        )
     if output_tokens is not None and pricing_output_per_million is not None:
-        total += (Decimal(output_tokens) / Decimal(1_000_000)) * Decimal(pricing_output_per_million)
+        total += (Decimal(output_tokens) / Decimal(1_000_000)) * Decimal(
+            pricing_output_per_million
+        )
     return total
-

@@ -9,6 +9,7 @@ from app.features.execution.schemas import (
 )
 from app.features.execution.service import (
     CandidateResponseNotFoundError,
+    CandidateExecutionNotReadyError,
     ExecutionError,
     ExecutionService,
     LocalExecutionNotReadyError,
@@ -95,4 +96,40 @@ async def start_local_current(
     except ExecutionError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except LocalExecutionNotReadyError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/runs/{run_id}/models/{model_snapshot_id}/start",
+    response_model=CandidateResponseListResponse,
+)
+async def start_remote_candidate(
+    run_id: int,
+    model_snapshot_id: int,
+    service: ExecutionService = Depends(get_execution_service),
+) -> CandidateResponseListResponse:
+    try:
+        return await service.start_remote_candidate(run_id, model_snapshot_id)
+    except ExecutionError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except CandidateExecutionNotReadyError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/runs/{run_id}/responses/{response_id}/retry",
+    response_model=CandidateResponseRead,
+)
+async def retry_candidate_response(
+    run_id: int,
+    response_id: int,
+    service: ExecutionService = Depends(get_execution_service),
+) -> CandidateResponseRead:
+    try:
+        return await service.retry_candidate_response(run_id, response_id)
+    except ExecutionError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except CandidateResponseNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except CandidateExecutionNotReadyError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

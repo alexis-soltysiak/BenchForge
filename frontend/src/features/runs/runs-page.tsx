@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
-  Bot,
+  ArrowLeft,
   CheckCircle2,
   Clock3,
+  Download,
+  Eye,
   Gavel,
-  LoaderCircle,
   Play,
   Search,
   Sparkles,
@@ -17,8 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
+import { Modal } from "@/components/ui/modal";
 import {
   confirmLocalReady,
+  downloadRunReportPdf,
   fetchLocalNext,
   fetchRun,
   fetchRunJudging,
@@ -26,8 +29,11 @@ import {
   fetchRuns,
   generateRunReport,
   resumeRun,
+  retryCandidateResponse,
   retryRunJudging,
   startLocalCurrent,
+  startRemoteCandidate,
+  startRunJudging,
 } from "@/features/runs/api";
 import type {
   CandidateResponse,
@@ -39,34 +45,32 @@ import type {
   RunModelSnapshot,
   RunPromptSnapshot,
 } from "@/features/runs/types";
-import { ApiError } from "@/lib/api";
+import { API_URL, ApiError } from "@/lib/api";
 import { queryClient } from "@/lib/query-client";
 import { cn } from "@/lib/utils";
 
 type RunsPageProps = {
-  initialRunId?: number | null;
+  onOpenRun: (runId: number) => void;
 };
+
+type RunDetailPageProps = {
+  onBack: () => void;
+  runId: number;
+};
+
+type RunPhaseKey = "phase1" | "phase2" | "phase3";
 
 const terminalStatuses = new Set(["completed", "failed", "cancelled"]);
 
-export function RunsPage({ initialRunId = null }: RunsPageProps) {
-  const [selectedRunId, setSelectedRunId] = useState<number | null>(initialRunId);
+export function RunsPage({ onOpenRun }: RunsPageProps) {
   const [search, setSearch] = useState("");
-  const [selectedResponseId, setSelectedResponseId] = useState<number | null>(null);
-  const [selectedJudgeBatchId, setSelectedJudgeBatchId] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [previewRun, setPreviewRun] = useState<{ id: number; name: string } | null>(null);
 
   const runsQuery = useQuery({
     queryKey: ["runs"],
     queryFn: fetchRuns,
     refetchInterval: 5000,
   });
-
-  useEffect(() => {
-    if (initialRunId) {
-      setSelectedRunId(initialRunId);
-    }
-  }, [initialRunId]);
 
   const visibleRuns = useMemo(() => {
     const items = runsQuery.data?.items ?? [];
@@ -83,169 +87,21 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
     );
   }, [runsQuery.data?.items, search]);
 
-  useEffect(() => {
-    if (selectedRunId !== null) {
-      return;
-    }
-
-    const firstRun = visibleRuns[0] ?? runsQuery.data?.items[0];
-    if (firstRun) {
-      setSelectedRunId(firstRun.id);
-    }
-  }, [runsQuery.data?.items, selectedRunId, visibleRuns]);
-
-  const runQuery = useQuery({
-    queryKey: ["runs", selectedRunId],
-    queryFn: () => fetchRun(selectedRunId as number),
-    enabled: selectedRunId !== null,
-    refetchInterval: (query) => {
-      const run = query.state.data as Run | undefined;
-      return run && !terminalStatuses.has(run.status) ? 4000 : false;
-    },
-  });
-
-  const responsesQuery = useQuery({
-    queryKey: ["runs", selectedRunId, "responses"],
-    queryFn: () => fetchRunResponses(selectedRunId as number),
-    enabled: selectedRunId !== null,
-    refetchInterval: () =>
-      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
-  });
-
-  const hasLocalCandidates =
-    runQuery.data?.model_snapshots.some(
-      (item) => item.role === "candidate" && item.runtime_type === "local",
-    ) ?? false;
-
-  const localNextQuery = useQuery({
-    queryKey: ["runs", selectedRunId, "local-next"],
-    queryFn: () => fetchLocalNext(selectedRunId as number),
-    enabled: selectedRunId !== null && hasLocalCandidates,
-    refetchInterval: () =>
-      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
-  });
-
-  const judgingQuery = useQuery({
-    queryKey: ["runs", selectedRunId, "judging"],
-    queryFn: () => fetchRunJudging(selectedRunId as number),
-    enabled: selectedRunId !== null,
-    refetchInterval: () =>
-      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
-  });
-
-  useEffect(() => {
-    const items = responsesQuery.data?.items ?? [];
-    if (items.length === 0) {
-      setSelectedResponseId(null);
-      return;
-    }
-
-    if (selectedResponseId && items.some((item) => item.id === selectedResponseId)) {
-      return;
-    }
-
-    setSelectedResponseId(items[0].id);
-  }, [responsesQuery.data?.items, selectedResponseId]);
-
-  useEffect(() => {
-    const items = judgingQuery.data?.items ?? [];
-    if (items.length === 0) {
-      setSelectedJudgeBatchId(null);
-      return;
-    }
-
-    if (selectedJudgeBatchId && items.some((item) => item.id === selectedJudgeBatchId)) {
-      return;
-    }
-
-    setSelectedJudgeBatchId(items[0].id);
-  }, [judgingQuery.data?.items, selectedJudgeBatchId]);
-
-  const refreshRunData = async () => {
-    if (selectedRunId === null) {
-      return;
-    }
-
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["runs"] }),
-      queryClient.invalidateQueries({ queryKey: ["runs", selectedRunId] }),
-      queryClient.invalidateQueries({ queryKey: ["runs", selectedRunId, "responses"] }),
-      queryClient.invalidateQueries({ queryKey: ["runs", selectedRunId, "local-next"] }),
-      queryClient.invalidateQueries({ queryKey: ["runs", selectedRunId, "judging"] }),
-    ]);
-  };
-
-  const resumeMutation = useMutation({
-    mutationFn: (runId: number) => resumeRun(runId),
-    onSuccess: async () => {
-      setFeedback("Remote candidates resumed.");
-      await refreshRunData();
-    },
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to resume run.");
-    },
-  });
-
-  const confirmLocalMutation = useMutation({
-    mutationFn: (runId: number) => confirmLocalReady(runId),
-    onSuccess: async (payload) => {
-      setFeedback(`Local model "${payload.display_name}" marked ready.`);
-      await refreshRunData();
-    },
-    onError: (error) => {
-      setFeedback(
-        error instanceof ApiError ? error.message : "Unable to confirm local readiness.",
-      );
-    },
-  });
-
-  const startLocalMutation = useMutation({
-    mutationFn: (runId: number) => startLocalCurrent(runId),
-    onSuccess: async () => {
-      setFeedback("Current local model started.");
-      await refreshRunData();
-    },
-    onError: (error) => {
-      setFeedback(
-        error instanceof ApiError ? error.message : "Unable to start local model.",
-      );
-    },
-  });
-  const retryJudgingMutation = useMutation({
-    mutationFn: (runId: number) => retryRunJudging(runId),
-    onSuccess: async () => {
-      setFeedback("Judging retried.");
-      await refreshRunData();
-    },
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to retry judging.");
-    },
-  });
-  const generateReportMutation = useMutation({
-    mutationFn: (runId: number) => generateRunReport(runId),
-    onSuccess: async () => {
-      setFeedback("HTML report generated.");
-      await refreshRunData();
-    },
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to generate report.");
-    },
-  });
-
-  const selectedRun = runQuery.data;
-  const responses = responsesQuery.data?.items ?? [];
-  const selectedResponse = responses.find((item) => item.id === selectedResponseId) ?? null;
-  const judging = judgingQuery.data;
-  const selectedJudgeBatch =
-    judging?.items.find((item) => item.id === selectedJudgeBatchId) ?? null;
+  const completedRuns = visibleRuns.filter((item) => item.status === "completed").length;
+  const activeRuns = visibleRuns.filter((item) =>
+    ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(
+      item.status,
+    ),
+  ).length;
+  const readyReports = visibleRuns.filter((item) => item.report_status === "completed").length;
 
   return (
     <div className="px-5 py-8 lg:px-10 lg:py-10">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(239,68,68,0.18),_transparent_32%),linear-gradient(135deg,_rgba(255,239,239,0.98),_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.16),_transparent_30%),linear-gradient(135deg,_rgba(255,244,245,0.92),_rgba(255,255,255,0.98)_44%,_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
         <div className="relative flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_48rem] xl:items-end">
           <div className="max-w-3xl space-y-4">
-            <span className="inline-flex rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-red-950">
+            <span className="inline-flex rounded-full border border-rose-200 bg-white/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-700">
               Execution Monitor
             </span>
             <div className="space-y-3">
@@ -268,35 +124,35 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
             />
             <MetricCard
               compact
-              icon={Bot}
-              label="Responses"
+              icon={CheckCircle2}
+              label="Completed"
               tone="red"
-              value={String(selectedRun?.candidate_response_count ?? 0)}
+              value={String(completedRuns)}
             />
             <MetricCard
               compact
               icon={SquareTerminal}
-              label="Local Queue"
+              label="Active Runs"
               tone="red"
-              value={String(localNextQuery.data?.pending_prompt_count ?? 0)}
+              value={String(activeRuns)}
             />
             <MetricCard
               compact
               icon={Gavel}
-              label="Judge Batches"
+              label="Reports Ready"
               tone="red"
-              value={String(judging?.completed_batches ?? 0)}
+              value={String(readyReports)}
             />
           </div>
         </div>
       </section>
 
-      <section className="mt-8 grid gap-6 xl:grid-cols-[0.88fr_1.52fr]">
+      <section className="mt-8">
         <Card className="overflow-hidden border-border/70 bg-white/90 shadow-sm">
           <div className="border-b border-border/80 px-5 py-4">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-red-800">Runs List</h2>
+                <h2 className="text-xl font-semibold text-slate-950">Runs List</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Browse immutable run snapshots and reopen their operational detail.
                 </p>
@@ -327,13 +183,9 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
               visibleRuns.map((item) => (
                 <button
                   key={item.id}
-                  className={cn(
-                    "block w-full px-5 py-4 text-left transition hover:bg-red-50/70",
-                    selectedRunId === item.id && "bg-red-50",
-                  )}
+                  className="block w-full px-5 py-4 text-left transition hover:bg-slate-50"
                   onClick={() => {
-                    setSelectedRunId(item.id);
-                    setFeedback(null);
+                    onOpenRun(item.id);
                   }}
                   type="button"
                 >
@@ -345,7 +197,24 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
                         {item.model_count} models
                       </p>
                     </div>
-                    <StatusPill status={item.status} />
+                    <div className="flex items-center gap-2">
+                      {item.status === "completed" ? (
+                        <Button
+                          aria-label={`Preview report for ${item.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPreviewRun({ id: item.id, name: item.name });
+                          }}
+                          size="iconSm"
+                          title={`Preview report for ${item.name}`}
+                          type="button"
+                          variant="soft"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                      <StatusPill status={item.status} />
+                    </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                     <span>Report {item.report_status}</span>
@@ -357,252 +226,536 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
             )}
           </div>
         </Card>
+      </section>
 
-        {selectedRun ? (
-          <div className="space-y-6">
-            <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
-                    Run detail
-                  </p>
-                  <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-                    {selectedRun.name}
-                  </h2>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <StatusPill status={selectedRun.status} />
-                    <StatusPill label={`report ${selectedRun.report_status}`} status={selectedRun.report_status} />
-                    <MetaPill label={`${selectedRun.prompt_snapshots.length} prompts`} />
-                    <MetaPill
-                      label={`${
-                        selectedRun.model_snapshots.filter((item) => item.role === "candidate")
-                          .length
-                      } candidates`}
-                    />
-                    <MetaPill
-                      label={`${
-                        selectedRun.model_snapshots.filter((item) => item.role === "judge").length
-                      } judge`}
-                    />
-                  </div>
-                </div>
+      <Modal
+        description="Embedded PDF preview of the generated benchmark report."
+        onClose={() => setPreviewRun(null)}
+        open={previewRun !== null}
+        size="xl"
+        title={previewRun ? `Report Preview · ${previewRun.name}` : "Report Preview"}
+      >
+        {previewRun ? (
+          <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-white">
+            <iframe
+              className="h-[78vh] w-full"
+              src={`${API_URL}/runs/${previewRun.id}/report/pdf`}
+              title={`Report preview for ${previewRun.name}`}
+            />
+          </div>
+        ) : null}
+      </Modal>
+    </div>
+  );
+}
 
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    disabled={resumeMutation.isPending}
-                    onClick={() => resumeMutation.mutate(selectedRun.id)}
-                    variant="secondary"
-                  >
-                    <Play className="mr-2 h-4 w-4" />
-                    {selectedRun.candidate_response_count === 0 ? "Launch candidates" : "Resume remote"}
-                  </Button>
-                </div>
-              </div>
+export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
+  const [activePhase, setActivePhase] = useState<RunPhaseKey>("phase1");
+  const [selectedResponseId, setSelectedResponseId] = useState<number | null>(null);
+  const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
+  const [selectedJudgeBatchId, setSelectedJudgeBatchId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [startingRemoteIds, setStartingRemoteIds] = useState<number[]>([]);
+  const [retryingResponseIds, setRetryingResponseIds] = useState<number[]>([]);
 
-              {feedback ? (
-                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
-                  {feedback}
-                </div>
-              ) : null}
+  const runQuery = useQuery({
+    queryKey: ["runs", runId],
+    queryFn: () => fetchRun(runId),
+    refetchInterval: (query) => {
+      const run = query.state.data as Run | undefined;
+      return run && !terminalStatuses.has(run.status) ? 4000 : false;
+    },
+  });
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <SummaryStat label="Launched" value={formatDate(selectedRun.launched_at)} />
-                <SummaryStat
-                  label="Completed"
-                  value={selectedRun.completed_at ? formatDate(selectedRun.completed_at) : "In progress"}
-                />
-                <SummaryStat label="Rubric" value={selectedRun.rubric_version} />
-                <SummaryStat
-                  label="Snapshots"
-                  value={`${selectedRun.prompt_snapshots.length + selectedRun.model_snapshots.length} records`}
-                />
-              </div>
-            </Card>
+  const responsesQuery = useQuery({
+    queryKey: ["runs", runId, "responses"],
+    queryFn: () => fetchRunResponses(runId),
+    refetchInterval: () =>
+      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
+  });
 
-            <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-              <SectionHeading
-                title="Progress Timeline"
-                description="Run phases are derived from persisted run and report statuses."
-              />
-              <div className="mt-5 grid gap-3 lg:grid-cols-5">
-                {buildTimeline(selectedRun, localNextQuery.data).map((step) => (
-                  <div
-                    key={step.title}
-                    className={cn(
-                      "rounded-[1.4rem] border px-4 py-4",
-                      step.state === "done" && "border-red-200 bg-red-50",
-                      step.state === "active" && "border-amber-200 bg-amber-50",
-                      step.state === "pending" && "border-border/80 bg-slate-50",
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      {step.state === "done" ? (
-                        <CheckCircle2 className="h-4 w-4 text-red-600" />
-                      ) : step.state === "active" ? (
-                        <LoaderCircle className="h-4 w-4 animate-spin text-amber-600" />
-                      ) : (
-                        <Clock3 className="h-4 w-4 text-slate-400" />
-                      )}
-                      <p className="text-sm font-semibold text-slate-950">{step.title}</p>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-600">{step.description}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
+  const hasLocalCandidates =
+    runQuery.data?.model_snapshots.some(
+      (item) => item.role === "candidate" && item.runtime_type === "local",
+    ) ?? false;
 
-            <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-              <SectionHeading
-                title="Candidate Response Status"
-                description="Every candidate response row is tracked independently by prompt snapshot and model snapshot."
-              />
-              <div className="mt-5 overflow-x-auto">
-                <table className="min-w-full divide-y divide-border/80 text-sm">
-                  <thead className="bg-slate-50 text-left text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Prompt</th>
-                      <th className="px-4 py-3 font-semibold">Candidate</th>
-                      <th className="px-4 py-3 font-semibold">Status</th>
-                      <th className="px-4 py-3 font-semibold">Duration</th>
-                      <th className="px-4 py-3 font-semibold">Tokens</th>
-                      <th className="px-4 py-3 font-semibold">Cost</th>
-                      <th className="px-4 py-3 font-semibold">Retries</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/70">
-                    {responsesQuery.isLoading ? (
-                      <tr>
-                        <td className="px-4 py-6 text-slate-500" colSpan={7}>
-                          Loading candidate responses...
-                        </td>
-                          </tr>
-                    ) : responses.length === 0 ? (
-                      <tr>
-                        <td className="px-4 py-6 text-slate-500" colSpan={7}>
-                          No responses recorded yet. Candidate execution has not produced persisted outputs yet.
-                        </td>
-                      </tr>
-                    ) : (
-                      responses.map((response) => {
-                        const prompt = promptById(selectedRun.prompt_snapshots, response.prompt_snapshot_id);
-                        const model = modelById(selectedRun.model_snapshots, response.model_snapshot_id);
+  const localNextQuery = useQuery({
+    queryKey: ["runs", runId, "local-next"],
+    queryFn: () => fetchLocalNext(runId),
+    enabled: hasLocalCandidates,
+    refetchInterval: () =>
+      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
+  });
 
-                        return (
-                          <tr
-                            key={response.id}
-                            className={cn(
-                              "cursor-pointer transition hover:bg-red-50/60",
-                              selectedResponseId === response.id && "bg-red-50",
-                            )}
-                            onClick={() => setSelectedResponseId(response.id)}
-                          >
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className="font-medium text-slate-950">{prompt?.name ?? "Unknown prompt"}</p>
-                                <p className="text-xs text-slate-500">{prompt?.category_name ?? "Unknown category"}</p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className="font-medium text-slate-950">{model?.display_name ?? "Unknown model"}</p>
-                                <p className="text-xs text-slate-500">
-                                  {model ? `${model.provider_type} / ${model.runtime_type}` : "Missing snapshot"}
-                                </p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <StatusPill status={response.status} />
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">
-                              {formatDuration(response.metric?.duration_ms)}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">
-                              {response.metric?.total_tokens ?? "—"}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">
-                              {formatCost(response.metric?.estimated_cost)}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">{response.retry_count}</td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+  const judgingQuery = useQuery({
+    queryKey: ["runs", runId, "judging"],
+    queryFn: () => fetchRunJudging(runId),
+    refetchInterval: () =>
+      runQuery.data && !terminalStatuses.has(runQuery.data.status) ? 4000 : false,
+  });
 
-            <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-              <SectionHeading
-                title="Aggregated Summaries"
-                description="Candidate-level aggregate scores, technical summaries, and the composite global score."
-              />
-              <div className="mt-5">
-                <AggregatedSummaryTable
-                  run={selectedRun}
-                />
-              </div>
-            </Card>
+  useEffect(() => {
+    const items = responsesQuery.data?.items ?? [];
+    if (items.length === 0) {
+      setSelectedResponseId(null);
+      setIsResponseModalOpen(false);
+      return;
+    }
 
-            <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-              <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-                <SectionHeading
-                  title="Selected Response"
-                  description="Inspect the normalized output, payload metadata, and any failure details."
-                />
-                {selectedResponse ? (
-                  <ResponseInspector
-                    model={modelById(selectedRun.model_snapshots, selectedResponse.model_snapshot_id)}
-                    prompt={promptById(selectedRun.prompt_snapshots, selectedResponse.prompt_snapshot_id)}
-                    response={selectedResponse}
+    if (selectedResponseId && items.some((item) => item.id === selectedResponseId)) {
+      return;
+    }
+
+    setSelectedResponseId(items[0].id);
+  }, [responsesQuery.data?.items, selectedResponseId]);
+
+  useEffect(() => {
+    const items = judgingQuery.data?.items ?? [];
+    if (items.length === 0) {
+      setSelectedJudgeBatchId(null);
+      return;
+    }
+
+    if (selectedJudgeBatchId && items.some((item) => item.id === selectedJudgeBatchId)) {
+      return;
+    }
+
+    setSelectedJudgeBatchId(items[0].id);
+  }, [judgingQuery.data?.items, selectedJudgeBatchId]);
+
+  const refreshRunData = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["runs"] }),
+      queryClient.invalidateQueries({ queryKey: ["runs", runId] }),
+      queryClient.invalidateQueries({ queryKey: ["runs", runId, "responses"] }),
+      queryClient.invalidateQueries({ queryKey: ["runs", runId, "local-next"] }),
+      queryClient.invalidateQueries({ queryKey: ["runs", runId, "judging"] }),
+    ]);
+  };
+
+  const resumeMutation = useMutation({
+    mutationFn: () => resumeRun(runId),
+    onSuccess: async () => {
+      setFeedback("Remote candidates resumed.");
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to resume run.");
+    },
+  });
+
+  const confirmLocalMutation = useMutation({
+    mutationFn: () => confirmLocalReady(runId),
+    onSuccess: async (payload) => {
+      setFeedback(`Local model "${payload.display_name}" marked ready.`);
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(
+        error instanceof ApiError ? error.message : "Unable to confirm local readiness.",
+      );
+    },
+  });
+
+  const startLocalMutation = useMutation({
+    mutationFn: () => startLocalCurrent(runId),
+    onSuccess: async () => {
+      setFeedback("Current local model started.");
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(
+        error instanceof ApiError ? error.message : "Unable to start local model.",
+      );
+    },
+  });
+
+  const handleStartRemoteCandidate = async (modelSnapshotId: number) => {
+    setStartingRemoteIds((current) => [...current, modelSnapshotId]);
+    try {
+      await startRemoteCandidate(runId, modelSnapshotId);
+      setFeedback("Endpoint candidate started.");
+      await refreshRunData();
+    } catch (error) {
+      setFeedback(
+        error instanceof ApiError ? error.message : "Unable to start endpoint candidate.",
+      );
+    } finally {
+      setStartingRemoteIds((current) => current.filter((item) => item !== modelSnapshotId));
+    }
+  };
+
+  const handleRetryResponse = async (responseId: number) => {
+    setRetryingResponseIds((current) => [...current, responseId]);
+    try {
+      await retryCandidateResponse(runId, responseId);
+      setFeedback("Prompt response retried.");
+      await refreshRunData();
+    } catch (error) {
+      setFeedback(
+        error instanceof ApiError ? error.message : "Unable to retry prompt response.",
+      );
+    } finally {
+      setRetryingResponseIds((current) => current.filter((item) => item !== responseId));
+    }
+  };
+
+  const retryJudgingMutation = useMutation({
+    mutationFn: () => retryRunJudging(runId),
+    onSuccess: async () => {
+      setFeedback("Judging retried.");
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to retry judging.");
+    },
+  });
+
+  const startJudgingMutation = useMutation({
+    mutationFn: () => startRunJudging(runId),
+    onSuccess: async () => {
+      setFeedback("Judging started.");
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to start judging.");
+    },
+  });
+
+  const generateReportMutation = useMutation({
+    mutationFn: () => generateRunReport(runId),
+    onSuccess: async () => {
+      setFeedback(null);
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to generate report.");
+    },
+  });
+
+  const downloadPdfMutation = useMutation({
+    mutationFn: () => downloadRunReportPdf(runId),
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to download PDF report.");
+    },
+  });
+
+  const selectedRun = runQuery.data;
+  const responses = responsesQuery.data?.items ?? [];
+  const selectedResponse = responses.find((item) => item.id === selectedResponseId) ?? null;
+  const judging = judgingQuery.data;
+  const selectedJudgeBatch =
+    judging?.items.find((item) => item.id === selectedJudgeBatchId) ?? null;
+  const candidateSnapshots = selectedRun
+    ? selectedRun.model_snapshots.filter((item) => item.role === "candidate")
+    : [];
+  const expectedResponses = selectedRun
+    ? selectedRun.prompt_snapshots.length * candidateSnapshots.length
+    : 0;
+  const completedCandidateResponses = responses.filter(
+    (item) => item.status === "completed",
+  ).length;
+  const allCandidatesReady =
+    expectedResponses > 0 &&
+    responses.length === expectedResponses &&
+    completedCandidateResponses === expectedResponses;
+  const judgingReady =
+    allCandidatesReady &&
+    !!judging &&
+    judging.total_batches > 0 &&
+    judging.completed_batches === judging.total_batches &&
+    judging.failed_batches === 0;
+  const phase1Progress =
+    expectedResponses > 0 ? completedCandidateResponses / expectedResponses : 0;
+  const phase2Progress =
+    judging && judging.total_batches > 0
+      ? judging.completed_batches / judging.total_batches
+      : 0;
+  const phase3Progress = selectedRun
+    ? selectedRun.report_status === "completed"
+      ? 1
+      : selectedRun.global_summaries.length > 0 || selectedRun.status === "reporting"
+        ? 0.65
+        : 0
+    : 0;
+
+  return (
+    <div className="px-5 py-8 lg:px-10 lg:py-10">
+      <div className="mb-6">
+        <Button onClick={onBack} variant="ghost">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to runs
+        </Button>
+      </div>
+
+      {selectedRun ? (
+        <div className="space-y-6">
+          <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
+                  Run #{selectedRun.id}
+                </p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                  {selectedRun.name}
+                </h2>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <StatusPill status={selectedRun.status} />
+                  <StatusPill
+                    label={`report ${selectedRun.report_status}`}
+                    status={selectedRun.report_status}
                   />
-                ) : (
-                  <p className="mt-5 text-sm text-slate-500">Select a response row to inspect details.</p>
-                )}
+                  <InfoTag
+                    label="Launched"
+                    tone="slate"
+                    value={formatDate(selectedRun.launched_at)}
+                  />
+                  <InfoTag
+                    label="Completed"
+                    tone={selectedRun.completed_at ? "emerald" : "amber"}
+                    value={
+                      selectedRun.completed_at
+                        ? formatDate(selectedRun.completed_at)
+                        : "In progress"
+                    }
+                  />
+                  <InfoTag
+                    label="Rubric"
+                    tone="sky"
+                    value={selectedRun.rubric_version}
+                  />
+                  <InfoTag
+                    label="Snapshots"
+                    tone="rose"
+                    value={`${
+                      selectedRun.prompt_snapshots.length + selectedRun.model_snapshots.length
+                    } records`}
+                  />
+                  <MetaPill label={`${selectedRun.prompt_snapshots.length} prompts`} />
+                  <MetaPill
+                    label={`${
+                      selectedRun.model_snapshots.filter((item) => item.role === "candidate")
+                        .length
+                    } candidates`}
+                  />
+                  <MetaPill
+                    label={`${
+                      selectedRun.model_snapshots.filter((item) => item.role === "judge").length
+                    } judge`}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  disabled={resumeMutation.isPending}
+                  onClick={() => resumeMutation.mutate()}
+                  variant="secondary"
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  {selectedRun.candidate_response_count === 0
+                    ? "Start all endpoints"
+                    : "Resume all endpoints"}
+                </Button>
+              </div>
+            </div>
+
+            {feedback ? (
+              <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+                {feedback}
+              </div>
+            ) : null}
+          </Card>
+
+          <RunPhaseSwitcher
+            activePhase={activePhase}
+            onPhaseChange={setActivePhase}
+            phase1Progress={phase1Progress}
+            phase2Progress={phase2Progress}
+            phase3Progress={phase3Progress}
+            phase2Unlocked={allCandidatesReady}
+            phase3Unlocked={judgingReady || selectedRun.report_status === "completed"}
+          />
+
+          {activePhase === "phase1" ? (
+            <div className="space-y-6">
+              <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <SectionHeading
+                    title="Phase 1 · Candidate Execution"
+                    description="Chaque LLM candidat exécute toute la liste de prompts. Les modèles endpoint tournent directement, les modèles locaux passent par un handoff LM Studio."
+                  />
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <SummaryStat label="Candidates" value={String(candidateSnapshots.length)} />
+                    <SummaryStat label="Expected Responses" value={String(expectedResponses)} />
+                    <SummaryStat
+                      label="Completed Responses"
+                      value={`${completedCandidateResponses}/${expectedResponses}`}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+                  {candidateSnapshots.map((candidate) => (
+                    <CandidateExecutionCard
+                      key={candidate.id}
+                      candidate={candidate}
+                      localState={localNextQuery.data}
+                      onConfirmReady={() => confirmLocalMutation.mutate()}
+                      onStartCurrent={() => startLocalMutation.mutate()}
+                      onStartEndpoint={() => handleStartRemoteCandidate(candidate.id)}
+                      promptCount={selectedRun.prompt_snapshots.length}
+                      responses={responses.filter((item) => item.model_snapshot_id === candidate.id)}
+                      runStatus={selectedRun.status}
+                      isConfirming={confirmLocalMutation.isPending}
+                      isStartingEndpoint={startingRemoteIds.includes(candidate.id)}
+                      isStarting={startLocalMutation.isPending}
+                    />
+                  ))}
+                </div>
               </Card>
 
-              <div className="space-y-6">
-                <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-                  <SectionHeading
-                    title="Local Operator Panel"
-                    description="Load the requested local model, confirm readiness, then start the current local batch."
-                  />
-                  <div className="mt-5">
-                    <LocalOperatorPanel
-                      hasLocalCandidates={hasLocalCandidates}
-                      isConfirming={confirmLocalMutation.isPending}
-                      isLoading={localNextQuery.isLoading}
-                      isStarting={startLocalMutation.isPending}
-                      localState={localNextQuery.data}
-                      onConfirmReady={() => confirmLocalMutation.mutate(selectedRun.id)}
-                      onStartCurrent={() => startLocalMutation.mutate(selectedRun.id)}
-                    />
-                  </div>
-                </Card>
+              <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+                <SectionHeading
+                  title="Phase 1 · Responses By Prompt"
+                  description="Une ligne = un prompt exécuté par un candidat. Clique une réponse pour ouvrir son inspection détaillée dans un grand modal."
+                />
+                <div className="mt-5 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-border/80 text-sm">
+                    <thead className="bg-slate-50 text-left text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Prompt</th>
+                        <th className="px-4 py-3 font-semibold">Candidate</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                        <th className="px-4 py-3 font-semibold">Duration</th>
+                        <th className="px-4 py-3 font-semibold">Tokens</th>
+                        <th className="px-4 py-3 font-semibold">Cost</th>
+                        <th className="px-4 py-3 font-semibold">Retries</th>
+                        <th className="px-4 py-3 font-semibold text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/70">
+                      {responsesQuery.isLoading ? (
+                        <tr>
+                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                            Loading candidate responses...
+                          </td>
+                        </tr>
+                      ) : responses.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                            No responses recorded yet. Candidate execution has not produced persisted outputs yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        responses.map((response) => {
+                          const prompt = promptById(
+                            selectedRun.prompt_snapshots,
+                            response.prompt_snapshot_id,
+                          );
+                          const model = modelById(
+                            selectedRun.model_snapshots,
+                            response.model_snapshot_id,
+                          );
 
-                <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-                  <SectionHeading
-                    title="Judge Batches"
-                    description="Track per-prompt judge execution and retry failed or missing batches."
+                          return (
+                              <tr
+                                key={response.id}
+                                className={cn(
+                                  "cursor-pointer transition hover:bg-slate-50",
+                                  selectedResponseId === response.id && "bg-slate-50",
+                                )}
+                                onClick={() => {
+                                  setSelectedResponseId(response.id);
+                                  setIsResponseModalOpen(true);
+                                }}
+                              >
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-medium text-slate-950">{prompt?.name ?? "Unknown prompt"}</p>
+                                  <p className="text-xs text-slate-500">{prompt?.category_name ?? "Unknown category"}</p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-medium text-slate-950">{model?.display_name ?? "Unknown model"}</p>
+                                  <p className="text-xs text-slate-500">
+                                    {model ? `${model.provider_type} / ${model.runtime_type}` : "Missing snapshot"}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusPill status={response.status} />
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {formatDuration(response.metric?.duration_ms)}
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {response.metric?.total_tokens ?? "—"}
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {formatCost(response.metric?.estimated_cost)}
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">{response.retry_count}</td>
+                              <td className="px-4 py-3 text-right">
+                                {["failed", "cancelled"].includes(response.status) ? (
+                                  <Button
+                                    disabled={retryingResponseIds.includes(response.id)}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void handleRetryResponse(response.id);
+                                    }}
+                                    size="sm"
+                                    type="button"
+                                    variant="secondary"
+                                  >
+                                    Retry
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-slate-400">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          ) : null}
+
+          {activePhase === "phase2" ? (
+            <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+              <SectionHeading
+                title="Phase 2 · Judging"
+                description="Cette phase se déverrouille uniquement quand tous les candidats ont fini tous les prompts."
+              />
+              {!allCandidatesReady ? (
+                <div className="mt-5">
+                  <LockedPhasePanel
+                    title="Phase 2 locked"
+                    description={`Candidate execution must finish first. ${completedCandidateResponses}/${expectedResponses} candidate responses are completed.`}
                   />
-                  <div className="mt-5">
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+                  <div>
                     <JudgeBatchPanel
                       isLoading={judgingQuery.isLoading}
+                      isStarting={startJudgingMutation.isPending}
                       isRetrying={retryJudgingMutation.isPending}
+                      canStart={allCandidatesReady && (!judging || judging.items.length === 0)}
                       judging={judging}
-                      onRetry={() => retryJudgingMutation.mutate(selectedRun.id)}
+                      onStart={() => startJudgingMutation.mutate()}
+                      onRetry={() => retryJudgingMutation.mutate()}
+                      promptSnapshots={selectedRun.prompt_snapshots}
                       onSelectBatch={setSelectedJudgeBatchId}
                       selectedBatchId={selectedJudgeBatchId}
                     />
                   </div>
-                </Card>
-
-                <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-                  <SectionHeading
-                    title="Judge Feedback"
-                    description="Display per-prompt judged scores, rankings, and written feedback for the selected batch."
-                  />
-                  <div className="mt-5">
+                  <div>
                     <JudgeFeedbackPanel
                       batch={selectedJudgeBatch}
                       prompt={
@@ -617,38 +770,99 @@ export function RunsPage({ initialRunId = null }: RunsPageProps) {
                       run={selectedRun}
                     />
                   </div>
-                </Card>
+                </div>
+              )}
+            </Card>
+          ) : null}
 
-                <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
-                  <SectionHeading
-                    title="Report Generation"
-                    description="HTML and PDF artifacts become available once aggregation and reporting complete."
+          {activePhase === "phase3" ? (
+            <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+              <SectionHeading
+                title="Phase 3 · Aggregation And Report"
+                description="Après les jugements, tu peux agréger les scores finaux puis générer les artefacts HTML et PDF."
+              />
+              {!judgingReady && selectedRun.report_status !== "completed" ? (
+                <div className="mt-5">
+                  <LockedPhasePanel
+                    title="Phase 3 locked"
+                    description="Judging must complete successfully for every batch before report generation is available."
                   />
-                  <div className="mt-5 space-y-3">
+                </div>
+              ) : (
+                <div className="mt-5 space-y-6">
+                  <div className="flex flex-wrap gap-3">
                     <Button
                       disabled={generateReportMutation.isPending}
-                      onClick={() => generateReportMutation.mutate(selectedRun.id)}
+                      onClick={() => generateReportMutation.mutate()}
                       variant="secondary"
                     >
                       Generate report artifacts
+                    </Button>
+                    <Button
+                      disabled={downloadPdfMutation.isPending}
+                      onClick={() => downloadPdfMutation.mutate()}
+                      variant="secondary"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download PDF
                     </Button>
                     <ReportRow label="Report status" value={selectedRun.report_status} />
                     <ReportRow label="HTML path" value={selectedRun.html_report_path ?? "Pending"} />
                     <ReportRow label="PDF path" value={selectedRun.pdf_report_path ?? "Pending"} />
                   </div>
-                </Card>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
-            <EmptyStatePanel
-              title="Select a run"
-              description="Pick a run from the list to inspect execution, judging, aggregation, and report artifacts."
-            />
-          </Card>
-        )}
-      </section>
+                  <PromptRankingMatrix
+                    judging={judging}
+                    responses={responses}
+                    run={selectedRun}
+                  />
+                  <AggregatedSummaryTable run={selectedRun} />
+                </div>
+              )}
+            </Card>
+          ) : null}
+        </div>
+      ) : runQuery.isLoading ? (
+        <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
+          <p className="text-sm text-slate-500">Loading run details...</p>
+        </Card>
+      ) : (
+        <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
+          <EmptyStatePanel
+            title="Run not found"
+            description="The requested run could not be loaded from the API."
+          />
+        </Card>
+      )}
+
+      <Modal
+        description="Inspection détaillée de la réponse sélectionnée, avec le payload, le texte normalisé et les métriques d'exécution."
+        onClose={() => setIsResponseModalOpen(false)}
+        open={isResponseModalOpen && selectedResponse !== null}
+        size="xxl"
+        tone="sky"
+        title={
+          selectedResponse
+            ? `Selected Response · ${
+                promptById(selectedRun?.prompt_snapshots ?? [], selectedResponse.prompt_snapshot_id)?.name ??
+                "Unknown prompt"
+              }`
+            : "Selected Response"
+        }
+      >
+        {selectedResponse && selectedRun ? (
+          <ResponseInspector
+            model={modelById(
+              selectedRun.model_snapshots,
+              selectedResponse.model_snapshot_id,
+            )}
+            prompt={promptById(
+              selectedRun.prompt_snapshots,
+              selectedResponse.prompt_snapshot_id,
+            )}
+            response={selectedResponse}
+          />
+        ) : null}
+      </Modal>
     </div>
   );
 }
@@ -658,6 +872,501 @@ function SectionHeading({ description, title }: { description: string; title: st
     <div>
       <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
       <p className="mt-1 text-sm text-slate-500">{description}</p>
+    </div>
+  );
+}
+
+function InfoTag({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: "slate" | "sky" | "amber" | "emerald" | "rose";
+  value: string;
+}) {
+  const toneClasses = {
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
+    sky: "border-sky-200 bg-sky-50 text-sky-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    rose: "border-rose-200 bg-rose-50 text-rose-700",
+  } as const;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold",
+        toneClasses[tone],
+      )}
+    >
+      <span className="uppercase tracking-[0.14em]">{label}</span>
+      <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+      <span className="normal-case tracking-normal">{value}</span>
+    </span>
+  );
+}
+
+function RunPhaseSwitcher({
+  activePhase,
+  onPhaseChange,
+  phase1Progress,
+  phase2Progress,
+  phase3Progress,
+  phase2Unlocked,
+  phase3Unlocked,
+}: {
+  activePhase: RunPhaseKey;
+  onPhaseChange: (phase: RunPhaseKey) => void;
+  phase1Progress: number;
+  phase2Progress: number;
+  phase3Progress: number;
+  phase2Unlocked: boolean;
+  phase3Unlocked: boolean;
+}) {
+  const phases = [
+    {
+      key: "phase1" as const,
+      label: "Phase 1",
+      subtitle: "Candidates",
+      icon: SquareTerminal,
+      progress: phase1Progress,
+      stageFill: "28%",
+      unlocked: true,
+      tint: {
+        border: "border-orange-200",
+        wash: "bg-white",
+        fill: "from-orange-100/90 via-orange-50/70 to-white/20",
+        icon: "bg-orange-50 text-orange-700",
+        text: "text-slate-950",
+        progress: "bg-orange-400",
+      },
+    },
+    {
+      key: "phase2" as const,
+      label: "Phase 2",
+      subtitle: "Judging",
+      icon: Gavel,
+      progress: phase2Progress,
+      stageFill: "56%",
+      unlocked: phase2Unlocked,
+      tint: {
+        border: "border-amber-200",
+        wash: "bg-white",
+        fill: "from-amber-100/90 via-amber-50/70 to-white/20",
+        icon: "bg-amber-50 text-amber-700",
+        text: "text-slate-950",
+        progress: "bg-amber-500",
+      },
+    },
+    {
+      key: "phase3" as const,
+      label: "Phase 3",
+      subtitle: "Report",
+      icon: Sparkles,
+      progress: phase3Progress,
+      stageFill: "84%",
+      unlocked: phase3Unlocked,
+      tint: {
+        border: "border-teal-200",
+        wash: "bg-white",
+        fill: "from-teal-100/90 via-teal-50/70 to-white/20",
+        icon: "bg-teal-50 text-teal-700",
+        text: "text-slate-950",
+        progress: "bg-teal-500",
+      },
+    },
+  ];
+
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {phases.map((phase) => {
+        const Icon = phase.icon;
+        const isActive = phase.key === activePhase;
+        const progressWidth = `${Math.max(0, Math.min(phase.progress, 1)) * 100}%`;
+
+        return (
+          <button
+            key={phase.key}
+            className={cn(
+              "group relative overflow-hidden rounded-[1.6rem] border bg-white text-left transition duration-200",
+              isActive
+                ? cn(phase.tint.border, "shadow-[0_22px_48px_-28px_rgba(15,23,42,0.28)]")
+                : "border-border/80 hover:border-slate-300",
+              !phase.unlocked && "opacity-80",
+            )}
+            disabled={!phase.unlocked}
+            onClick={() => onPhaseChange(phase.key)}
+            type="button"
+          >
+            <div
+              className={cn(
+                "absolute inset-0 transition-opacity duration-300",
+                phase.tint.wash,
+                isActive ? "opacity-100" : "opacity-50",
+              )}
+            />
+            <div
+              className={cn(
+                "absolute inset-y-0 left-0 bg-gradient-to-r transition-[width] duration-500 ease-out",
+                phase.tint.fill,
+              )}
+              style={{ width: phase.stageFill }}
+            />
+            <div className="absolute inset-x-4 bottom-3 h-[4px] overflow-hidden rounded-full bg-slate-200/70">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-[width] duration-500 ease-out",
+                  phase.tint.progress,
+                )}
+                style={{ width: progressWidth }}
+              />
+            </div>
+
+            <div className="relative flex items-start justify-between gap-3 px-4 py-4 pb-7">
+              <div className="space-y-2">
+                <span
+                  className={cn(
+                    "inline-flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm",
+                    phase.tint.icon,
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className={cn("text-base font-semibold", isActive ? phase.tint.text : "text-slate-950")}>
+                    {phase.label}
+                  </p>
+                  <p className="text-sm text-slate-500">{phase.subtitle}</p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <span
+                  className={cn(
+                    "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+                    isActive
+                      ? "bg-white/80 text-slate-700"
+                      : "bg-slate-100 text-slate-600",
+                  )}
+                >
+                  {!phase.unlocked ? "Locked" : isActive ? "Current" : "Open"}
+                </span>
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LockedPhasePanel({
+  description,
+  title,
+}: {
+  description: string;
+  title: string;
+}) {
+  return (
+    <div className="rounded-[1.4rem] border border-amber-200 bg-amber-50 p-4">
+      <p className="text-sm font-semibold text-amber-950">{title}</p>
+      <p className="mt-2 text-sm text-amber-900">{description}</p>
+    </div>
+  );
+}
+
+function CandidateExecutionCard({
+  candidate,
+  isConfirming,
+  isStartingEndpoint,
+  isStarting,
+  localState,
+  onConfirmReady,
+  onStartEndpoint,
+  onStartCurrent,
+  promptCount,
+  responses,
+  runStatus,
+}: {
+  candidate: RunModelSnapshot;
+  isConfirming: boolean;
+  isStartingEndpoint: boolean;
+  isStarting: boolean;
+  localState: LocalExecutionNextResponse | null | undefined;
+  onConfirmReady: () => void;
+  onStartEndpoint: () => void;
+  onStartCurrent: () => void;
+  promptCount: number;
+  responses: CandidateResponse[];
+  runStatus: string;
+}) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [detailSide, setDetailSide] = useState<"left" | "right">("right");
+  const completedCount = responses.filter((item) => item.status === "completed").length;
+  const runningCount = responses.filter((item) => item.status === "running").length;
+  const failedCount = responses.filter((item) =>
+    ["failed", "cancelled"].includes(item.status),
+  ).length;
+  const pendingCount = Math.max(promptCount - completedCount - failedCount, 0);
+  const isLocal = candidate.runtime_type === "local";
+  const isCurrentLocal = localState?.model_snapshot_id === candidate.id;
+  const completionRatio = promptCount > 0 ? completedCount / promptCount : 0;
+  const localInstructions =
+    localState?.local_load_instructions || "No local load instructions were provided.";
+  const startedCount = responses.filter(
+    (item) => item.retry_count > 0 || item.status !== "pending",
+  ).length;
+  const updateDetailSide = () => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+    const midpoint = rect.left + rect.width / 2;
+    setDetailSide(midpoint < window.innerWidth / 2 ? "right" : "left");
+  };
+  const candidateStatus = (() => {
+    if (completedCount === promptCount && promptCount > 0) {
+      return { status: "completed", label: "candidate ready" };
+    }
+    if (runningCount > 0) {
+      return {
+        status: "running",
+        label: isLocal ? "running local prompts" : "running endpoint prompts",
+      };
+    }
+    if (isLocal && isCurrentLocal && localState && !localState.confirmed_ready) {
+      return { status: "pending_local", label: "awaiting local load" };
+    }
+    if (isLocal && pendingCount > 0) {
+      return { status: "pending", label: isCurrentLocal ? "ready to start" : "queued local handoff" };
+    }
+    if (!isLocal && failedCount > 0 && pendingCount === 0) {
+      return { status: "failed", label: "endpoint failed" };
+    }
+    if (!isLocal && startedCount > 0 && pendingCount > 0) {
+      return { status: "running", label: "endpoint in progress" };
+    }
+    if (!isLocal) {
+      if (failedCount > 0) {
+        return { status: "failed", label: "endpoint failed" };
+      }
+      return { status: "pending", label: "ready to launch" };
+    }
+    return { status: runStatus, label: undefined };
+  })();
+
+  return (
+    <div
+      ref={cardRef}
+      className="group relative"
+      onFocus={updateDetailSide}
+      onMouseEnter={updateDetailSide}
+    >
+      <div className="relative overflow-hidden rounded-[1.35rem] border border-border/80 bg-[linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(255,255,255,0.98))] p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_36px_-26px_rgba(15,23,42,0.35)]">
+        <div
+          className={cn(
+            "absolute inset-x-0 top-0 h-1 rounded-t-[1.35rem] bg-gradient-to-r",
+            isLocal
+              ? "from-emerald-300 via-emerald-200 to-emerald-100"
+              : "from-sky-300 via-slate-200 to-slate-100",
+          )}
+          style={{ width: `${Math.max(completionRatio * 100, 14)}%` }}
+        />
+
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-950">
+              {candidate.display_name}
+            </p>
+            <p className="mt-1 truncate text-xs text-slate-500">
+              {candidate.provider_type} / {candidate.runtime_type}
+            </p>
+          </div>
+          <MetaPill label={isLocal ? "Local" : "Endpoint"} />
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <StatusPill status={candidateStatus.status} label={candidateStatus.label} />
+          <div className="text-right">
+            <p className="text-lg font-semibold text-slate-950">
+              {completedCount}/{promptCount}
+            </p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">done</p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <CompactMetric label="P" value={String(promptCount)} />
+          <CompactMetric label="Run" value={String(runningCount)} />
+          <CompactMetric label="Left" value={String(pendingCount)} />
+        </div>
+
+        {isLocal && isCurrentLocal ? (
+          <div className="mt-3 flex gap-2">
+            <Button
+              className="flex-1"
+              disabled={isConfirming}
+              onClick={onConfirmReady}
+              size="sm"
+              variant="secondary"
+            >
+              Ready
+            </Button>
+            <Button
+              className="flex-1"
+              disabled={!localState?.confirmed_ready || isStarting}
+              onClick={onStartCurrent}
+              size="sm"
+            >
+              Start
+            </Button>
+          </div>
+        ) : !isLocal ? (
+          <div className="mt-3 flex gap-2">
+            <Button
+              className="flex-1"
+              disabled={isStartingEndpoint || completedCount === promptCount}
+              onClick={onStartEndpoint}
+              size="sm"
+              variant="secondary"
+            >
+              {completedCount === promptCount ? "Completed" : isStartingEndpoint ? "Starting..." : "Start"}
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-slate-400">
+          <span>{isLocal ? "Hover for handoff" : "Hover for endpoint"}</span>
+          <span>{failedCount > 0 ? `${failedCount} failed` : "details"}</span>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "pointer-events-none absolute z-30 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+          "left-0 right-0 top-full mt-2",
+          "md:top-1/2 md:mt-0 md:w-[34rem] md:-translate-y-1/2",
+          detailSide === "right"
+            ? "md:left-full md:right-auto md:ml-3"
+            : "md:right-full md:left-auto md:mr-3",
+        )}
+      >
+        <div className="rounded-[1.3rem] border border-slate-200 bg-white/98 p-4 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.45)] ring-1 ring-slate-950/5 backdrop-blur-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-950">
+                {candidate.display_name}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {isLocal
+                  ? "Local candidate. Load it in LM Studio, confirm readiness, then start the current handoff."
+                  : "Remote candidate. Endpoint execution can run in parallel with every other remote candidate."}
+              </p>
+            </div>
+            <StatusPill status={candidateStatus.status} label={candidateStatus.label} />
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-[0.82fr_1.18fr]">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <CompactDetail label="Prompts" value={String(promptCount)} />
+                <CompactDetail label="Completed" value={String(completedCount)} />
+                <CompactDetail label="Running" value={String(runningCount)} />
+                <CompactDetail label="Remaining" value={String(pendingCount)} />
+              </div>
+              <CompactDetail
+                label="Machine"
+                value={
+                  isLocal && isCurrentLocal && localState
+                    ? localState.machine_label ?? "Current machine"
+                    : candidate.machine_label ?? "Managed endpoint"
+                }
+              />
+            </div>
+
+            <div className="space-y-3">
+              <CompactDetail
+                label="Endpoint"
+                value={
+                  isLocal && isCurrentLocal && localState
+                    ? localState.endpoint_url
+                    : candidate.endpoint_url
+                }
+              />
+              <CompactDetail label="Model ID" value={candidate.model_identifier} />
+
+              {isLocal ? (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
+                    LM Studio Instructions
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-emerald-950">
+                    {isCurrentLocal && localState
+                      ? localInstructions
+                      : "This local candidate is queued and will expose its handoff details when it becomes the active local model."}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {isLocal && isCurrentLocal ? (
+            <div className="mt-4 flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={isConfirming}
+                onClick={onConfirmReady}
+                size="sm"
+                variant="secondary"
+              >
+                Confirm ready
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!localState?.confirmed_ready || isStarting}
+                onClick={onStartCurrent}
+                size="sm"
+              >
+                Start current model
+              </Button>
+            </div>
+          ) : !isLocal ? (
+            <div className="mt-4 flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={isStartingEndpoint || completedCount === promptCount}
+                onClick={onStartEndpoint}
+                size="sm"
+                variant="secondary"
+              >
+                {completedCount === promptCount ? "Completed" : isStartingEndpoint ? "Starting endpoint" : "Start endpoint"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-white px-2.5 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function CompactDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 text-sm leading-6 text-slate-900">{value}</p>
     </div>
   );
 }
@@ -685,7 +1394,7 @@ function StatusPill({ label, status }: { label?: string; status: string }) {
       className={cn(
         "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize",
         status === "completed" && "bg-red-100 text-red-900",
-        ["running", "running_candidates", "waiting_local", "judging", "aggregating", "reporting"].includes(status) &&
+        ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(status) &&
           "bg-amber-100 text-amber-900",
         ["failed", "cancelled"].includes(status) && "bg-rose-100 text-rose-900",
         ["pending", "pending_local"].includes(status) && "bg-slate-100 text-slate-700",
@@ -739,6 +1448,155 @@ function ResponseInspector({
         <pre className="mt-3 overflow-x-auto text-sm leading-6 text-slate-700">
           {response.request_payload_jsonb || "No payload persisted yet."}
         </pre>
+      </div>
+    </div>
+  );
+}
+
+function PromptRankingMatrix({
+  judging,
+  responses,
+  run,
+}: {
+  judging: RunJudging | undefined;
+  responses: CandidateResponse[];
+  run: Run;
+}) {
+  const completedBatches =
+    judging?.items.filter((batch) => batch.status === "completed" && batch.evaluation) ?? [];
+  const candidates = run.model_snapshots.filter((item) => item.role === "candidate");
+
+  if (completedBatches.length === 0 || candidates.length === 0) {
+    return (
+      <EmptyStatePanel
+        title="No prompt ranking yet"
+        description="Prompt-by-prompt ranking becomes available after judge batches complete."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <SectionHeading
+        title="Prompt Ranking Matrix"
+        description="Une colonne par prompt. Le meilleur score de chaque prompt ressort visuellement dans la matrice."
+      />
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-border/80 text-sm">
+          <thead className="bg-slate-50 text-left text-slate-500">
+            <tr>
+              <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3 font-semibold">
+                Candidate
+              </th>
+              {completedBatches.map((batch) => {
+                const prompt = promptById(run.prompt_snapshots, batch.prompt_snapshot_id);
+                const topScore = Math.max(
+                  ...batch.evaluation!.candidates.map((item) => Number(item.overall_score) || 0),
+                );
+
+                return (
+                  <th key={batch.id} className="min-w-[12rem] px-4 py-3 font-semibold">
+                    <div>
+                      <p className="font-semibold text-slate-700">
+                        {prompt?.name ?? `Prompt #${batch.prompt_snapshot_id}`}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Best score {formatScore(String(topScore))}
+                      </p>
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/70">
+            {candidates.map((candidate) => (
+              <tr key={candidate.id}>
+                <td className="sticky left-0 z-10 bg-white px-4 py-4">
+                  <div>
+                    <p className="font-medium text-slate-950">{candidate.display_name}</p>
+                    <p className="text-xs text-slate-500">
+                      {candidate.provider_type} / {candidate.runtime_type}
+                    </p>
+                  </div>
+                </td>
+                {completedBatches.map((batch) => {
+                  const evaluationCandidate = batch.evaluation?.candidates.find((item) => {
+                    const response = responses.find(
+                      (responseItem) => responseItem.id === item.candidate_response_id,
+                    );
+                    return response?.model_snapshot_id === candidate.id;
+                  });
+
+                  if (!evaluationCandidate) {
+                    return (
+                      <td key={`${candidate.id}-${batch.id}`} className="px-4 py-4">
+                        <span className="text-xs text-slate-400">No score</span>
+                      </td>
+                    );
+                  }
+
+                  const allScores = batch.evaluation?.candidates.map(
+                    (item) => Number(item.overall_score) || 0,
+                  ) ?? [0];
+                  const bestScore = Math.max(...allScores);
+                  const candidateScore = Number(evaluationCandidate.overall_score) || 0;
+                  const isBest = candidateScore === bestScore;
+
+                  return (
+                    <td key={`${candidate.id}-${batch.id}`} className="px-4 py-4 align-top">
+                      <div
+                        className={cn(
+                          "grid min-h-[11rem] grid-rows-[auto_auto_1fr] rounded-[1rem] border p-4",
+                          isBest
+                            ? "border-emerald-200 bg-emerald-50 shadow-[0_16px_36px_-28px_rgba(16,185,129,0.55)]"
+                            : "border-border/80 bg-slate-50",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              Score
+                            </p>
+                            <p
+                              className={cn(
+                                "mt-1 text-4xl font-semibold leading-none tracking-tight",
+                                isBest ? "text-emerald-950" : "text-slate-950",
+                              )}
+                            >
+                              {formatScore(evaluationCandidate.overall_score)}
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "inline-flex min-w-[3.75rem] items-center justify-center rounded-full px-3 py-1.5 text-base font-semibold",
+                              isBest
+                                ? "bg-emerald-100 text-emerald-900"
+                                : "bg-slate-100 text-slate-600",
+                            )}
+                          >
+                            #{evaluationCandidate.ranking_in_batch}
+                          </span>
+                        </div>
+                        <p
+                          className={cn(
+                            "mt-4 text-xs font-semibold uppercase tracking-[0.18em]",
+                            isBest ? "text-emerald-700" : "text-slate-400",
+                          )}
+                        >
+                          {isBest ? "Best score" : "Ranked"}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          {evaluationCandidate.short_feedback ?? "No short feedback."}
+                        </p>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -836,132 +1694,26 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
   );
 }
 
-function LocalOperatorPanel({
-  hasLocalCandidates,
-  isConfirming,
-  isLoading,
-  isStarting,
-  localState,
-  onConfirmReady,
-  onStartCurrent,
-}: {
-  hasLocalCandidates: boolean;
-  isConfirming: boolean;
-  isLoading: boolean;
-  isStarting: boolean;
-  localState: LocalExecutionNextResponse | null | undefined;
-  onConfirmReady: () => void;
-  onStartCurrent: () => void;
-}) {
-  if (!hasLocalCandidates) {
-    return (
-      <EmptyStatePanel
-        title="No local candidates"
-        description="This run can execute fully remotely, so no operator handoff is required."
-      />
-    );
-  }
-
-  if (isLoading) {
-    return <p className="text-sm text-slate-500">Loading local execution queue...</p>;
-  }
-
-  if (!localState) {
-    return (
-      <EmptyStatePanel
-        title="No local work remains"
-        description="All queued local prompts have already been completed for this run."
-        tone="success"
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-[1.4rem] border border-border/80 bg-slate-50 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-lg font-semibold text-slate-950">{localState.display_name}</p>
-            <p className="mt-1 text-sm text-slate-500">
-              {localState.provider_type} · {localState.runtime_type} · {localState.model_identifier}
-            </p>
-          </div>
-          <StatusPill
-            status={localState.confirmed_ready ? "running" : "pending"}
-            label={localState.confirmed_ready ? "ready confirmed" : "awaiting operator"}
-          />
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <SummaryStat
-            label="Endpoint"
-            value={localState.endpoint_url}
-          />
-          <SummaryStat
-            label="Machine"
-            value={localState.machine_label ?? "Current machine"}
-          />
-        </div>
-
-        <div className="mt-4 rounded-[1rem] border border-border/80 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Load Instructions
-          </p>
-          <p className="mt-2 text-sm leading-6 text-slate-700">
-            {localState.local_load_instructions || "No local load instructions were provided."}
-          </p>
-        </div>
-      </div>
-
-      <div className="rounded-[1.4rem] border border-border/80 bg-white p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">Pending prompt queue</p>
-            <p className="mt-1 text-sm text-slate-500">
-              {localState.pending_prompt_count} prompts remain for this local model.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button disabled={isConfirming} onClick={onConfirmReady} variant="secondary">
-              Confirm ready
-            </Button>
-            <Button
-              disabled={!localState.confirmed_ready || isStarting}
-              onClick={onStartCurrent}
-            >
-              Start current model
-            </Button>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          {localState.prompts.map((item) => (
-            <div
-              key={item.prompt_snapshot_id}
-              className="flex items-center justify-between gap-3 rounded-[1rem] border border-border/80 bg-slate-50 px-3 py-3"
-            >
-              <p className="text-sm font-medium text-slate-950">{item.prompt_name}</p>
-              <StatusPill status={item.response_status} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function JudgeBatchPanel({
   isLoading,
+  isStarting,
   isRetrying,
+  canStart,
   judging,
+  onStart,
   onRetry,
+  promptSnapshots,
   onSelectBatch,
   selectedBatchId,
 }: {
   isLoading: boolean;
+  isStarting: boolean;
   isRetrying: boolean;
+  canStart: boolean;
   judging: RunJudging | undefined;
+  onStart: () => void;
   onRetry: () => void;
+  promptSnapshots: RunPromptSnapshot[];
   onSelectBatch: (batchId: number) => void;
   selectedBatchId: number | null;
 }) {
@@ -974,11 +1726,13 @@ function JudgeBatchPanel({
       <div className="space-y-4">
         <EmptyStatePanel
           title="No judge batches yet"
-          description="Judging starts after all candidate responses have been collected."
+          description="Phase 1 is complete. Start judging manually to create one judge batch per prompt."
         />
-        <Button disabled={isRetrying} onClick={onRetry} variant="secondary">
-          Retry judging
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button disabled={!canStart || isStarting} onClick={onStart} variant="secondary">
+            Start judging
+          </Button>
+        </div>
       </div>
     );
   }
@@ -991,31 +1745,35 @@ function JudgeBatchPanel({
         <SummaryStat label="Pending" value={String(judging.pending_batches)} />
       </div>
       <div className="space-y-2">
-        {judging.items.map((batch) => (
-          <button
-            key={batch.id}
-            className={cn(
-              "flex w-full items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 text-left transition hover:bg-red-50/60",
-              selectedBatchId === batch.id
-                ? "border-red-200 bg-red-50"
-                : "border-border/80 bg-slate-50",
-            )}
-            onClick={() => onSelectBatch(batch.id)}
-            type="button"
-          >
-            <div>
-              <p className="text-sm font-medium text-slate-950">
-                Prompt snapshot #{batch.prompt_snapshot_id}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Batch {batch.batch_index} · {batch.evaluation?.candidates.length ?? 0} candidates
-              </p>
-            </div>
-            <StatusPill status={batch.status} />
-          </button>
-        ))}
+        {judging.items.map((batch) => {
+          const prompt = promptById(promptSnapshots, batch.prompt_snapshot_id);
+
+          return (
+            <button
+              key={batch.id}
+              className={cn(
+                "flex w-full items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 text-left transition hover:bg-slate-100",
+                selectedBatchId === batch.id
+                  ? "border-slate-200 bg-slate-50"
+                  : "border-border/80 bg-slate-50",
+              )}
+              onClick={() => onSelectBatch(batch.id)}
+              type="button"
+            >
+              <div>
+                <p className="text-sm font-medium text-slate-950">
+                  {prompt?.name ?? `Prompt snapshot #${batch.prompt_snapshot_id}`}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Batch {batch.batch_index} · {batch.evaluation?.candidates.length ?? 0} candidates
+                </p>
+              </div>
+              <StatusPill status={batch.status} />
+            </button>
+          );
+        })}
       </div>
-      <Button disabled={isRetrying} onClick={onRetry} variant="secondary">
+      <Button disabled={isRetrying || isStarting} onClick={onRetry} variant="secondary">
         Retry judging
       </Button>
     </div>
@@ -1118,7 +1876,7 @@ function JudgeCandidateCard({
             scoreToneClasses(candidate.overall_score, "soft"),
           )}
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             Overall
           </p>
           <p className="mt-1 text-2xl font-semibold">
@@ -1237,14 +1995,14 @@ function EmptyStatePanel({
       className={cn(
         "rounded-[1.4rem] border p-4",
         tone === "success"
-          ? "border-red-200 bg-red-50"
+          ? "border-emerald-200 bg-emerald-50"
           : "border-border/80 bg-slate-50",
       )}
     >
       <p
         className={cn(
           "text-sm font-semibold",
-          tone === "success" ? "text-red-950" : "text-slate-950",
+          tone === "success" ? "text-emerald-950" : "text-slate-950",
         )}
       >
         {title}
@@ -1252,67 +2010,13 @@ function EmptyStatePanel({
       <p
         className={cn(
           "mt-2 text-sm",
-          tone === "success" ? "text-red-900" : "text-slate-600",
+          tone === "success" ? "text-emerald-900" : "text-slate-600",
         )}
       >
         {description}
       </p>
     </div>
   );
-}
-
-function buildTimeline(run: Run, localState: LocalExecutionNextResponse | null | undefined) {
-  const hasLocalCandidates = run.model_snapshots.some(
-    (item) => item.role === "candidate" && item.runtime_type === "local",
-  );
-  const afterCandidates = [
-    "waiting_local",
-    "judging",
-    "aggregating",
-    "reporting",
-    "completed",
-    "failed",
-    "cancelled",
-  ].includes(run.status);
-  const afterLocal = ["judging", "aggregating", "reporting", "completed"].includes(run.status);
-  const afterJudging = ["aggregating", "reporting", "completed"].includes(run.status);
-  const afterReporting = ["completed"].includes(run.status) || run.report_status === "completed";
-
-  return [
-    {
-      title: "Snapshot",
-      state: "done",
-      description: "Session prompts and models have been frozen into this run snapshot.",
-    },
-    {
-      title: "Candidates",
-      state: run.status === "running_candidates" ? "active" : afterCandidates ? "done" : "pending",
-      description: "Remote candidates execute automatically and persist response metrics.",
-    },
-    {
-      title: "Local Operator",
-      state: hasLocalCandidates
-        ? run.status === "waiting_local"
-          ? "active"
-          : afterLocal && !localState
-            ? "done"
-            : "pending"
-        : "done",
-      description: hasLocalCandidates
-        ? "Manual operator steps unblock local model execution one model at a time."
-        : "No local candidates are attached to this run.",
-    },
-    {
-      title: "Judging",
-      state: run.status === "judging" ? "active" : afterJudging ? "done" : "pending",
-      description: "Judge batches evaluate anonymized candidate outputs after collection completes.",
-    },
-    {
-      title: "Reporting",
-      state: run.status === "reporting" ? "active" : afterReporting ? "done" : "pending",
-      description: "Aggregation and report artifact generation prepare HTML and PDF output.",
-    },
-  ] as const;
 }
 
 function promptById(items: RunPromptSnapshot[], id: number) {
@@ -1368,13 +2072,13 @@ function scoreToneClasses(
 
   if (parsed >= 85) {
     return variant === "badge"
-      ? "bg-red-100 text-red-900"
-      : "border-red-200 bg-red-50 text-red-950";
+      ? "bg-emerald-100 text-emerald-900"
+      : "border-emerald-200 bg-emerald-50 text-emerald-950";
   }
   if (parsed >= 70) {
     return variant === "badge"
-      ? "bg-red-100 text-red-900"
-      : "border-red-200 bg-red-50 text-red-950";
+      ? "bg-sky-100 text-sky-900"
+      : "border-sky-200 bg-sky-50 text-sky-950";
   }
   if (parsed >= 55) {
     return variant === "badge"

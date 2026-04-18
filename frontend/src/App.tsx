@@ -7,11 +7,11 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ModelRegistryPage } from "@/features/models/model-registry-page";
 import { PromptLibraryPage } from "@/features/prompts/prompt-library-page";
-import { RunsPage } from "@/features/runs/runs-page";
+import { RunDetailPage, RunsPage } from "@/features/runs/runs-page";
 import { SessionsPage } from "@/features/sessions/sessions-page";
 import { queryClient } from "@/lib/query-client";
 import { cn } from "@/lib/utils";
@@ -82,26 +82,74 @@ const viewThemes: Record<
   },
   runs: {
     brandAccent: "text-red-500",
-    pageGlow: "rgba(239, 68, 68, 0.14)",
+    pageGlow: "rgba(239, 68, 68, 0.1)",
     railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.18),_transparent_55%)]",
-    railOrb: "bg-[rgba(239,68,68,0.12)]",
+      "bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.14),_transparent_55%)]",
+    railOrb: "bg-[rgba(239,68,68,0.09)]",
   },
 };
 
 export function App() {
   const [view, setView] = useState<View>("sessions");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const syncRoute = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      const segments = hash.split("/").filter(Boolean);
+
+      if (segments[0] === "runs") {
+        setView("runs");
+        if (segments[1]) {
+          const parsed = Number(segments[1]);
+          setSelectedRunId(Number.isFinite(parsed) ? parsed : null);
+          return;
+        }
+        setSelectedRunId(null);
+        return;
+      }
+
+      const nextView = segments[0];
+      if (nextView === "prompts" || nextView === "models" || nextView === "sessions") {
+        setView(nextView);
+        setSelectedRunId(null);
+        return;
+      }
+
+      setView("sessions");
+      setSelectedRunId(null);
+    };
+
+    syncRoute();
+    window.addEventListener("hashchange", syncRoute);
+    return () => window.removeEventListener("hashchange", syncRoute);
+  }, []);
+
+  const navigateToView = (nextView: View) => {
+    window.location.hash = nextView === "sessions" ? "/sessions" : `/${nextView}`;
+  };
+
+  const navigateToRun = (runId: number) => {
+    window.location.hash = `/runs/${runId}`;
+  };
+
+  const navigateToRunsList = () => {
+    window.location.hash = "/runs";
+  };
+
   const activeView =
     navigationItems.find((item) => item.id === view) ?? navigationItems[0];
   const activeTheme = viewThemes[view];
+  const isRunDetailView = view === "runs" && selectedRunId !== null;
 
   return (
     <QueryClientProvider client={queryClient}>
       <div
         className="min-h-screen xl:pr-[23rem]"
         style={{
-          backgroundImage: `radial-gradient(circle at top, ${activeTheme.pageGlow}, transparent 28%)`,
+          backgroundImage: isRunDetailView
+            ? "none"
+            : `radial-gradient(circle at top, ${activeTheme.pageGlow}, transparent 28%)`,
         }}
       >
         <div className="xl:hidden">
@@ -144,7 +192,7 @@ export function App() {
                             ? "border-slate-900 bg-slate-950 text-white shadow-lg shadow-slate-900/15"
                             : "border-slate-200 bg-white/80 text-slate-700 hover:border-slate-300 hover:bg-slate-50",
                         )}
-                        onClick={() => setView(item.id)}
+                        onClick={() => navigateToView(item.id)}
                         type="button"
                       >
                         <span
@@ -223,7 +271,7 @@ export function App() {
                           ? "border-slate-900 bg-slate-950 text-white shadow-[0_24px_50px_-30px_rgba(15,23,42,0.95)]"
                           : "border-white/70 bg-white/75 text-slate-700 hover:border-slate-300 hover:bg-white",
                       )}
-                      onClick={() => setView(item.id)}
+                      onClick={() => navigateToView(item.id)}
                       type="button"
                     >
                       <span
@@ -272,12 +320,16 @@ export function App() {
           {view === "sessions" ? (
             <SessionsPage
               onOpenRun={(runId) => {
-                setSelectedRunId(runId);
-                setView("runs");
+                navigateToRun(runId);
               }}
             />
           ) : null}
-          {view === "runs" ? <RunsPage initialRunId={selectedRunId} /> : null}
+          {view === "runs" && selectedRunId === null ? (
+            <RunsPage onOpenRun={navigateToRun} />
+          ) : null}
+          {view === "runs" && selectedRunId !== null ? (
+            <RunDetailPage onBack={navigateToRunsList} runId={selectedRunId} />
+          ) : null}
         </main>
       </div>
     </QueryClientProvider>
