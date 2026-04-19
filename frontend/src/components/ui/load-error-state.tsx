@@ -1,4 +1,5 @@
 import { RotateCcw, TriangleAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,32 +12,6 @@ type LoadErrorStateProps = {
   resourceLabel: string;
 };
 
-function buildErrorCopy(message: string, resourceLabel: string): {
-  description: string;
-  title: string;
-} {
-  const normalizedMessage = message.toLowerCase();
-
-  if (normalizedMessage.includes("database unavailable")) {
-    return {
-      title: "Database offline",
-      description: `BenchForge couldn't load ${resourceLabel} because the database connection is unavailable.`,
-    };
-  }
-
-  if (normalizedMessage.includes("backend unavailable")) {
-    return {
-      title: "Backend offline",
-      description: `BenchForge couldn't reach the API while loading ${resourceLabel}. Start the backend and try again.`,
-    };
-  }
-
-  return {
-    title: `Unable to load ${resourceLabel}`,
-    description: message,
-  };
-}
-
 export function LoadErrorState({
   className,
   compact = false,
@@ -44,7 +19,22 @@ export function LoadErrorState({
   onRetry,
   resourceLabel,
 }: LoadErrorStateProps) {
-  const copy = buildErrorCopy(message, resourceLabel);
+  const { t } = useTranslation();
+  const normalizedMessage = message.toLowerCase();
+
+  let title: string;
+  let description: string;
+
+  if (normalizedMessage.includes("database unavailable")) {
+    title = t("error.databaseOffline");
+    description = t("error.databaseOfflineDesc", { resource: resourceLabel });
+  } else if (normalizedMessage.includes("backend unavailable")) {
+    title = t("error.backendOffline");
+    description = t("error.backendOfflineDesc", { resource: resourceLabel });
+  } else {
+    title = t("error.unableToLoad", { resource: resourceLabel });
+    description = message;
+  }
 
   return (
     <div
@@ -60,10 +50,10 @@ export function LoadErrorState({
 
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--theme-danger-foreground))]">
-          {copy.title}
+          {title}
         </p>
         <p className="mt-1 text-sm leading-6 text-[hsl(var(--theme-danger-foreground)/0.92)]">
-          {copy.description}
+          {description}
         </p>
       </div>
 
@@ -76,7 +66,7 @@ export function LoadErrorState({
           variant="secondary"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Retry
+          {t("error.retry")}
         </Button>
       ) : null}
     </div>

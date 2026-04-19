@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Activity,
   ArrowLeft,
@@ -81,6 +82,7 @@ function isServiceAvailabilityError(message: string | null): boolean {
 }
 
 export function RunsPage({ onOpenRun }: RunsPageProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [previewRun, setPreviewRun] = useState<{ id: number; name: string } | null>(null);
 
@@ -126,10 +128,10 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
         <div className="relative flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center xl:gap-4">
           <div className="relative max-w-[30rem] space-y-2">
             <span className="inline-flex rounded-full border border-rose-200 bg-[hsl(var(--surface)/0.85)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--foreground-soft))]">
-              Execution Monitor
+              {t("runs.executionMonitor")}
             </span>
             <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
-              Runs
+              {t("runs.pageTitle")}
             </h1>
           </div>
           <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
@@ -137,7 +139,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={Activity}
-              label="Visible Runs"
+              label={t("runs.metricVisible")}
               tone="red"
               value={String(visibleRuns.length)}
             />
@@ -145,7 +147,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={CheckCircle2}
-              label="Completed"
+              label={t("runs.metricCompleted")}
               tone="red"
               value={String(completedRuns)}
             />
@@ -153,7 +155,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={SquareTerminal}
-              label="Active Runs"
+              label={t("runs.metricActive")}
               tone="red"
               value={String(activeRuns)}
             />
@@ -161,7 +163,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={Gavel}
-              label="Reports Ready"
+              label={t("runs.metricReports")}
               tone="red"
               value={String(readyReports)}
             />
@@ -174,13 +176,13 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
           <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Runs List</h2>
+                <h2 className="text-lg font-semibold text-foreground">{t("runs.listTitle")}</h2>
               </div>
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
-                  placeholder="Search runs"
+                  placeholder={t("runs.searchPlaceholder")}
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -192,18 +194,18 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             <LoadErrorState
               message={loadError}
               onRetry={retryLoad}
-              resourceLabel="runs"
+              resourceLabel={t("runs.pageTitle")}
             />
           ) : null}
 
           <div className="divide-y divide-border/70">
             {runsQuery.isLoading ? (
-              <div className="px-4 py-10 text-[0.92rem] text-[hsl(var(--foreground-soft))]">Loading runs...</div>
+              <div className="px-4 py-10 text-[0.92rem] text-[hsl(var(--foreground-soft))]">{t("runs.loading")}</div>
             ) : visibleRuns.length === 0 ? (
               <div className="px-4 py-7">
                 <EmptyStatePanel
-                  title="No runs found"
-                  description="Launch a benchmark from the Sessions page to create the first immutable run snapshot."
+                  title={t("runs.noRuns")}
+                  description=""
                 />
               </div>
             ) : (
@@ -256,11 +258,11 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
       </section>
 
       <Modal
-        description="Embedded PDF preview of the generated benchmark report."
+        description={t("runs.preview.title")}
         onClose={() => setPreviewRun(null)}
         open={previewRun !== null}
         size="xl"
-        title={previewRun ? `Report Preview · ${previewRun.name}` : "Report Preview"}
+        title={previewRun ? `${t("runs.preview.title")} · ${previewRun.name}` : t("runs.preview.title")}
       >
         {previewRun ? (
           <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface))]">
