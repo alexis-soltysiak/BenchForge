@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18next from "i18next";
 import {
   Activity,
   ArrowLeft,
@@ -79,6 +81,7 @@ function isServiceAvailabilityError(message: string | null): boolean {
 }
 
 export function RunsPage({ onOpenRun }: RunsPageProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [previewRun, setPreviewRun] = useState<{ id: number; name: string } | null>(null);
 
@@ -117,25 +120,29 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
   };
 
   return (
-    <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-      <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
-        <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-        <div className="relative flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center xl:gap-4">
-          <div className="relative max-w-[30rem] space-y-2">
-            <span className="inline-flex rounded-full border border-rose-200 bg-[hsl(var(--surface)/0.85)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--foreground-soft))]">
-              Execution Monitor
+    <div className="px-5 py-8 lg:px-10 lg:py-10">
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.16),_transparent_30%),linear-gradient(135deg,_rgba(255,244,245,0.92),_rgba(255,255,255,0.98)_44%,_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
+        <div className="relative flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_48rem] xl:items-end">
+          <div className="max-w-3xl space-y-4">
+            <span className="inline-flex rounded-full border border-rose-200 bg-white/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-700">
+              {t("runs.list.hero.badge")}
             </span>
-            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
-              Runs
-            </h1>
+            <div className="space-y-3">
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">
+                {t("runs.list.hero.title")}
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-slate-600">
+                {t("runs.list.hero.description")}
+              </p>
+            </div>
           </div>
           <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               compact
               className="rounded-[1.2rem]"
               icon={Activity}
-              label="Visible Runs"
+              label={t("runs.list.metrics.visible")}
               tone="red"
               value={String(visibleRuns.length)}
             />
@@ -143,7 +150,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={CheckCircle2}
-              label="Completed"
+              label={t("runs.list.metrics.completed")}
               tone="red"
               value={String(completedRuns)}
             />
@@ -151,7 +158,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={SquareTerminal}
-              label="Active Runs"
+              label={t("runs.list.metrics.active")}
               tone="red"
               value={String(activeRuns)}
             />
@@ -159,7 +166,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={Gavel}
-              label="Reports Ready"
+              label={t("runs.list.metrics.reports")}
               tone="red"
               value={String(readyReports)}
             />
@@ -172,13 +179,16 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
           <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Runs List</h2>
+                <h2 className="text-xl font-semibold text-slate-950">{t("runs.list.card.title")}</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t("runs.list.card.description")}
+                </p>
               </div>
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
-                  placeholder="Search runs"
+                  className="pl-9"
+                  placeholder={t("runs.list.card.searchPlaceholder")}
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -196,12 +206,12 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
 
           <div className="divide-y divide-border/70">
             {runsQuery.isLoading ? (
-              <div className="px-4 py-10 text-[0.92rem] text-[hsl(var(--foreground-soft))]">Loading runs...</div>
+              <div className="px-5 py-12 text-sm text-slate-500">{t("runs.list.card.loading")}</div>
             ) : visibleRuns.length === 0 ? (
               <div className="px-4 py-7">
                 <EmptyStatePanel
-                  title="No runs found"
-                  description="Launch a benchmark from the Sessions page to create the first immutable run snapshot."
+                  title={t("runs.list.card.empty.title")}
+                  description={t("runs.list.card.empty.description")}
                 />
               </div>
             ) : (
@@ -216,10 +226,9 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-[0.95rem] font-semibold text-foreground">{item.name}</p>
-                      <p className="mt-1 text-[0.92rem] text-[hsl(var(--foreground-soft))]">
-                        Session #{item.session_id} · {item.prompt_count} prompts ·{" "}
-                        {item.model_count} models
+                      <p className="text-sm font-semibold text-slate-950">{item.name}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {t("runs.list.card.sessionInfo", { id: item.session_id, prompts: item.prompt_count, models: item.model_count })}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -241,10 +250,10 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                       <StatusPill status={item.status} />
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-[hsl(var(--foreground-soft))]">
-                    <span>Report {item.report_status}</span>
-                    <span>Rubric {item.rubric_version}</span>
-                    <span>Launched {formatDate(item.launched_at)}</span>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                    <span>{t("runs.list.card.reportStatus", { status: item.report_status })}</span>
+                    <span>{t("runs.list.card.rubric", { version: item.rubric_version })}</span>
+                    <span>{t("runs.list.card.launched", { date: formatDate(item.launched_at) })}</span>
                   </div>
                 </button>
               ))
@@ -254,11 +263,11 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
       </section>
 
       <Modal
-        description="Embedded PDF preview of the generated benchmark report."
+        description={t("runs.list.preview.description")}
         onClose={() => setPreviewRun(null)}
         open={previewRun !== null}
         size="xl"
-        title={previewRun ? `Report Preview · ${previewRun.name}` : "Report Preview"}
+        title={previewRun ? t("runs.list.preview.title", { name: previewRun.name }) : t("runs.list.preview.defaultTitle")}
       >
         {previewRun ? (
           <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface))]">
@@ -275,6 +284,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
 }
 
 export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
+  const { t } = useTranslation();
   const [activePhase, setActivePhase] = useState<RunPhaseKey>("phase1");
   const [selectedResponseId, setSelectedResponseId] = useState<number | null>(null);
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
@@ -373,23 +383,23 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const resumeMutation = useMutation({
     mutationFn: () => resumeRun(runId),
     onSuccess: async () => {
-      setFeedback("Remote candidates resumed.");
+      setFeedback(t("runs.feedback.resumed"));
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to resume run.");
+      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.resumeFailed"));
     },
   });
 
   const confirmLocalMutation = useMutation({
     mutationFn: () => confirmLocalReady(runId),
     onSuccess: async (payload) => {
-      setFeedback(`Local model "${payload.display_name}" marked ready.`);
+      setFeedback(t("runs.feedback.localReady", { name: payload.display_name }));
       await refreshRunData();
     },
     onError: (error) => {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to confirm local readiness.",
+        error instanceof ApiError ? error.message : t("runs.feedback.localReadyFailed"),
       );
     },
   });
@@ -397,12 +407,12 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const startLocalMutation = useMutation({
     mutationFn: () => startLocalCurrent(runId),
     onSuccess: async () => {
-      setFeedback("Current local model started.");
+      setFeedback(t("runs.feedback.localStarted"));
       await refreshRunData();
     },
     onError: (error) => {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to start local model.",
+        error instanceof ApiError ? error.message : t("runs.feedback.localStartFailed"),
       );
     },
   });
@@ -411,11 +421,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setStartingRemoteIds((current) => [...current, modelSnapshotId]);
     try {
       await startRemoteCandidate(runId, modelSnapshotId);
-      setFeedback("Endpoint candidate started.");
+      setFeedback(t("runs.feedback.endpointStarted"));
       await refreshRunData();
     } catch (error) {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to start endpoint candidate.",
+        error instanceof ApiError ? error.message : t("runs.feedback.endpointStartFailed"),
       );
     } finally {
       setStartingRemoteIds((current) => current.filter((item) => item !== modelSnapshotId));
@@ -426,11 +436,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setRetryingResponseIds((current) => [...current, responseId]);
     try {
       await retryCandidateResponse(runId, responseId);
-      setFeedback("Prompt response retried.");
+      setFeedback(t("runs.feedback.responsRetried"));
       await refreshRunData();
     } catch (error) {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to retry prompt response.",
+        error instanceof ApiError ? error.message : t("runs.feedback.responseRetryFailed"),
       );
     } finally {
       setRetryingResponseIds((current) => current.filter((item) => item !== responseId));
@@ -440,11 +450,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const retryJudgingMutation = useMutation({
     mutationFn: () => retryRunJudging(runId),
     onSuccess: async () => {
-      setFeedback("Judging retried.");
+      setFeedback(t("runs.feedback.judgingRetried"));
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to retry judging.");
+      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.judgingRetryFailed"));
     },
   });
 
@@ -452,10 +462,10 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setRetryingBatchIds((current) => [...current, batchId]);
     try {
       await retryJudgeBatch(runId, batchId);
-      setFeedback("Batch retried.");
+      setFeedback(t("runs.feedback.batchRetried"));
       await refreshRunData();
     } catch (error) {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to retry batch.");
+      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.batchRetryFailed"));
     } finally {
       setRetryingBatchIds((current) => current.filter((item) => item !== batchId));
     }
@@ -464,11 +474,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const startJudgingMutation = useMutation({
     mutationFn: () => startRunJudging(runId),
     onSuccess: async () => {
-      setFeedback("Judging started.");
+      setFeedback(t("runs.feedback.judgingStarted"));
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to start judging.");
+      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.judgingStartFailed"));
     },
   });
 
@@ -479,14 +489,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to generate report.");
+      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.reportFailed"));
     },
   });
 
   const downloadPdfMutation = useMutation({
     mutationFn: () => downloadRunReportPdf(runId),
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to download PDF report.");
+      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.pdfFailed"));
     },
   });
 
@@ -548,7 +558,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
       <div className="mb-6">
         <Button onClick={onBack} variant="ghost">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to runs
+          {t("common.back")}
         </Button>
       </div>
 
@@ -557,8 +567,8 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                  Run #{selectedRun.id}
+                <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
+                  {t("runs.detail.runLabel", { id: selectedRun.id })}
                 </p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                   {selectedRun.name}
@@ -566,46 +576,39 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <StatusPill status={selectedRun.status} />
                   <StatusPill
-                    label={`report ${selectedRun.report_status}`}
+                    label={t("runs.list.card.reportStatus", { status: selectedRun.report_status })}
                     status={selectedRun.report_status}
                   />
                   <InfoTag
-                    label="Launched"
+                    label={t("runs.detail.launched")}
                     tone="slate"
                     value={formatDate(selectedRun.launched_at)}
                   />
                   <InfoTag
-                    label="Completed"
+                    label={t("runs.detail.completed")}
                     tone={selectedRun.completed_at ? "emerald" : "amber"}
                     value={
                       selectedRun.completed_at
                         ? formatDate(selectedRun.completed_at)
-                        : "In progress"
+                        : t("runs.detail.inProgress")
                     }
                   />
                   <InfoTag
-                    label="Rubric"
+                    label={t("runs.detail.rubric")}
                     tone="sky"
                     value={selectedRun.rubric_version}
                   />
                   <InfoTag
-                    label="Snapshots"
+                    label={t("runs.detail.snapshots")}
                     tone="rose"
-                    value={`${
-                      selectedRun.prompt_snapshots.length + selectedRun.model_snapshots.length
-                    } records`}
+                    value={t("runs.detail.records", { count: selectedRun.prompt_snapshots.length + selectedRun.model_snapshots.length })}
                   />
-                  <MetaPill label={`${selectedRun.prompt_snapshots.length} prompts`} />
+                  <MetaPill label={t("runs.detail.prompts", { count: selectedRun.prompt_snapshots.length })} />
                   <MetaPill
-                    label={`${
-                      selectedRun.model_snapshots.filter((item) => item.role === "candidate")
-                        .length
-                    } candidates`}
+                    label={t("runs.detail.candidates", { count: selectedRun.model_snapshots.filter((item) => item.role === "candidate").length })}
                   />
                   <MetaPill
-                    label={`${
-                      selectedRun.model_snapshots.filter((item) => item.role === "judge").length
-                    } judge`}
+                    label={t("runs.detail.judge", { count: selectedRun.model_snapshots.filter((item) => item.role === "judge").length })}
                   />
                 </div>
               </div>
@@ -618,8 +621,8 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 >
                   <Play className="mr-2 h-4 w-4" />
                   {selectedRun.candidate_response_count === 0
-                    ? "Start all endpoints"
-                    : "Resume all endpoints"}
+                    ? t("runs.detail.startAllEndpoints")
+                    : t("runs.detail.resumeAllEndpoints")}
                 </Button>
               </div>
             </div>
@@ -668,14 +671,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
               <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <SectionHeading
-                    title="Phase 1 · Candidate Execution"
-                    description="Chaque LLM candidat exécute toute la liste de prompts. Les modèles endpoint tournent directement, les modèles locaux passent par un handoff LM Studio."
+                    title={t("runs.phase1.executionTitle")}
+                    description={t("runs.phase1.executionDescription")}
                   />
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <SummaryStat label="Candidates" value={String(candidateSnapshots.length)} />
-                    <SummaryStat label="Expected Responses" value={String(expectedResponses)} />
+                    <SummaryStat label={t("runs.phase1.candidates")} value={String(candidateSnapshots.length)} />
+                    <SummaryStat label={t("runs.phase1.expectedResponses")} value={String(expectedResponses)} />
                     <SummaryStat
-                      label="Completed Responses"
+                      label={t("runs.phase1.completedResponses")}
                       value={`${completedCandidateResponses}/${expectedResponses}`}
                     />
                   </div>
@@ -703,34 +706,34 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
               <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <SectionHeading
-                  title="Phase 1 · Responses By Prompt"
-                  description="Une ligne = un prompt exécuté par un candidat. Clique une réponse pour ouvrir son inspection détaillée dans un grand modal."
+                  title={t("runs.phase1.responsesTitle")}
+                  description={t("runs.phase1.responsesDescription")}
                 />
                 <div className="mt-5 overflow-x-auto">
                   <table className="min-w-full divide-y divide-border/80 text-sm">
                     <thead className="bg-[hsl(var(--surface-muted))] text-left text-[hsl(var(--foreground-soft))]">
                       <tr>
-                        <th className="px-4 py-3 font-semibold">Prompt</th>
-                        <th className="px-4 py-3 font-semibold">Candidate</th>
-                        <th className="px-4 py-3 font-semibold">Status</th>
-                        <th className="px-4 py-3 font-semibold">Duration</th>
-                        <th className="px-4 py-3 font-semibold">Tokens</th>
-                        <th className="px-4 py-3 font-semibold">Cost</th>
-                        <th className="px-4 py-3 font-semibold">Retries</th>
-                        <th className="px-4 py-3 font-semibold text-right">Action</th>
+                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.prompt")}</th>
+                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.candidate")}</th>
+                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.status")}</th>
+                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.duration")}</th>
+                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.tokens")}</th>
+                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.cost")}</th>
+                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.retries")}</th>
+                        <th className="px-4 py-3 font-semibold text-right">{t("runs.phase1.table.action")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/70">
                       {responsesQuery.isLoading ? (
                         <tr>
-                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
-                            Loading candidate responses...
+                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                            {t("runs.phase1.table.loading")}
                           </td>
                         </tr>
                       ) : responses.length === 0 ? (
                         <tr>
-                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
-                            No responses recorded yet. Candidate execution has not produced persisted outputs yet.
+                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                            {t("runs.phase1.table.empty")}
                           </td>
                         </tr>
                       ) : (
@@ -763,15 +766,15 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                               >
                               <td className="px-4 py-3">
                                 <div>
-                                  <p className="font-medium text-foreground">{prompt?.name ?? "Unknown prompt"}</p>
-                                  <p className="text-xs text-[hsl(var(--foreground-soft))]">{prompt?.category_name ?? "Unknown category"}</p>
+                                  <p className="font-medium text-slate-950">{prompt?.name ?? t("runs.phase1.unknownPrompt")}</p>
+                                  <p className="text-xs text-slate-500">{prompt?.category_name ?? t("runs.phase1.unknownCategory")}</p>
                                 </div>
                               </td>
                               <td className="px-4 py-3">
                                 <div>
-                                  <p className="font-medium text-foreground">{model?.display_name ?? "Unknown model"}</p>
-                                  <p className="text-xs text-[hsl(var(--foreground-soft))]">
-                                    {model ? `${model.provider_type} / ${model.runtime_type}` : "Missing snapshot"}
+                                  <p className="font-medium text-slate-950">{model?.display_name ?? t("runs.phase1.unknownModel")}</p>
+                                  <p className="text-xs text-slate-500">
+                                    {model ? `${model.provider_type} / ${model.runtime_type}` : t("runs.phase1.missingSnapshot")}
                                   </p>
                                 </div>
                               </td>
@@ -811,7 +814,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                     type="button"
                                     variant="secondary"
                                   >
-                                    Retry
+                                    {t("common.retry")}
                                   </Button>
                                 ) : (
                                   <span className="text-xs text-[hsl(var(--foreground-soft))]">—</span>
@@ -831,14 +834,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           {activePhase === "phase2" ? (
             <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
               <SectionHeading
-                title="Phase 2 · Judging"
-                description="Cette phase se déverrouille uniquement quand tous les candidats ont fini tous les prompts."
+                title={t("runs.phase2.title")}
+                description={t("runs.phase2.description")}
               />
               {!allCandidatesReady ? (
                 <div className="mt-5">
                   <LockedPhasePanel
-                    title="Phase 2 locked"
-                    description={`Candidate execution must finish first. ${completedCandidateResponses}/${expectedResponses} candidate responses are completed.`}
+                    title={t("runs.phase2.lockedTitle")}
+                    description={t("runs.phase2.lockedDescription", { completed: completedCandidateResponses, expected: expectedResponses })}
                   />
                 </div>
               ) : (
@@ -882,14 +885,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           {activePhase === "phase3" ? (
             <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
               <SectionHeading
-                title="Phase 3 · Aggregation And Report"
-                description="Après les jugements, tu peux agréger les scores finaux puis générer les artefacts HTML et PDF."
+                title={t("runs.phase3.title")}
+                description={t("runs.phase3.description")}
               />
               {!judgingReady && selectedRun.report_status !== "completed" ? (
                 <div className="mt-5">
                   <LockedPhasePanel
-                    title="Phase 3 locked"
-                    description="Judging must complete successfully for every batch before report generation is available."
+                    title={t("runs.phase3.lockedTitle")}
+                    description={t("runs.phase3.lockedDescription")}
                   />
                 </div>
               ) : (
@@ -900,7 +903,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                       onClick={() => generateReportMutation.mutate()}
                       variant="secondary"
                     >
-                      Generate report artifacts
+                      {t("runs.phase3.generateArtifacts")}
                     </Button>
                     <Button
                       disabled={downloadPdfMutation.isPending}
@@ -908,11 +911,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                       variant="secondary"
                     >
                       <Download className="mr-2 h-4 w-4" />
-                      Download PDF
+                      {t("runs.phase3.downloadPdf")}
                     </Button>
-                    <ReportRow label="Report status" value={selectedRun.report_status} />
-                    <ReportRow label="HTML path" value={selectedRun.html_report_path ?? "Pending"} />
-                    <ReportRow label="PDF path" value={selectedRun.pdf_report_path ?? "Pending"} />
+                    <ReportRow label={t("runs.phase3.reportStatus")} value={selectedRun.report_status} />
+                    <ReportRow label={t("runs.phase3.htmlPath")} value={selectedRun.html_report_path ?? t("runs.phase3.pending")} />
+                    <ReportRow label={t("runs.phase3.pdfPath")} value={selectedRun.pdf_report_path ?? t("runs.phase3.pending")} />
                   </div>
                   <PromptRankingMatrix
                     judging={judging}
@@ -926,31 +929,30 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           ) : null}
         </div>
       ) : runQuery.isLoading ? (
-        <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-6 shadow-sm">
-          <p className="text-sm text-[hsl(var(--foreground-soft))]">Loading run details...</p>
+        <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
+          <p className="text-sm text-slate-500">{t("common.loading")}</p>
         </Card>
       ) : (
         <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-6 shadow-sm">
           <EmptyStatePanel
-            title="Run not found"
-            description="The requested run could not be loaded from the API."
+            title={t("runs.list.card.empty.title")}
+            description={t("runs.list.card.empty.description")}
           />
         </Card>
       )}
 
       <Modal
-        description="Inspection détaillée de la réponse sélectionnée, avec le payload, le texte normalisé et les métriques d'exécution."
+        description={t("runs.response.description")}
         onClose={() => setIsResponseModalOpen(false)}
         open={isResponseModalOpen && selectedResponse !== null}
         size="xxl"
         tone="sky"
         title={
           selectedResponse
-            ? `Selected Response · ${
-                promptById(selectedRun?.prompt_snapshots ?? [], selectedResponse.prompt_snapshot_id)?.name ??
-                "Unknown prompt"
-              }`
-            : "Selected Response"
+            ? t("runs.response.title", {
+                prompt: promptById(selectedRun?.prompt_snapshots ?? [], selectedResponse.prompt_snapshot_id)?.name ?? t("runs.phase1.unknownPrompt")
+              })
+            : t("runs.response.defaultTitle")
         }
       >
         {selectedResponse && selectedRun ? (
@@ -1028,11 +1030,12 @@ function RunPhaseSwitcher({
   phase2Unlocked: boolean;
   phase3Unlocked: boolean;
 }) {
+  const { t } = useTranslation();
   const phases = [
     {
       key: "phase1" as const,
-      label: "Phase 1",
-      subtitle: "Candidates",
+      label: t("runs.phases.phase1.label"),
+      subtitle: t("runs.phases.phase1.subtitle"),
       icon: SquareTerminal,
       progress: phase1Progress,
       stageFill: "28%",
@@ -1048,8 +1051,8 @@ function RunPhaseSwitcher({
     },
     {
       key: "phase2" as const,
-      label: "Phase 2",
-      subtitle: "Judging",
+      label: t("runs.phases.phase2.label"),
+      subtitle: t("runs.phases.phase2.subtitle"),
       icon: Gavel,
       progress: phase2Progress,
       stageFill: "56%",
@@ -1065,8 +1068,8 @@ function RunPhaseSwitcher({
     },
     {
       key: "phase3" as const,
-      label: "Phase 3",
-      subtitle: "Report",
+      label: t("runs.phases.phase3.label"),
+      subtitle: t("runs.phases.phase3.subtitle"),
       icon: Sparkles,
       progress: phase3Progress,
       stageFill: "84%",
@@ -1153,7 +1156,7 @@ function RunPhaseSwitcher({
                       : "bg-slate-100 text-slate-600",
                   )}
                 >
-                  {!phase.unlocked ? "Locked" : isActive ? "Current" : "Open"}
+                  {!phase.unlocked ? t("runs.phases.locked") : isActive ? t("runs.phases.current") : t("runs.phases.open")}
                 </span>
               </div>
             </div>
@@ -1204,6 +1207,7 @@ function CandidateExecutionCard({
   responses: CandidateResponse[];
   runStatus: string;
 }) {
+  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [detailSide, setDetailSide] = useState<"left" | "right">("right");
   const completedCount = responses.filter((item) => item.status === "completed").length;
@@ -1216,7 +1220,7 @@ function CandidateExecutionCard({
   const isCurrentLocal = localState?.model_snapshot_id === candidate.id;
   const completionRatio = promptCount > 0 ? completedCount / promptCount : 0;
   const localInstructions =
-    localState?.local_load_instructions || "No local load instructions were provided.";
+    localState?.local_load_instructions || t("runs.phase1.noLocalInstructions");
   const startedCount = responses.filter(
     (item) => item.retry_count > 0 || item.status !== "pending",
   ).length;
@@ -1230,31 +1234,31 @@ function CandidateExecutionCard({
   };
   const candidateStatus = (() => {
     if (completedCount === promptCount && promptCount > 0) {
-      return { status: "completed", label: "candidate ready" };
+      return { status: "completed", label: t("runs.candidate.status.candidateReady") };
     }
     if (runningCount > 0) {
       return {
         status: "running",
-        label: isLocal ? "running local prompts" : "running endpoint prompts",
+        label: isLocal ? t("runs.candidate.status.runningLocal") : t("runs.candidate.status.runningEndpoint"),
       };
     }
     if (isLocal && isCurrentLocal && localState && !localState.confirmed_ready) {
-      return { status: "pending_local", label: "awaiting local load" };
+      return { status: "pending_local", label: t("runs.candidate.status.awaitingLocalLoad") };
     }
     if (isLocal && pendingCount > 0) {
-      return { status: "pending", label: isCurrentLocal ? "ready to start" : "queued local handoff" };
+      return { status: "pending", label: isCurrentLocal ? t("runs.candidate.status.readyToStart") : t("runs.candidate.status.queuedLocalHandoff") };
     }
     if (!isLocal && failedCount > 0 && pendingCount === 0) {
-      return { status: "failed", label: "endpoint failed" };
+      return { status: "failed", label: t("runs.candidate.status.endpointFailed") };
     }
     if (!isLocal && startedCount > 0 && pendingCount > 0) {
-      return { status: "running", label: "endpoint in progress" };
+      return { status: "running", label: t("runs.candidate.status.endpointInProgress") };
     }
     if (!isLocal) {
       if (failedCount > 0) {
-        return { status: "failed", label: "endpoint failed" };
+        return { status: "failed", label: t("runs.candidate.status.endpointFailed") };
       }
-      return { status: "pending", label: "ready to launch" };
+      return { status: "pending", label: t("runs.candidate.status.readyToLaunch") };
     }
     return { status: runStatus, label: undefined };
   })();
@@ -1295,7 +1299,7 @@ function CandidateExecutionCard({
             <p className="text-lg font-semibold text-slate-950">
               {completedCount}/{promptCount}
             </p>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">done</p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">{t("runs.phase1.done")}</p>
           </div>
         </div>
 
@@ -1314,7 +1318,7 @@ function CandidateExecutionCard({
               size="sm"
               variant="secondary"
             >
-              Ready
+              {t("runs.phase1.ready")}
             </Button>
             <Button
               className="flex-1"
@@ -1322,7 +1326,7 @@ function CandidateExecutionCard({
               onClick={onStartCurrent}
               size="sm"
             >
-              Start
+              {t("common.start")}
             </Button>
           </div>
         ) : !isLocal ? (
@@ -1334,14 +1338,14 @@ function CandidateExecutionCard({
               size="sm"
               variant="secondary"
             >
-              {completedCount === promptCount ? "Completed" : isStartingEndpoint ? "Starting..." : "Start"}
+              {completedCount === promptCount ? t("runs.phase1.completed_label") : isStartingEndpoint ? t("runs.phase1.startingEndpoint") : t("common.start")}
             </Button>
           </div>
         ) : null}
 
         <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-slate-400">
-          <span>{isLocal ? "Hover for handoff" : "Hover for endpoint"}</span>
-          <span>{failedCount > 0 ? `${failedCount} failed` : "details"}</span>
+          <span>{isLocal ? t("runs.phase1.hoverHandoff") : t("runs.phase1.hoverEndpoint")}</span>
+          <span>{failedCount > 0 ? t("runs.phase1.failed", { count: failedCount }) : t("runs.phase1.details")}</span>
         </div>
       </div>
 
@@ -1363,8 +1367,8 @@ function CandidateExecutionCard({
               </p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
                 {isLocal
-                  ? "Local candidate. Load it in LM Studio, confirm readiness, then start the current handoff."
-                  : "Remote candidate. Endpoint execution can run in parallel with every other remote candidate."}
+                  ? t("runs.phase1.localCandidateDesc")
+                  : t("runs.phase1.remoteCandidateDesc")}
               </p>
             </div>
             <StatusPill status={candidateStatus.status} label={candidateStatus.label} />
@@ -1373,41 +1377,41 @@ function CandidateExecutionCard({
           <div className="mt-4 grid gap-3 md:grid-cols-[0.82fr_1.18fr]">
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <CompactDetail label="Prompts" value={String(promptCount)} />
-                <CompactDetail label="Completed" value={String(completedCount)} />
-                <CompactDetail label="Running" value={String(runningCount)} />
-                <CompactDetail label="Remaining" value={String(pendingCount)} />
+                <CompactDetail label={t("runs.phase1.prompts")} value={String(promptCount)} />
+                <CompactDetail label={t("runs.phase1.completed_label")} value={String(completedCount)} />
+                <CompactDetail label={t("runs.phase1.running")} value={String(runningCount)} />
+                <CompactDetail label={t("runs.phase1.remaining")} value={String(pendingCount)} />
               </div>
               <CompactDetail
-                label="Machine"
+                label={t("runs.phase1.machine")}
                 value={
                   isLocal && isCurrentLocal && localState
-                    ? localState.machine_label ?? "Current machine"
-                    : candidate.machine_label ?? "Managed endpoint"
+                    ? localState.machine_label ?? t("runs.phase1.currentMachine")
+                    : candidate.machine_label ?? t("runs.phase1.managedEndpoint")
                 }
               />
             </div>
 
             <div className="space-y-3">
               <CompactDetail
-                label="Endpoint"
+                label={t("runs.phase1.endpoint")}
                 value={
                   isLocal && isCurrentLocal && localState
                     ? localState.endpoint_url
                     : candidate.endpoint_url
                 }
               />
-              <CompactDetail label="Model ID" value={candidate.model_identifier} />
+              <CompactDetail label={t("runs.phase1.modelId")} value={candidate.model_identifier} />
 
               {isLocal ? (
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
-                    LM Studio Instructions
+                    {t("runs.phase1.lmStudioInstructions")}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-emerald-950">
                     {isCurrentLocal && localState
                       ? localInstructions
-                      : "This local candidate is queued and will expose its handoff details when it becomes the active local model."}
+                      : t("runs.phase1.queuedLocal")}
                   </p>
                 </div>
               ) : null}
@@ -1423,7 +1427,7 @@ function CandidateExecutionCard({
                 size="sm"
                 variant="secondary"
               >
-                Confirm ready
+                {t("runs.phase1.confirmReady")}
               </Button>
               <Button
                 className="flex-1"
@@ -1431,7 +1435,7 @@ function CandidateExecutionCard({
                 onClick={onStartCurrent}
                 size="sm"
               >
-                Start current model
+                {t("runs.phase1.startCurrentModel")}
               </Button>
             </div>
           ) : !isLocal ? (
@@ -1443,7 +1447,7 @@ function CandidateExecutionCard({
                 size="sm"
                 variant="secondary"
               >
-                {completedCount === promptCount ? "Completed" : isStartingEndpoint ? "Starting endpoint" : "Start endpoint"}
+                {completedCount === promptCount ? t("runs.phase1.completed_label") : isStartingEndpoint ? t("runs.phase1.startingEndpoint") : t("runs.phase1.startEndpoint")}
               </Button>
             </div>
           ) : null}
@@ -1518,26 +1522,27 @@ function ResponseInspector({
   prompt: RunPromptSnapshot | undefined;
   response: CandidateResponse;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mt-5 space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <SummaryStat label="Prompt" value={prompt?.name ?? "Unknown prompt"} />
-        <SummaryStat label="Candidate" value={model?.display_name ?? "Unknown model"} />
+        <SummaryStat label={t("runs.response.promptLabel")} value={prompt?.name ?? t("runs.response.unknownPrompt")} />
+        <SummaryStat label={t("runs.response.candidateLabel")} value={model?.display_name ?? t("runs.response.unknownModel")} />
       </div>
 
       <div className="rounded-[1.25rem] border border-border/80 bg-slate-50 p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Normalized Response
+          {t("runs.response.normalizedResponse")}
         </p>
         <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">
-          {response.normalized_response_text || "No normalized response recorded yet."}
+          {response.normalized_response_text || t("runs.response.noNormalizedResponse")}
         </pre>
       </div>
 
       {response.error_message ? (
         <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">
-            Error
+            {t("runs.response.error")}
           </p>
           <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-rose-900">
             {response.error_message}
@@ -1547,10 +1552,10 @@ function ResponseInspector({
 
       <div className="rounded-[1.25rem] border border-border/80 bg-slate-50 p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Request Payload
+          {t("runs.response.requestPayload")}
         </p>
         <pre className="mt-3 overflow-x-auto text-sm leading-6 text-slate-700">
-          {response.request_payload_jsonb || "No payload persisted yet."}
+          {response.request_payload_jsonb || t("runs.response.noPayload")}
         </pre>
       </div>
     </div>
@@ -1566,6 +1571,7 @@ function PromptRankingMatrix({
   responses: CandidateResponse[];
   run: Run;
 }) {
+  const { t } = useTranslation();
   const completedBatches =
     judging?.items.filter((batch) => batch.status === "completed" && batch.evaluation) ?? [];
   const candidates = run.model_snapshots.filter((item) => item.role === "candidate");
@@ -1573,8 +1579,8 @@ function PromptRankingMatrix({
   if (completedBatches.length === 0 || candidates.length === 0) {
     return (
       <EmptyStatePanel
-        title="No prompt ranking yet"
-        description="Prompt-by-prompt ranking becomes available after judge batches complete."
+        title={t("runs.ranking.noRankingTitle")}
+        description={t("runs.ranking.noRankingDesc")}
       />
     );
   }
@@ -1582,15 +1588,15 @@ function PromptRankingMatrix({
   return (
     <div className="space-y-4">
       <SectionHeading
-        title="Prompt Ranking Matrix"
-        description="Une colonne par prompt. Le meilleur score de chaque prompt ressort visuellement dans la matrice."
+        title={t("runs.ranking.title")}
+        description={t("runs.ranking.description")}
       />
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border/80 text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3 font-semibold">
-                Candidate
+                {t("runs.ranking.candidate")}
               </th>
               {completedBatches.map((batch) => {
                 const prompt = promptById(run.prompt_snapshots, batch.prompt_snapshot_id);
@@ -1605,7 +1611,7 @@ function PromptRankingMatrix({
                         {prompt?.name ?? `Prompt #${batch.prompt_snapshot_id}`}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
-                        Best score {formatScore(String(topScore))}
+                        {t("runs.ranking.bestScore")} {formatScore(String(topScore))}
                       </p>
                     </div>
                   </th>
@@ -1635,7 +1641,7 @@ function PromptRankingMatrix({
                   if (!evaluationCandidate) {
                     return (
                       <td key={`${candidate.id}-${batch.id}`} className="px-4 py-4">
-                        <span className="text-xs text-slate-400">No score</span>
+                        <span className="text-xs text-slate-400">{t("runs.ranking.noScore")}</span>
                       </td>
                     );
                   }
@@ -1660,7 +1666,7 @@ function PromptRankingMatrix({
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                              Score
+                              {t("runs.ranking.score")}
                             </p>
                             <p
                               className={cn(
@@ -1688,10 +1694,10 @@ function PromptRankingMatrix({
                             isBest ? "text-emerald-700" : "text-slate-400",
                           )}
                         >
-                          {isBest ? "Best score" : "Ranked"}
+                          {isBest ? t("runs.ranking.bestScore") : t("runs.ranking.ranked")}
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-600">
-                          {evaluationCandidate.short_feedback ?? "No short feedback."}
+                          {evaluationCandidate.short_feedback ?? t("runs.ranking.noShortFeedback")}
                         </p>
                       </div>
                     </td>
@@ -1707,8 +1713,9 @@ function PromptRankingMatrix({
 }
 
 function AggregatedSummaryTable({ run }: { run: Run }) {
+  const { t } = useTranslation();
   if (run.global_summaries.length === 0) {
-    return <EmptyStatePanel title="No aggregated summaries yet" description="Aggregation runs after judging completes successfully." />;
+    return <EmptyStatePanel title={t("runs.summary.noSummaryTitle")} description={t("runs.summary.noSummaryDesc")} />;
   }
 
   return (
@@ -1717,12 +1724,12 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
         <table className="min-w-full divide-y divide-border/80 text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
-              <th className="px-4 py-3 font-semibold">Candidate</th>
-              <th className="px-4 py-3 font-semibold">Judge</th>
-              <th className="px-4 py-3 font-semibold">Latency</th>
-              <th className="px-4 py-3 font-semibold">Tokens</th>
-              <th className="px-4 py-3 font-semibold">Cost</th>
-              <th className="px-4 py-3 font-semibold">Global</th>
+              <th className="px-4 py-3 font-semibold">{t("runs.summary.candidate")}</th>
+              <th className="px-4 py-3 font-semibold">{t("runs.summary.judge")}</th>
+              <th className="px-4 py-3 font-semibold">{t("runs.summary.latency")}</th>
+              <th className="px-4 py-3 font-semibold">{t("runs.summary.tokens")}</th>
+              <th className="px-4 py-3 font-semibold">{t("runs.summary.cost")}</th>
+              <th className="px-4 py-3 font-semibold">{t("runs.summary.global")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/70">
@@ -1733,12 +1740,12 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
                   <td className="px-4 py-3">
                     <div>
                       <p className="font-medium text-slate-950">
-                        {model?.display_name ?? "Unknown model"}
+                        {model?.display_name ?? t("runs.summary.unknownModel")}
                       </p>
                       <p className="text-xs text-slate-500">
                         {model
                           ? `${model.provider_type} / ${model.runtime_type}`
-                          : "Missing snapshot"}
+                          : t("runs.summary.missingSnapshot")}
                       </p>
                     </div>
                   </td>
@@ -1773,21 +1780,21 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
               className="rounded-xl border border-border/80 bg-slate-50 p-3"
             >
               <p className="text-xs font-semibold text-slate-950">
-                {model?.display_name ?? "Unknown model"}
+                {model?.display_name ?? t("runs.summary.unknownModel")}
               </p>
               <p className="mt-1.5 text-xs leading-5 text-slate-600">
-                {summary.global_summary_text ?? "No global summary generated."}
+                {summary.global_summary_text ?? t("runs.summary.noGlobalSummary")}
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <FeedbackBlock
                   icon={Sparkles}
-                  label="Best patterns"
-                  value={summary.best_patterns_text ?? "No repeated strengths captured."}
+                  label={t("runs.summary.bestPatterns")}
+                  value={summary.best_patterns_text ?? t("runs.summary.noStrengths")}
                 />
                 <FeedbackBlock
                   icon={Clock3}
-                  label="Weak patterns"
-                  value={summary.weak_patterns_text ?? "No repeated weaknesses captured."}
+                  label={t("runs.summary.weakPatterns")}
+                  value={summary.weak_patterns_text ?? t("runs.summary.noWeaknesses")}
                 />
               </div>
             </div>
@@ -1825,28 +1832,29 @@ function JudgeBatchPanel({
   onSelectBatch: (batchId: number) => void;
   selectedBatchId: number | null;
 }) {
+  const { t } = useTranslation();
   const isJudgingActive = isStarting || isRetrying || retryingBatchIds.length > 0;
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Loading judge batches...</p>;
+    return <p className="text-sm text-slate-500">{t("runs.judging.loading")}</p>;
   }
 
   if (!judging || judging.items.length === 0) {
     return (
       <div className="space-y-4">
         <EmptyStatePanel
-          title="No judge batches yet"
-          description="Phase 1 is complete. Start judging manually to create one judge batch per prompt."
+          title={t("runs.judging.noBatchesTitle")}
+          description={t("runs.judging.noBatchesDesc")}
         />
         <div className="flex flex-wrap items-center gap-3">
           <Button disabled={!canStart || isStarting} onClick={onStart} variant="secondary">
             {isStarting ? (
               <>
                 <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                Judging in progress…
+                {t("runs.judging.judgingInProgress")}
               </>
             ) : (
-              "Start judging"
+              t("runs.judging.startJudging")
             )}
           </Button>
         </div>
@@ -1860,14 +1868,14 @@ function JudgeBatchPanel({
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-amber-600" />
           <p className="text-sm font-medium text-amber-900">
-            {isStarting || isRetrying ? "Running all judge batches…" : "Retrying batch…"}
+            {isStarting || isRetrying ? t("runs.judging.runningAllBatches") : t("runs.judging.retryingBatch")}
           </p>
         </div>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryStat label="Completed" value={String(judging.completed_batches)} />
-        <SummaryStat label="Failed" value={String(judging.failed_batches)} />
-        <SummaryStat label="Pending" value={String(judging.pending_batches)} />
+        <SummaryStat label={t("runs.judging.completed")} value={String(judging.completed_batches)} />
+        <SummaryStat label={t("runs.judging.failed")} value={String(judging.failed_batches)} />
+        <SummaryStat label={t("runs.judging.pending")} value={String(judging.pending_batches)} />
       </div>
       <div className="space-y-2">
         {judging.items.map((batch) => {
@@ -1893,7 +1901,7 @@ function JudgeBatchPanel({
                   {prompt?.name ?? `Prompt snapshot #${batch.prompt_snapshot_id}`}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Batch {batch.batch_index} · {batch.evaluation?.candidates.length ?? 0} candidates
+                  {t("runs.judging.batchInfo", { index: batch.batch_index, count: batch.evaluation?.candidates.length ?? 0 })}
                 </p>
               </button>
               <div className="flex shrink-0 items-center gap-2">
@@ -1912,7 +1920,7 @@ function JudgeBatchPanel({
                     type="button"
                     variant="secondary"
                   >
-                    Retry
+                    {t("common.retry")}
                   </Button>
                 ) : null}
               </div>
@@ -1921,7 +1929,7 @@ function JudgeBatchPanel({
         })}
       </div>
       <Button disabled={isJudgingActive} onClick={onRetry} variant="secondary">
-        Retry all failed
+        {t("runs.judging.retryAllFailed")}
       </Button>
     </div>
   );
@@ -1938,11 +1946,12 @@ function JudgeFeedbackPanel({
   responses: CandidateResponse[];
   run: Run;
 }) {
+  const { t } = useTranslation();
   if (!batch) {
     return (
       <EmptyStatePanel
-        title="Select a judge batch"
-        description="Choose one batch to inspect rankings, criterion scores, and written feedback."
+        title={t("runs.feedback.selectBatchTitle")}
+        description={t("runs.feedback.selectBatchDesc")}
       />
     );
   }
@@ -1950,8 +1959,8 @@ function JudgeFeedbackPanel({
   if (!batch.evaluation) {
     return (
       <EmptyStatePanel
-        title="No parsed judge evaluation yet"
-        description={batch.error_message ?? "The selected batch has not completed."}
+        title={t("runs.feedback.noEvaluationTitle")}
+        description={batch.error_message ?? t("runs.feedback.noEvaluationDesc")}
       />
     );
   }
@@ -1962,10 +1971,10 @@ function JudgeFeedbackPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-950">
-              {prompt?.name ?? "Unknown prompt"}
+              {prompt?.name ?? t("runs.feedback.unknownPrompt")}
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              {prompt?.category_name ?? "Unknown category"} · schema{" "}
+              {prompt?.category_name ?? t("runs.feedback.unknownCategory")} · {t("runs.feedback.schema")}{" "}
               {batch.evaluation.schema_version}
             </p>
           </div>
@@ -1996,6 +2005,7 @@ function JudgeCandidateCard({
   response: CandidateResponse | undefined;
   run: Run;
 }) {
+  const { t } = useTranslation();
   const model = response ? modelById(run.model_snapshots, response.model_snapshot_id) : undefined;
 
   return (
@@ -2006,7 +2016,7 @@ function JudgeCandidateCard({
             {candidate.anonymized_candidate_label}
           </span>
           <p className="text-sm font-semibold text-slate-950">
-            {model?.display_name ?? "Candidate model"}
+            {model?.display_name ?? t("runs.judgeCard.candidateModel")}
           </p>
           <MetaPill label={`Rank ${candidate.ranking_in_batch}`} />
           <span className="text-xs text-slate-400">
@@ -2019,7 +2029,7 @@ function JudgeCandidateCard({
             scoreToneClasses(candidate.overall_score, "soft"),
           )}
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Overall</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{t("runs.judgeCard.overall")}</p>
           <p className="text-xl font-semibold leading-none mt-0.5">
             {formatScore(candidate.overall_score)}
           </p>
@@ -2027,35 +2037,35 @@ function JudgeCandidateCard({
       </div>
 
       <div className="mt-2.5 grid gap-2 grid-cols-3 sm:grid-cols-6">
-        <ScoreStat label="Relevance" value={candidate.relevance_score} />
-        <ScoreStat label="Accuracy" value={candidate.accuracy_score} />
-        <ScoreStat label="Completeness" value={candidate.completeness_score} />
-        <ScoreStat label="Clarity" value={candidate.clarity_score} />
-        <ScoreStat label="Instruction" value={candidate.instruction_following_score} />
-        <ScoreStat label="Confidence" value={candidate.judge_confidence_score ?? "—"} />
+        <ScoreStat label={t("runs.judgeCard.relevance")} value={candidate.relevance_score} />
+        <ScoreStat label={t("runs.judgeCard.accuracy")} value={candidate.accuracy_score} />
+        <ScoreStat label={t("runs.judgeCard.completeness")} value={candidate.completeness_score} />
+        <ScoreStat label={t("runs.judgeCard.clarity")} value={candidate.clarity_score} />
+        <ScoreStat label={t("runs.judgeCard.instruction")} value={candidate.instruction_following_score} />
+        <ScoreStat label={t("runs.judgeCard.confidence")} value={candidate.judge_confidence_score ?? "—"} />
       </div>
 
       <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
         <FeedbackBlock
           icon={Sparkles}
-          label="Strengths"
-          value={candidate.strengths_text ?? "No strengths summary provided."}
+          label={t("runs.judgeCard.strengths")}
+          value={candidate.strengths_text ?? t("runs.judgeCard.noStrengths")}
         />
         <FeedbackBlock
           icon={Clock3}
-          label="Weaknesses"
-          value={candidate.weaknesses_text ?? "No weaknesses summary provided."}
+          label={t("runs.judgeCard.weaknesses")}
+          value={candidate.weaknesses_text ?? t("runs.judgeCard.noWeaknesses")}
         />
       </div>
 
       <div className="mt-2.5 space-y-2">
         <FeedbackBlock
-          label="Short feedback"
-          value={candidate.short_feedback ?? "No short feedback provided."}
+          label={t("runs.judgeCard.shortFeedback")}
+          value={candidate.short_feedback ?? t("runs.judgeCard.noShortFeedback")}
         />
         <FeedbackBlock
-          label="Detailed feedback"
-          value={candidate.detailed_feedback ?? "No detailed feedback provided."}
+          label={t("runs.judgeCard.detailedFeedback")}
+          value={candidate.detailed_feedback ?? t("runs.judgeCard.noDetailedFeedback")}
         />
       </div>
     </div>
@@ -2169,7 +2179,7 @@ function modelById(items: RunModelSnapshot[], id: number) {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(i18next.language, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));

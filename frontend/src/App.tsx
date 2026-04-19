@@ -5,10 +5,12 @@ import {
   FileText,
   Settings,
   Layers3,
+  Sparkles,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ContributorsPage } from "@/features/contributors/contributors-page";
 import { HomePage } from "@/features/home/home-page";
@@ -35,39 +37,16 @@ type View =
   | "contributors"
   | "settings";
 
-const navigationItems: Array<{
-  id: View;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-  {
-    id: "prompts",
-    label: "Prompt Library",
-    description: "Reusable prompt assets",
-    icon: FileText,
-  },
-  {
-    id: "models",
-    label: "Model Registry",
-    description: "Profiles and endpoints",
-    icon: Database,
-  },
-  {
-    id: "sessions",
-    label: "Sessions",
-    description: "Benchmark configuration",
-    icon: Layers3,
-  },
-  {
-    id: "runs",
-    label: "Runs",
-    description: "Execution and judging",
-    icon: Activity,
-  },
-];
+const navigationIcons: Record<Exclude<View, "home" | "contributors">, LucideIcon> = {
+  prompts: FileText,
+  models: Database,
+  sessions: Layers3,
+  runs: Activity,
+  settings: Settings,
+};
 
 export function App() {
+  const { t } = useTranslation();
   const [view, setView] = useState<View>("home");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("theme");
@@ -77,6 +56,38 @@ export function App() {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  const navigationItems: Array<{
+    id: View;
+    label: string;
+    description: string;
+    icon: LucideIcon;
+  }> = [
+    {
+      id: "prompts",
+      label: t("nav.prompts.label"),
+      description: t("nav.prompts.description"),
+      icon: navigationIcons.prompts,
+    },
+    {
+      id: "models",
+      label: t("nav.models.label"),
+      description: t("nav.models.description"),
+      icon: navigationIcons.models,
+    },
+    {
+      id: "sessions",
+      label: t("nav.sessions.label"),
+      description: t("nav.sessions.description"),
+      icon: navigationIcons.sessions,
+    },
+    {
+      id: "runs",
+      label: t("nav.runs.label"),
+      description: t("nav.runs.description"),
+      icon: navigationIcons.runs,
+    },
+  ];
 
   useEffect(() => {
     const syncRoute = () => {
@@ -169,11 +180,7 @@ export function App() {
   const isRunDetailView = view === "runs" && selectedRunId !== null;
   const isHomeView = view === "home";
   const activeSectionLabel =
-    view === "contributors"
-      ? "Contributors"
-      : view === "settings"
-        ? "Settings"
-        : activeView.label;
+    view === "contributors" ? t("nav.contributors") : activeView.label;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -207,6 +214,8 @@ export function App() {
                           onClick={navigateToHome}
                           type="button"
                         >
+                          <Sparkles className="h-3.5 w-3.5 text-slate-700" />
+                          {t("nav.home")}
                           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_8px_18px_-16px_rgba(15,23,42,0.42)]">
                             {!markUnavailable ? (
                               <img
@@ -229,14 +238,13 @@ export function App() {
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[hsl(var(--foreground-soft))]">
                             {activeSectionLabel}
                           </p>
-                          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-foreground">
-                            Navigation rail
+                          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
+                            {t("nav.navigationRail")}
                           </h1>
                         </div>
                       </div>
-                      <p className="max-w-sm text-sm leading-6 text-[hsl(var(--foreground-soft))]">
-                        Desktop gets the right-side sticky navigation. Mobile
-                        keeps the same sections in a lighter compact strip.
+                      <p className="max-w-sm text-sm leading-6 text-slate-600">
+                        {t("nav.desktopNav")}
                       </p>
                     </div>
 
@@ -298,12 +306,12 @@ export function App() {
                               : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
                           )}
                           onClick={() => navigateToView("contributors")}
-                          title="Open contributors"
+                          title={t("nav.openContributors")}
                           type="button"
                         >
                           <UsersRound className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Credits</span>
-                          <span className="sr-only">Open contributors</span>
+                          <span className="hidden sm:inline">{t("common.credits")}</span>
+                          <span className="sr-only">{t("nav.openContributors")}</span>
                         </button>
 
                         <button
@@ -315,11 +323,11 @@ export function App() {
                               : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
                           )}
                           onClick={() => navigateToView("settings")}
-                          title="Open settings"
+                          title={t("nav.openSettings")}
                           type="button"
                         >
                           <Settings className="h-4 w-4" />
-                          <span className="sr-only">Open settings</span>
+                          <span className="sr-only">{t("nav.openSettings")}</span>
                         </button>
                       </div>
                     </div>
@@ -341,6 +349,8 @@ export function App() {
                       onClick={navigateToHome}
                       type="button"
                     >
+                      <Sparkles className="h-3.5 w-3.5 text-slate-700" />
+                      {t("common.benchforge")}
                       <span className="-ml-1.5 mr-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_8px_18px_-16px_rgba(15,23,42,0.42)]">
                         {!markUnavailable ? (
                           <img
@@ -416,11 +426,11 @@ export function App() {
                           : "border-[hsl(var(--surface-strong)/0.22)] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground)/0.9)] hover:brightness-[1.06]",
                       )}
                       onClick={() => navigateToView("contributors")}
-                      title="Open contributors"
+                      title={t("nav.openContributors")}
                       type="button"
                     >
-                      <UsersRound className="h-3.5 w-3.5 text-current" />
-                      <span>Credits</span>
+                      <UsersRound className="h-3.5 w-3.5 text-white/90" />
+                      <span>{t("common.credits")}</span>
                     </button>
 
                     <button
@@ -432,11 +442,11 @@ export function App() {
                           : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
                       )}
                       onClick={() => navigateToView("settings")}
-                      title="Open settings"
+                      title={t("nav.openSettings")}
                       type="button"
                     >
                       <Settings className="h-4 w-4" />
-                      <span className="sr-only">Open settings</span>
+                      <span className="sr-only">{t("nav.openSettings")}</span>
                     </button>
                   </div>
                 </div>
