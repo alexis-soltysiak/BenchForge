@@ -11,7 +11,6 @@ import {
   Workflow,
 } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,9 +25,72 @@ type HomePageProps = {
   onNavigateToCredits: () => void;
 };
 
-type FlowTone = "amber" | "sky" | "emerald" | "rose";
+const flowSteps = [
+  {
+    id: "prompts",
+    title: "Prompts",
+    subtitle: "On crée le contenu à tester",
+    description:
+      "Tu centralises tes prompts, tes variantes et tes règles d'exécution pour garder une base propre et réutilisable.",
+    icon: FileText,
+    tone: "amber",
+  },
+  {
+    id: "models",
+    title: "Models",
+    subtitle: "On référence les moteurs",
+    description:
+      "Tu enregistres les modèles, endpoints et paramètres pour comparer plusieurs fournisseurs ou configurations.",
+    icon: Database,
+    tone: "sky",
+  },
+  {
+    id: "sessions",
+    title: "Sessions",
+    subtitle: "On assemble le scénario",
+    description:
+      "Tu combines prompts, modèles, candidats et juges dans une session de benchmark claire et rejouable.",
+    icon: Layers3,
+    tone: "emerald",
+  },
+  {
+    id: "runs",
+    title: "Runs",
+    subtitle: "On lance et on mesure",
+    description:
+      "La session produit un run: exécution, suivi, arbitrage et lecture des résultats pour décider vite et bien.",
+    icon: Activity,
+    tone: "rose",
+  },
+] as const;
 
-const toneClasses: Record<FlowTone, { ring: string; chip: string; glow: string }> = {
+const howItWorks = [
+  {
+    step: "01",
+    title: "Préparer les prompts",
+    body: "Commence par écrire le problème, les contraintes et les variantes à comparer. BenchForge garde tout structuré.",
+  },
+  {
+    step: "02",
+    title: "Brancher les modèles",
+    body: "Ajoute un ou plusieurs modèles, locaux ou distants. Tu peux ensuite mesurer les écarts avec la même base de test.",
+  },
+  {
+    step: "03",
+    title: "Composer une session",
+    body: "Une session relie prompts, modèles et règles d'évaluation. C'est ton plan de benchmark, pas juste une liste d'items.",
+  },
+  {
+    step: "04",
+    title: "Lancer un run",
+    body: "Le run exécute la session, collecte les réponses et prépare la lecture des résultats pour comparer proprement.",
+  },
+] as const;
+
+const toneClasses: Record<
+  (typeof flowSteps)[number]["tone"],
+  { ring: string; chip: string; glow: string }
+> = {
   amber: {
     ring: "ring-amber-200/80",
     chip: "bg-amber-100 text-amber-900",
@@ -58,57 +120,7 @@ export function HomePage({
   onNavigateToRuns,
   onNavigateToCredits,
 }: HomePageProps) {
-  const { t } = useTranslation();
   const [markUnavailable, setMarkUnavailable] = useState(false);
-
-  const flowSteps: Array<{
-    id: string;
-    title: string;
-    subtitle: string;
-    description: string;
-    icon: typeof FileText;
-    tone: FlowTone;
-  }> = [
-    {
-      id: "prompts",
-      title: t("nav.prompts.label"),
-      subtitle: t("home.flowSteps.prompts.subtitle"),
-      description: t("home.flowSteps.prompts.description"),
-      icon: FileText,
-      tone: "amber",
-    },
-    {
-      id: "models",
-      title: t("nav.models.label"),
-      subtitle: t("home.flowSteps.models.subtitle"),
-      description: t("home.flowSteps.models.description"),
-      icon: Database,
-      tone: "sky",
-    },
-    {
-      id: "sessions",
-      title: t("nav.sessions.label"),
-      subtitle: t("home.flowSteps.sessions.subtitle"),
-      description: t("home.flowSteps.sessions.description"),
-      icon: Layers3,
-      tone: "emerald",
-    },
-    {
-      id: "runs",
-      title: t("nav.runs.label"),
-      subtitle: t("home.flowSteps.runs.subtitle"),
-      description: t("home.flowSteps.runs.description"),
-      icon: Activity,
-      tone: "rose",
-    },
-  ];
-
-  const howItWorks = [
-    { step: "01", title: t("home.howToUse.steps.step01.title"), body: t("home.howToUse.steps.step01.body") },
-    { step: "02", title: t("home.howToUse.steps.step02.title"), body: t("home.howToUse.steps.step02.body") },
-    { step: "03", title: t("home.howToUse.steps.step03.title"), body: t("home.howToUse.steps.step03.body") },
-    { step: "04", title: t("home.howToUse.steps.step04.title"), body: t("home.howToUse.steps.step04.body") },
-  ];
 
   return (
     <div className="relative isolate overflow-hidden px-4 pb-8 pt-4 lg:px-8 lg:pt-5">
@@ -144,12 +156,10 @@ export function HomePage({
                 </p>
               </div>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                {t("common.benchforge")}
-              </p>
-              <p className="text-sm text-slate-600">
-                {t("home.hero.description")}
+
+            <div className="hidden sm:block">
+              <p className="text-[0.92rem] text-[hsl(var(--foreground-soft))]">
+                Benchmark studio for prompts, models, sessions and runs.
               </p>
             </div>
           </div>
@@ -159,37 +169,40 @@ export function HomePage({
               onClick={onNavigateToCredits}
               variant="ghost"
             >
-              {t("common.credits")}
+              Credits
             </Button>
             <Button
               className="rounded-full"
               onClick={onNavigateToPrompts}
               variant="secondary"
             >
-              {t("home.hero.startWithPrompts")}
+              Start with prompts
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-          <div className="space-y-6">
-            <Badge className="bg-slate-950 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white">
-              {t("home.hero.badge")}
+        <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+          <div className="space-y-4">
+            <Badge className="bg-[hsl(var(--surface-strong))] px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-[hsl(var(--surface-strong-foreground))]">
+              How it works
             </Badge>
 
-            <div className="max-w-3xl space-y-5">
-              <h1 className="font-display text-5xl font-semibold tracking-tight text-slate-950 sm:text-6xl">
-                {t("home.hero.title")}
+            <div className="max-w-3xl space-y-3">
+              <h1 className="font-display text-[2.85rem] font-semibold tracking-tight text-foreground sm:text-[3.5rem]">
+                Construis un parcours de benchmark lisible, du prompt au run.
               </h1>
-              <p className="max-w-2xl text-lg leading-8 text-slate-600">
-                {t("home.hero.description")}
+              <p className="max-w-2xl text-[1rem] leading-7 text-[hsl(var(--foreground-soft))]">
+                BenchForge est un espace simple et auto-hébergeable pour
+                comparer des modèles avec la même base de test. Tu crées les
+                prompts, tu enregistres les modèles, tu assembles les sessions,
+                puis tu lances les runs et lis les résultats.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2.5">
               <Button className="rounded-full" onClick={onNavigateToSessions}>
-                {t("home.hero.exploreSessions")}
+                Explorer les sessions
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button
@@ -197,7 +210,7 @@ export function HomePage({
                 onClick={onNavigateToRuns}
                 variant="secondary"
               >
-                {t("home.hero.viewRuns")}
+                Voir les runs
                 <Activity className="h-4 w-4" />
               </Button>
             </div>
@@ -205,16 +218,16 @@ export function HomePage({
             <div className="grid gap-2.5 sm:grid-cols-3">
               {[
                 {
-                  title: t("home.pillars.structured.title"),
-                  text: t("home.pillars.structured.text"),
+                  title: "Structuré",
+                  text: "Chaque benchmark reste dans un modèle d'objet prévisible.",
                 },
                 {
-                  title: t("home.pillars.replayable.title"),
-                  text: t("home.pillars.replayable.text"),
+                  title: "Rejouable",
+                  text: "Les sessions permettent de relancer exactement la même base plus tard.",
                 },
                 {
-                  title: t("home.pillars.readable.title"),
-                  text: t("home.pillars.readable.text"),
+                  title: "Lisible",
+                  text: "Le chemin du prompt au résultat reste visible d'un coup d'œil.",
                 },
               ].map((item) => (
                 <Card
@@ -237,19 +250,19 @@ export function HomePage({
             <div className="relative space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                    {t("home.pipeline.eyebrow")}
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
+                    Pipeline
                   </p>
-                  <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-slate-950">
-                    {t("home.pipeline.title")}
+                  <h2 className="mt-1.5 font-display text-[1.35rem] font-semibold tracking-tight text-foreground">
+                    Prompts, modèles, sessions, runs.
                   </h2>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    {t("home.pipeline.objectiveLabel")}
+                <div className="rounded-[1rem] border border-border bg-[hsl(var(--surface))] px-2.5 py-1.5 text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--foreground-soft))]">
+                    Objectif
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">
-                    {t("home.pipeline.objective")}
+                  <p className="mt-1 text-[0.82rem] font-semibold text-foreground">
+                    Comparer, décider, recommencer.
                   </p>
                 </div>
               </div>
@@ -308,18 +321,18 @@ export function HomePage({
         <section className="space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="max-w-2xl space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  {t("home.howToUse.eyebrow")}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
+                  How to use it
                 </p>
-                <h2 className="font-display text-3xl font-semibold tracking-tight text-slate-950">
-                  {t("home.howToUse.title")}
+                <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground">
+                Un chemin simple de l'idée à l'évaluation.
                 </h2>
               </div>
               <Button className="rounded-full" onClick={onNavigateToModels} variant="secondary">
-                {t("home.howToUse.configureModels")}
-                <Workflow className="h-4 w-4" />
-              </Button>
-            </div>
+              Configurer les modèles
+              <Workflow className="h-4 w-4" />
+            </Button>
+          </div>
 
           <div className="grid gap-4 lg:grid-cols-4">
             {howItWorks.map((item) => (
@@ -350,13 +363,16 @@ export function HomePage({
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">
-                  {t("home.cta.startingPoint.eyebrow")}
+                  Point de départ
                 </p>
                 <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight">
-                  {t("home.cta.startingPoint.title")}
+                  Crée d'abord les prompts, puis laisse le reste du pipeline
+                  suivre.
                 </h3>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-white/75">
-                  {t("home.cta.startingPoint.description")}
+                  Le projet est volontairement ordonné. Si la couche prompts est
+                  propre, le registre de modèles, le builder de sessions et les
+                  résultats restent faciles à comprendre.
                 </p>
               </div>
             </div>
@@ -374,14 +390,17 @@ export function HomePage({
                 <Rocket className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
-                  {t("home.cta.readyToLaunch.eyebrow")}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
+                  Prêt à lancer
                 </p>
-                <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight text-slate-950">
-                  {t("home.cta.readyToLaunch.title")}
+                <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight text-foreground">
+                  Compose une session et lance un run quand le setup est
+                  stable.
                 </h3>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-                  {t("home.cta.readyToLaunch.description")}
+                <p className="mt-3 max-w-xl text-sm leading-6 text-[hsl(var(--foreground-soft))]">
+                  Les sessions emballent le benchmark. Les runs l'exécutent.
+                  Résultat: des comparaisons reproductibles, faciles à auditer et
+                  à partager.
                 </p>
               </div>
             </div>
@@ -391,16 +410,17 @@ export function HomePage({
         <section className="flex flex-col gap-3 rounded-[2rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] px-5 py-5 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.22)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            <p className="text-sm text-slate-600">
-              {t("home.cta.footer.text")}
+            <p className="text-sm text-[hsl(var(--foreground-soft))]">
+              BenchForge garde le chemin du benchmark visible du premier prompt
+              au run final.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button className="rounded-full" onClick={onNavigateToPrompts} variant="secondary">
-              {t("home.cta.footer.browsePrompts")}
+              Parcourir les prompts
             </Button>
             <Button className="rounded-full" onClick={onNavigateToSessions}>
-              {t("home.cta.footer.openSessions")}
+              Ouvrir les sessions
             </Button>
           </div>
         </section>

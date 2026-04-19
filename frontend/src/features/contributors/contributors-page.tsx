@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 
-import { useTranslation } from "react-i18next";
-
 import contributorsSource from "virtual:contributors-md";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -93,7 +91,6 @@ function ContributorItem({
   contributor: Contributor;
   variant: "main" | "other";
 }) {
-  const { t } = useTranslation();
   return (
     <Card className="border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] shadow-sm">
       <div
@@ -113,7 +110,7 @@ function ContributorItem({
               className="uppercase tracking-[0.18em]"
               variant={variant === "main" ? "accent" : "neutral"}
             >
-              {variant === "main" ? t("contributors.badgeMain") : t("contributors.badgeOther")}
+              {variant === "main" ? "master" : "other"}
             </Badge>
           </div>
           <p className="mt-1.5 truncate font-mono text-[0.92rem] text-[hsl(var(--foreground-soft))]">
@@ -126,7 +123,6 @@ function ContributorItem({
 }
 
 export function ContributorsPage() {
-  const { t } = useTranslation();
   const { mainContributors, otherContributors } = useMemo(() => {
     return {
       mainContributors: contributors.filter((contributor) => contributor.main),
@@ -135,27 +131,27 @@ export function ContributorsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white px-5 py-8 lg:px-10 lg:py-10">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="border-b border-slate-200 pb-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-2xl space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-slate-500">
-              {t("contributors.eyebrow")}
+    <div className="min-h-screen px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
+      <div className="mx-auto max-w-6xl space-y-5">
+        <header className="border-b border-border pb-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[hsl(var(--foreground-soft))]">
+              Credits wall
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              {t("contributors.title")}
+            <h1 className="text-[1.9rem] font-semibold tracking-tight text-foreground sm:text-[2.2rem]">
+              Contributors
             </h1>
           </div>
         </div>
         </header>
 
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            {t("contributors.mainSection")}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-[hsl(var(--foreground-soft))]">
+            Main contributors
           </h2>
           {mainContributors.length === 0 ? (
-            <EmptyState text={t("contributors.noMain")} />
+            <EmptyState text="No main contributors found." />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {mainContributors.map((contributor) => (
@@ -169,12 +165,12 @@ export function ContributorsPage() {
           )}
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            {t("contributors.othersSection")}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-[hsl(var(--foreground-soft))]">
+            Others
           </h2>
           {otherContributors.length === 0 ? (
-            <EmptyState text={t("contributors.noOthers")} />
+            <EmptyState text="No other contributors found." />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {otherContributors.map((contributor) => (

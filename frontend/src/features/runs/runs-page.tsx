@@ -859,7 +859,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
             <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
               <SectionHeading
                 title="Phase 2 · Judging"
-                description=""
+                description="Cette phase se déverrouille uniquement quand tous les candidats ont fini tous les prompts."
               />
               {!allCandidatesReady ? (
                 <div className="mt-5">
