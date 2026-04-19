@@ -24,6 +24,7 @@ class PromptRead(BaseModel):
     user_prompt_text: str
     evaluation_notes: str | None
     tags: list[str]
+    difficulty: int | None = None
     is_active: bool
     is_archived: bool
     created_at: datetime
@@ -38,6 +39,7 @@ class PromptCreate(BaseModel):
     user_prompt_text: str = Field(min_length=1)
     evaluation_notes: str | None = None
     tags: list[str] = Field(default_factory=list)
+    difficulty: int | None = Field(default=None, ge=1, le=5)
     is_active: bool = True
 
 
@@ -49,6 +51,7 @@ class PromptUpdate(BaseModel):
     user_prompt_text: str | None = Field(default=None, min_length=1)
     evaluation_notes: str | None = None
     tags: list[str] | None = None
+    difficulty: int | None = Field(default=None, ge=1, le=5)
     is_active: bool | None = None
 
 
