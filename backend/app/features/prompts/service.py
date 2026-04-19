@@ -88,6 +88,7 @@ def serialize_prompt(prompt: Prompt) -> PromptRead:
         user_prompt_text=prompt.user_prompt_text,
         evaluation_notes=prompt.evaluation_notes,
         tags=sorted(link.tag.name for link in prompt.tag_links),
+        difficulty=prompt.difficulty,
         is_active=prompt.is_active,
         is_archived=prompt.is_archived,
         created_at=prompt.created_at,
@@ -136,6 +137,7 @@ class PromptService:
             system_prompt_text=payload.system_prompt_text,
             user_prompt_text=payload.user_prompt_text.strip(),
             evaluation_notes=payload.evaluation_notes,
+            difficulty=payload.difficulty,
             is_active=payload.is_active,
             is_archived=False,
         )
@@ -180,6 +182,8 @@ class PromptService:
             prompt.evaluation_notes = updates["evaluation_notes"]
         if "is_active" in updates and updates["is_active"] is not None:
             prompt.is_active = updates["is_active"]
+        if "difficulty" in updates:
+            prompt.difficulty = updates["difficulty"]
         if "tags" in updates and updates["tags"] is not None:
             tags = await get_or_create_tags(self.repository, updates["tags"])
             prompt.tag_links.clear()
@@ -223,6 +227,7 @@ class PromptService:
                 system_prompt_text=seed.system_prompt_text,
                 user_prompt_text=seed.user_prompt_text,
                 evaluation_notes=seed.evaluation_notes,
+                difficulty=seed.difficulty,
                 is_active=True,
                 is_archived=False,
             )

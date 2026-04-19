@@ -78,6 +78,7 @@ class Prompt(Base, TimestampMixin):
         default=False,
         server_default="false",
     )
+    difficulty: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     category: Mapped[PromptCategory] = relationship(back_populates="prompts")
     tag_links: Mapped[list[PromptTagLink]] = relationship(
