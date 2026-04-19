@@ -11,6 +11,8 @@ class ReportSummaryRowRead(BaseModel):
     cost_score: str
     performance_score: str
     final_global_score: str | None
+    avg_duration_ms: int | None = None
+    total_estimated_cost: str | None = None
 
 
 class ReportCandidateSectionRead(BaseModel):
