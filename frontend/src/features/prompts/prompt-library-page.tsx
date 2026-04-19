@@ -396,14 +396,15 @@ export function PromptLibraryPage() {
   return (
     <div className="text-foreground">
       <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-        <section className="relative overflow-hidden rounded-[1.65rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.22),_transparent_32%),linear-gradient(135deg,_rgba(255,251,235,0.98),_rgba(255,255,255,0.95))] p-3.5 shadow-xl lg:p-4">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
+        <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
+          <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
           <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
-            <div className="max-w-[30rem] space-y-2">
+            <div className="relative max-w-[30rem] space-y-2">
               <span className="inline-flex rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-950">
                 Reusable Assets
               </span>
-              <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-slate-950 lg:text-[2.2rem]">
+              <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
                 Prompt Library
               </h1>
             </div>
@@ -439,7 +440,7 @@ export function PromptLibraryPage() {
         </section>
 
         <section className="mt-5 space-y-5">
-          <Card className="overflow-visible border-border/70 bg-white/90 shadow-sm">
+          <Card className="overflow-visible border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
             <div className="relative z-30 border-b border-border/80 px-3 py-2.5 lg:px-3.5">
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.88fr)_minmax(0,1.1fr)_auto] xl:items-stretch">
@@ -455,17 +456,17 @@ export function PromptLibraryPage() {
 
                   <div className="relative z-40 min-w-0">
                     <button
-                      className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-amber-300 hover:bg-amber-50/60"
+                      className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-[hsl(var(--surface))] px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.12)] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))]"
                       type="button"
                       onClick={() =>
                         setIsCategoryMenuOpen((current) => !current)
                       }
                     >
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                           Category
                         </p>
-                        <p className="truncate text-[0.83rem] font-semibold text-slate-950">
+                        <p className="truncate text-[0.83rem] font-semibold text-foreground">
                           {categoryLabel}
                         </p>
                       </div>
@@ -477,12 +478,12 @@ export function PromptLibraryPage() {
                     </button>
 
                     {isCategoryMenuOpen ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
-                        <div className="border-b border-border/70 bg-gradient-to-b from-amber-50 to-white px-4 py-3">
-                          <p className="text-sm font-semibold text-slate-950">
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
+                        <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
+                          <p className="text-sm font-semibold text-foreground">
                             Choose a category
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-[hsl(var(--foreground-soft))]">
                             Narrow the library to one family of prompts.
                           </p>
                         </div>
@@ -491,8 +492,8 @@ export function PromptLibraryPage() {
                             className={cn(
                               "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
                               selectedCategoryId === "all"
-                                ? "bg-amber-100 text-amber-950"
-                                : "hover:bg-slate-50",
+                                ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
+                                : "hover:bg-[hsl(var(--surface-muted))]",
                             )}
                             type="button"
                             onClick={() => {
@@ -514,8 +515,8 @@ export function PromptLibraryPage() {
                                 className={cn(
                                   "flex w-full items-start justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition",
                                   isSelected
-                                    ? "bg-sky-100 text-sky-950"
-                                    : "hover:bg-slate-50",
+                                    ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
+                                    : "hover:bg-[hsl(var(--surface-muted))]",
                                 )}
                                 type="button"
                                 onClick={() => {
@@ -528,7 +529,7 @@ export function PromptLibraryPage() {
                                     {category.name}
                                   </span>
                                   {category.description ? (
-                                    <span className="block text-xs text-slate-500">
+                                    <span className="block text-xs text-[hsl(var(--foreground-soft))]">
                                       {category.description}
                                     </span>
                                   ) : null}
@@ -546,12 +547,12 @@ export function PromptLibraryPage() {
 
                   <div className="relative z-40 min-w-0">
                     <button
-                      className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-amber-300 hover:bg-amber-50/60"
+                      className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-[hsl(var(--surface))] px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.12)] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))]"
                       type="button"
                       onClick={() => setIsTagsMenuOpen((current) => !current)}
                     >
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                           Tags
                         </p>
                         <div className="mt-0.5 flex min-h-6 flex-wrap items-center gap-2">
@@ -562,7 +563,7 @@ export function PromptLibraryPage() {
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-[0.83rem] font-semibold text-slate-950">
+                            <span className="text-[0.83rem] font-semibold text-foreground">
                               Add or remove tags
                             </span>
                           )}
@@ -574,17 +575,17 @@ export function PromptLibraryPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-slate-400" />
+                        <Tag className="h-4 w-4 text-[hsl(var(--foreground-soft))]" />
                       </div>
                     </button>
 
                     {isTagsMenuOpen ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
-                        <div className="border-b border-border/70 bg-gradient-to-b from-amber-50 to-white px-4 py-3">
-                          <p className="text-sm font-semibold text-slate-950">
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
+                        <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
+                          <p className="text-sm font-semibold text-foreground">
                             Manage tags
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-[hsl(var(--foreground-soft))]">
                             Add tags to refine the library, or remove them to broaden it.
                           </p>
                         </div>
@@ -611,7 +612,7 @@ export function PromptLibraryPage() {
                           {selectedTags.length > 0 ? (
                             <div className="space-y-2">
                               <div className="flex items-center justify-between gap-3">
-                                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                                   Active tags
                                 </span>
                                 <Button
@@ -642,22 +643,22 @@ export function PromptLibraryPage() {
 
                           <div className="space-y-2">
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                                 Suggestions
                               </span>
                               {suggestedTags.length > 0 ? (
-                                <span className="text-xs text-slate-400">
+                                <span className="text-xs text-[hsl(var(--foreground-soft))]">
                                   Click to add
                                 </span>
                               ) : null}
                             </div>
-                            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-2">
+                            <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-[hsl(var(--surface-muted))] p-2">
                               {suggestedTags.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                   {suggestedTags.map((tag) => (
                                     <button
                                       key={tag}
-                                      className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900"
+                                      className="inline-flex items-center gap-2 rounded-full border border-border bg-[hsl(var(--surface))] px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))] hover:text-[hsl(var(--theme-accent-soft-foreground))]"
                                       type="button"
                                       onClick={() => addTag(tag)}
                                     >
@@ -667,7 +668,7 @@ export function PromptLibraryPage() {
                                   ))}
                                 </div>
                               ) : (
-                                <p className="px-2 py-3 text-sm text-slate-400">
+                                <p className="px-2 py-3 text-sm text-[hsl(var(--foreground-soft))]">
                                   No remaining tags to suggest.
                                 </p>
                               )}
@@ -703,8 +704,8 @@ export function PromptLibraryPage() {
                       aria-label={showArchived ? "Show unarchived prompts" : "Show archived prompts"}
                       className={cn(
                         showArchived &&
-                          "border-amber-300 bg-amber-100 text-amber-950 shadow-[0_14px_28px_-18px_rgba(180,83,9,0.45)] hover:bg-amber-200",
-                      )}
+                          "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-[0_14px_28px_-18px_rgba(15,23,42,0.18)] hover:brightness-[0.98]",
+                        )}
                       title={showArchived ? "Show unarchived" : "Show archived"}
                       type="button"
                       variant={showArchived ? "secondary" : "ghost"}
@@ -732,7 +733,7 @@ export function PromptLibraryPage() {
             ) : null}
 
             {feedback ? (
-              <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-950">
+              <div className="border-b border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-muted))] px-5 py-3 text-sm text-[hsl(var(--theme-accent-soft-foreground))]">
                 {feedback}
               </div>
             ) : null}
@@ -740,11 +741,12 @@ export function PromptLibraryPage() {
             <div
               className={cn(
                 "relative z-10 overflow-x-auto",
-                showArchived && "border-l-4 border-amber-300 bg-amber-50/20 pl-0",
+                showArchived &&
+                  "border-l-4 border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-muted)/0.56)] pl-0",
               )}
             >
               <table className="min-w-full text-left">
-                <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                   <tr>
                     <th className="px-3 py-2 font-semibold lg:px-3.5">Name</th>
                     <th className="px-3 py-2 font-semibold lg:px-3.5">Category</th>
@@ -776,7 +778,7 @@ export function PromptLibraryPage() {
                           key={prompt.id}
                           className={cn(
                             "cursor-pointer border-t border-border/70 transition-colors",
-                            isSelected && "bg-amber-50/70",
+                            isSelected && "bg-[hsl(var(--theme-accent-muted)/0.78)]",
                           )}
                         onClick={() => {
                           openEditModal(prompt);
@@ -784,10 +786,10 @@ export function PromptLibraryPage() {
                       >
                           <td className="px-3 py-2.5 align-top lg:px-3.5">
                             <div className="space-y-1">
-                              <p className="text-[0.9rem] font-semibold text-slate-950 transition hover:text-amber-900">
+                              <p className="text-[0.9rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
                                 {prompt.name}
                               </p>
-                              <p className="max-w-sm text-[0.73rem] leading-4.5 text-slate-500">
+                              <p className="max-w-sm text-[0.73rem] leading-4.5 text-[hsl(var(--foreground-soft))]">
                                 {prompt.description ?? "No description"}
                               </p>
                             </div>
@@ -804,11 +806,11 @@ export function PromptLibraryPage() {
                                   </Badge>
                                 ))
                               ) : (
-                                <span className="text-[0.84rem] text-slate-400">No tags</span>
+                                <span className="text-[0.84rem] text-[hsl(var(--foreground-soft))]">No tags</span>
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 align-top text-[0.84rem] text-slate-500 lg:px-3.5">
+                          <td className="px-3 py-2.5 align-top text-[0.84rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                             {formatDate(prompt.updated_at)}
                           </td>
                           <td className="px-3 py-2.5 align-top lg:px-3.5">

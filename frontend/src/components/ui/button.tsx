@@ -5,20 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950/20 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary)/0.24)] disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         primary:
-          "bg-slate-950 text-white shadow-[0_14px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800",
+          "bg-primary text-primary-foreground shadow-[0_14px_32px_-18px_rgba(15,23,42,0.3)] hover:brightness-[1.06]",
         secondary:
-          "border border-border bg-white text-slate-950 shadow-sm hover:border-slate-300 hover:bg-slate-50",
+          "border border-border bg-[hsl(var(--surface))] text-foreground shadow-sm hover:bg-[hsl(var(--surface-muted))]",
         soft:
-          "border border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200",
-        ghost: "text-slate-700 hover:bg-slate-100",
+          "border border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] hover:brightness-[0.98]",
+        ghost:
+          "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-foreground",
         danger: "bg-rose-600 text-white hover:bg-rose-700",
         dangerSoft:
-          "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+          "border border-[hsl(var(--theme-danger-border))] bg-[hsl(var(--theme-danger-soft))] text-[hsl(var(--theme-danger-foreground))] hover:brightness-[0.98]",
       },
       size: {
         sm: "h-9 px-3",

@@ -4,10 +4,21 @@ BenchForge is an open-source, self-hostable benchmark studio for evaluating loca
 and remote language models with reusable prompts, structured LLM-as-a-judge
 scoring, and polished reports.
 
-This repository currently implements the MVP roadmap through `PR 018 — Seed content and polish`
-from [docs/10-pr-roadmap.md](/Users/alexis/Documents/GitHub/BenchForge/docs/10-pr-roadmap.md:1).
+This repository includes the core application flow for building benchmark sessions,
+running evaluations, scoring outputs with a judge model, and generating reports.
 
-## Current MVP scope
+<table>
+  <tr>
+    <td><img src="docs/readme_images/image1.png" alt="BenchForge screenshot 1"></td>
+    <td><img src="docs/readme_images/image2.png" alt="BenchForge screenshot 2"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/readme_images/image3.png" alt="BenchForge screenshot 3"></td>
+    <td><img src="docs/readme_images/image4.png" alt="BenchForge screenshot 4"></td>
+  </tr>
+</table>
+
+## Current scope
 
 - Prompt library with built-in seeded benchmark prompts
 - Model registry for local and remote providers
@@ -117,7 +128,7 @@ For the usual local workflow after the first setup:
    ./scripts/dev-frontend.sh
    ```
 
-### First MVP test
+### First functional test
 
 Once the app is running, the shortest useful test flow is:
 

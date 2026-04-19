@@ -426,14 +426,15 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
   return (
     <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-      <section className="relative overflow-hidden rounded-[1.65rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),_transparent_32%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(255,255,255,0.96))] p-3.5 shadow-xl lg:p-4">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
+      <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
+        <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
         <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
-          <div className="max-w-[30rem] space-y-2">
+          <div className="relative max-w-[30rem] space-y-2">
             <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-950">
               Benchmark Setup
             </span>
-            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-slate-950 lg:text-[2.2rem]">
+            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
               Sessions
             </h1>
           </div>
@@ -467,11 +468,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       </section>
 
       <section className="mt-5 space-y-5">
-        <Card className="border-border/70 bg-white/90 shadow-sm">
+        <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
           <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-950">Sessions List</h2>
+                <h2 className="text-lg font-semibold text-foreground">Sessions List</h2>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <label className="relative block min-w-64">
@@ -518,7 +519,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           ) : null}
 
           {feedback ? (
-            <div className="border-b border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-950">
+            <div className="border-b border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] px-5 py-3 text-sm text-[hsl(var(--theme-success-foreground))]">
               {feedback}
             </div>
           ) : null}
@@ -527,19 +528,19 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             saveMutation.isPending ||
             archiveMutation.isPending ||
             duplicateMutation.isPending) && (
-            <div className="border-b border-border/70 px-5 py-3 text-sm text-slate-500">
+            <div className="border-b border-border/70 px-5 py-3 text-sm text-[hsl(var(--foreground-soft))]">
               Syncing changes...
             </div>
           )}
           {launchMutation.isPending && (
-            <div className="border-b border-border/70 px-5 py-3 text-sm text-slate-500">
+            <div className="border-b border-border/70 px-5 py-3 text-sm text-[hsl(var(--foreground-soft))]">
               Launching run...
             </div>
           )}
 
           <div className="overflow-x-auto overflow-y-visible">
             <table className="min-w-full text-left">
-              <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.14em] text-slate-500">
+              <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                 <tr>
                   <th className="px-3 py-2 font-semibold lg:px-3.5">Session</th>
                   <th className="px-3 py-2 font-semibold lg:px-3.5">Composition</th>
@@ -569,7 +570,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                         key={session.id}
                         className={cn(
                           "cursor-pointer border-t border-border/70 transition-colors",
-                          isSelected && "bg-emerald-50/60",
+                          isSelected && "bg-[hsl(var(--theme-success-soft)/0.48)]",
                         )}
                         onClick={() => {
                           startTransition(() => {
@@ -580,15 +581,15 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                       >
                         <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <div className="space-y-1">
-                            <p className="text-[0.95rem] font-semibold text-slate-950 transition hover:text-emerald-800">
+                            <p className="text-[0.95rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
                               {session.name}
                             </p>
-                            <p className="max-w-sm text-[0.92rem] text-slate-500">
+                            <p className="max-w-sm text-[0.92rem] text-[hsl(var(--foreground-soft))]">
                               {session.description ?? "No description"}
                             </p>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-slate-500 lg:px-3.5">
+                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="neutral">{session.prompts.length} prompts</Badge>
                             <Badge variant="neutral">
@@ -597,10 +598,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             <Badge variant="neutral">{session.judges.length} judges</Badge>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-slate-500 lg:px-3.5">
+                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                           {session.rubric_version}
                         </td>
-                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-slate-500 lg:px-3.5">
+                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                           {formatDate(session.updated_at)}
                         </td>
                         <td className="px-3 py-2.5 align-top lg:px-3.5">
@@ -780,12 +781,12 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           </div>
 
           {feedback ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+            <div className="rounded-2xl border border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] px-4 py-3 text-sm text-[hsl(var(--theme-success-foreground))]">
               {feedback}
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
             {selectedSession ? (
               <Button
                 aria-label={`Archive ${selectedSession.name}`}
@@ -969,7 +970,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 function TableEmptyRow({ message }: { message: string }) {
   return (
     <tr className="border-t border-border/70">
-      <td className="px-5 py-12 text-center text-sm text-slate-500" colSpan={6}>
+      <td className="px-5 py-12 text-center text-sm text-[hsl(var(--foreground-soft))]" colSpan={6}>
         {message}
       </td>
     </tr>
@@ -987,20 +988,20 @@ function SelectedList({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
         Selected
       </p>
       {items.length === 0 ? (
-        <p className="text-sm text-slate-400">{emptyMessage ?? "Nothing selected yet."}</p>
+        <p className="text-sm text-[hsl(var(--foreground-soft))]">{emptyMessage ?? "Nothing selected yet."}</p>
       ) : (
         items.map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-slate-50 px-3 py-3"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-[hsl(var(--surface-muted))] px-3 py-3"
           >
             <div>
-              <p className="text-sm font-medium text-slate-950">{item.label}</p>
-              <p className="text-xs text-slate-500">{item.meta}</p>
+              <p className="text-sm font-medium text-foreground">{item.label}</p>
+              <p className="text-xs text-[hsl(var(--foreground-soft))]">{item.meta}</p>
             </div>
             <Button size="sm" variant="dangerSoft" onClick={() => onRemove(item.id)}>
               <Trash2 className="h-4 w-4" />
@@ -1069,17 +1070,17 @@ function ActionIconButton({
               className="pointer-events-none fixed z-[250] w-64 -translate-x-1/2 -translate-y-full"
               style={{ left: position.left, top: position.top }}
             >
-              <div className="relative rounded-2xl border border-slate-200 bg-white/98 p-3 text-left shadow-[0_24px_60px_-22px_rgba(15,23,42,0.45)] ring-1 ring-slate-950/5 backdrop-blur-sm">
-                <div className="absolute -bottom-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-slate-200 bg-white/98" />
-                <div className="relative overflow-hidden rounded-xl border border-slate-100 bg-[linear-gradient(135deg,_rgba(248,250,252,0.96),_rgba(255,255,255,1))] p-3">
+              <div className="relative rounded-2xl border border-border bg-[hsl(var(--surface-overlay))] p-3 text-left shadow-[0_24px_60px_-22px_rgba(15,23,42,0.22)] ring-1 ring-[hsl(var(--border)/0.6)] backdrop-blur-sm">
+                <div className="absolute -bottom-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-border bg-[hsl(var(--surface-overlay))]" />
+                <div className="relative overflow-hidden rounded-xl border border-border bg-[linear-gradient(135deg,_hsl(var(--surface-muted)),_hsl(var(--surface)))] p-3">
                   <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-emerald-400" />
                   <div className="flex items-start gap-3 pl-2">
-                    <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 shadow-sm">
+                    <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))] shadow-sm">
                       <BadgeInfo className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-slate-950">{label}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-600">
+                      <p className="text-sm font-semibold text-foreground">{label}</p>
+                      <p className="mt-1 text-xs leading-5 text-[hsl(var(--foreground-soft))]">
                         {description}
                       </p>
                     </div>
@@ -1110,10 +1111,10 @@ function SessionStepSwitcher({
       icon: Layers3,
       label: "Prompts",
       activeClassName:
-        "border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm",
+        "border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))] shadow-sm",
       idleClassName:
-        "border-border/80 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/60",
-      iconClassName: "bg-emerald-100 text-emerald-900",
+        "border-border/80 bg-[hsl(var(--surface))] text-foreground hover:border-[hsl(var(--theme-success-border))] hover:bg-[hsl(var(--theme-success-soft)/0.6)]",
+      iconClassName: "bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))]",
       badgeVariant: "success" as const,
     },
     {
@@ -1122,10 +1123,10 @@ function SessionStepSwitcher({
       icon: Users,
       label: "Candidates",
       activeClassName:
-        "border-sky-300 bg-sky-50 text-sky-950 shadow-sm",
+        "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-sm",
       idleClassName:
-        "border-border/80 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50/60",
-      iconClassName: "bg-sky-100 text-sky-900",
+        "border-border/80 bg-[hsl(var(--surface))] text-foreground hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-soft)/0.6)]",
+      iconClassName: "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]",
       badgeVariant: "neutral" as const,
     },
     {
@@ -1134,10 +1135,10 @@ function SessionStepSwitcher({
       icon: ShieldCheck,
       label: "Judge",
       activeClassName:
-        "border-amber-300 bg-amber-50 text-amber-950 shadow-sm",
+        "border-[hsl(var(--theme-warning-border))] bg-[hsl(var(--theme-warning-soft))] text-[hsl(var(--theme-warning-foreground))] shadow-sm",
       idleClassName:
-        "border-border/80 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50/60",
-      iconClassName: "bg-amber-100 text-amber-900",
+        "border-border/80 bg-[hsl(var(--surface))] text-foreground hover:border-[hsl(var(--theme-warning-border))] hover:bg-[hsl(var(--theme-warning-soft)/0.6)]",
+      iconClassName: "bg-[hsl(var(--theme-warning-soft))] text-[hsl(var(--theme-warning-foreground))]",
       badgeVariant: "success" as const,
     },
   ];
@@ -1170,7 +1171,7 @@ function SessionStepSwitcher({
                 </span>
                 <div>
                   <p className="text-sm font-semibold">{step.label}</p>
-                  <p className="text-xs text-slate-500">{step.count} selected</p>
+                  <p className="text-xs text-[hsl(var(--foreground-soft))]">{step.count} selected</p>
                 </div>
               </div>
               <Badge variant={isActive ? step.badgeVariant : "neutral"}>
@@ -1201,13 +1202,13 @@ function SelectionWorkspace({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-border/80 bg-white p-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface-overlay))] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.18em] text-slate-500">{title}</p>
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+          <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">{title}</p>
+          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
             {selectedCount} selected
           </h3>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
+          <p className="mt-1 text-sm text-[hsl(var(--foreground-soft))]">{description}</p>
         </div>
         <label className="relative block min-w-full lg:min-w-80">
           <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
@@ -1235,20 +1236,20 @@ function LibraryList({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
         Library
       </p>
       {items.length === 0 ? (
-        <p className="text-sm text-slate-400">No matching items available.</p>
+        <p className="text-sm text-[hsl(var(--foreground-soft))]">No matching items available.</p>
       ) : (
         items.slice(0, 8).map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-white px-3 py-3"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-[hsl(var(--surface))] px-3 py-3"
           >
             <div>
-              <p className="text-sm font-medium text-slate-950">{item.label}</p>
-              <p className="text-xs text-slate-500">{item.meta}</p>
+              <p className="text-sm font-medium text-foreground">{item.label}</p>
+              <p className="text-xs text-[hsl(var(--foreground-soft))]">{item.meta}</p>
             </div>
             <Button size="sm" variant="soft" onClick={() => onAdd(item.id)}>
               Add
@@ -1272,9 +1273,9 @@ function Field({
   return (
     <label className="flex h-full flex-col gap-2">
       <span className="block min-h-[4.75rem]">
-        <span className="text-sm font-medium text-slate-700">{label}</span>
+        <span className="text-sm font-medium text-foreground">{label}</span>
         {hint ? (
-          <span className="mt-1 block text-xs leading-5 text-slate-500">{hint}</span>
+          <span className="mt-1 block text-xs leading-5 text-[hsl(var(--foreground-soft))]">{hint}</span>
         ) : null}
       </span>
       <span className="block">{children}</span>

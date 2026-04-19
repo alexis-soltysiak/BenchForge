@@ -49,25 +49,27 @@ export function LoadErrorState({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 border border-rose-200 bg-[linear-gradient(135deg,rgba(255,241,242,0.96),rgba(255,255,255,0.98))] text-rose-950",
+        "flex items-start gap-3 border border-[hsl(var(--theme-danger-border))] bg-[hsl(var(--theme-danger-soft))] text-[hsl(var(--theme-danger-foreground))]",
         compact ? "rounded-2xl px-4 py-3" : "border-b px-5 py-4",
         className,
       )}
     >
-      <div className="mt-0.5 rounded-xl bg-white/80 p-2 text-rose-600 shadow-sm ring-1 ring-rose-200/80">
+      <div className="mt-0.5 rounded-xl bg-[hsl(var(--surface)/0.88)] p-2 text-[hsl(var(--theme-danger-foreground))] shadow-sm ring-1 ring-[hsl(var(--theme-danger-border)/0.85)]">
         <TriangleAlert className="h-4 w-4" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--theme-danger-foreground))]">
           {copy.title}
         </p>
-        <p className="mt-1 text-sm leading-6 text-rose-950/90">{copy.description}</p>
+        <p className="mt-1 text-sm leading-6 text-[hsl(var(--theme-danger-foreground)/0.92)]">
+          {copy.description}
+        </p>
       </div>
 
       {!compact && onRetry ? (
         <Button
-          className="shrink-0 border-rose-200 bg-white/90 text-rose-800 hover:border-rose-300 hover:bg-rose-100"
+          className="shrink-0 border-[hsl(var(--theme-danger-border))] bg-[hsl(var(--surface)/0.92)] text-[hsl(var(--theme-danger-foreground))] hover:bg-[hsl(var(--surface))]"
           onClick={onRetry}
           size="sm"
           type="button"

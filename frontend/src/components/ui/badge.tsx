@@ -9,10 +9,12 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        neutral: "bg-slate-100 text-slate-700",
-        accent: "bg-amber-100 text-amber-900",
-        success: "bg-emerald-100 text-emerald-900",
-        muted: "bg-stone-200 text-stone-700",
+        neutral: "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]",
+        accent:
+          "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]",
+        success:
+          "bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))]",
+        muted: "bg-[hsl(var(--surface-muted))] text-[hsl(var(--foreground-soft))]",
       },
     },
     defaultVariants: {
