@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,21 +15,35 @@ from app.features.models_registry.schemas import (
 from app.features.models_registry.service import (
     ModelProfileNotFoundError,
     ModelProfileService,
+    ModelProfileValidationError,
 )
 
 router = APIRouter(tags=["model-profiles"])
 
+DbSession = Annotated[AsyncSession, Depends(get_db_session)]
+IncludeArchivedQuery = Annotated[bool, Query()]
+ModelProfileTestConnectionBody = Annotated[
+    ModelProfileConnectionTestRequest,
+    Body(default_factory=ModelProfileConnectionTestRequest),
+]
+
 
 def get_model_profile_service(
-    session: AsyncSession = Depends(get_db_session),
+    session: DbSession,
 ) -> ModelProfileService:
     return ModelProfileService(session)
 
 
+ModelProfileServiceDep = Annotated[
+    ModelProfileService,
+    Depends(get_model_profile_service),
+]
+
+
 @router.get("/model-profiles", response_model=ModelProfileListResponse)
 async def list_model_profiles(
-    include_archived: bool = Query(default=False),
-    service: ModelProfileService = Depends(get_model_profile_service),
+    service: ModelProfileServiceDep,
+    include_archived: IncludeArchivedQuery = False,
 ) -> ModelProfileListResponse:
     items, total = await service.list_model_profiles(include_archived)
     return ModelProfileListResponse(items=items, total=total)
@@ -35,7 +51,7 @@ async def list_model_profiles(
 
 @router.get("/model-profiles/machine-labels")
 async def list_machine_labels(
-    service: ModelProfileService = Depends(get_model_profile_service),
+    service: ModelProfileServiceDep,
 ) -> list[str]:
     return await service.get_distinct_machine_labels()
 
@@ -47,15 +63,21 @@ async def list_machine_labels(
 )
 async def create_model_profile(
     payload: ModelProfileCreate,
-    service: ModelProfileService = Depends(get_model_profile_service),
+    service: ModelProfileServiceDep,
 ) -> ModelProfileRead:
-    return await service.create_model_profile(payload)
+    try:
+        return await service.create_model_profile(payload)
+    except ModelProfileValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/model-profiles/{model_id}", response_model=ModelProfileRead)
 async def get_model_profile(
     model_id: int,
-    service: ModelProfileService = Depends(get_model_profile_service),
+    service: ModelProfileServiceDep,
 ) -> ModelProfileRead:
     try:
         return await service.get_model_profile(model_id)
@@ -69,7 +91,7 @@ async def get_model_profile(
 async def update_model_profile(
     model_id: int,
     payload: ModelProfileUpdate,
-    service: ModelProfileService = Depends(get_model_profile_service),
+    service: ModelProfileServiceDep,
 ) -> ModelProfileRead:
     try:
         return await service.update_model_profile(model_id, payload)
@@ -77,12 +99,17 @@ async def update_model_profile(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
+    except ModelProfileValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post("/model-profiles/{model_id}/archive", response_model=ModelProfileRead)
 async def archive_model_profile(
     model_id: int,
-    service: ModelProfileService = Depends(get_model_profile_service),
+    service: ModelProfileServiceDep,
 ) -> ModelProfileRead:
     try:
         return await service.archive_model_profile(model_id)
@@ -98,10 +125,8 @@ async def archive_model_profile(
 )
 async def test_model_profile_connection(
     model_id: int,
-    payload: ModelProfileConnectionTestRequest = Body(
-        default_factory=ModelProfileConnectionTestRequest
-    ),
-    service: ModelProfileService = Depends(get_model_profile_service),
+    payload: ModelProfileTestConnectionBody,
+    service: ModelProfileServiceDep,
 ) -> ModelProfileConnectionTestResponse:
     try:
         return await service.test_connection(model_id, payload)
