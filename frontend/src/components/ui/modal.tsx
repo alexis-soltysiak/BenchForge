@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,7 +29,6 @@ const toneEyebrows = {
 export function Modal({
   children,
   description,
-  eyebrow,
   onClose,
   open,
   size = "lg",
@@ -39,15 +37,12 @@ export function Modal({
 }: {
   children: ReactNode;
   description?: string;
-  eyebrow?: string;
   onClose: () => void;
   open: boolean;
   size?: keyof typeof sizeClasses;
   tone?: keyof typeof toneGlows;
   title: string;
 }) {
-  const { t } = useTranslation();
-
   useEffect(() => {
     if (!open) {
       return;
@@ -99,7 +94,7 @@ export function Modal({
                   toneEyebrows[tone],
                 )}
               >
-                {eyebrow ?? t("common.workspaceEditor")}
+                Workspace Editor
               </p>
               <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
                 {title}
