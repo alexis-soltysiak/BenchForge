@@ -3,6 +3,7 @@ import {
   Activity,
   Database,
   FileText,
+  Settings,
   Layers3,
   Sparkles,
   UsersRound,
@@ -17,75 +18,44 @@ import { ModelRegistryPage } from "@/features/models/model-registry-page";
 import { PromptLibraryPage } from "@/features/prompts/prompt-library-page";
 import { RunDetailPage, RunsPage } from "@/features/runs/runs-page";
 import { SessionsPage } from "@/features/sessions/sessions-page";
+import { SettingsPage } from "@/features/settings/settings-page";
+import {
+  type AppTheme,
+  type SettingsSection,
+  applyTheme,
+  getStoredTheme,
+} from "@/features/settings/settings-preferences";
 import { queryClient } from "@/lib/query-client";
 import { cn } from "@/lib/utils";
 
-type View = "home" | "prompts" | "models" | "sessions" | "runs" | "contributors";
+type View =
+  | "home"
+  | "prompts"
+  | "models"
+  | "sessions"
+  | "runs"
+  | "contributors"
+  | "settings";
 
 const navigationIcons: Record<Exclude<View, "home" | "contributors">, LucideIcon> = {
   prompts: FileText,
   models: Database,
   sessions: Layers3,
   runs: Activity,
-};
-
-const viewThemes: Record<
-  View,
-  {
-    brandAccent: string;
-    pageGlow: string;
-    railGlow: string;
-    railOrb: string;
-  }
-> = {
-  home: {
-    brandAccent: "text-slate-950",
-    pageGlow: "rgba(15, 23, 42, 0.08)",
-    railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.12),_transparent_60%)]",
-    railOrb: "bg-[rgba(15,23,42,0.04)]",
-  },
-  prompts: {
-    brandAccent: "text-amber-500",
-    pageGlow: "rgba(251, 191, 36, 0.14)",
-    railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.18),_transparent_55%)]",
-    railOrb: "bg-[rgba(251,191,36,0.12)]",
-  },
-  models: {
-    brandAccent: "text-sky-500",
-    pageGlow: "rgba(59, 130, 246, 0.14)",
-    railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.18),_transparent_55%)]",
-    railOrb: "bg-[rgba(59,130,246,0.12)]",
-  },
-  sessions: {
-    brandAccent: "text-emerald-500",
-    pageGlow: "rgba(16, 185, 129, 0.14)",
-    railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.18),_transparent_55%)]",
-    railOrb: "bg-[rgba(16,185,129,0.12)]",
-  },
-  runs: {
-    brandAccent: "text-red-500",
-    pageGlow: "rgba(239, 68, 68, 0.1)",
-    railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.14),_transparent_55%)]",
-    railOrb: "bg-[rgba(239,68,68,0.09)]",
-  },
-  contributors: {
-    brandAccent: "text-slate-950",
-    pageGlow: "rgba(0, 0, 0, 0.05)",
-    railGlow:
-      "bg-[radial-gradient(circle_at_top_right,_rgba(0,0,0,0.18),_transparent_58%)]",
-    railOrb: "bg-[rgba(0,0,0,0.08)]",
-  },
+  settings: Settings,
 };
 
 export function App() {
   const { t } = useTranslation();
   const [view, setView] = useState<View>("home");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("theme");
+  const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
+  const [markUnavailable, setMarkUnavailable] = useState(false);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const navigationItems: Array<{
     id: View;
@@ -141,6 +111,19 @@ export function App() {
         return;
       }
 
+      if (segments[0] === "settings") {
+        setView("settings");
+        setSelectedRunId(null);
+        setSettingsSection(
+          segments[1] === "api-keys"
+            ? "api-keys"
+            : segments[1] === "language"
+              ? "language"
+              : "theme",
+        );
+        return;
+      }
+
       const nextView = segments[0];
       if (
         nextView === "home" ||
@@ -172,8 +155,16 @@ export function App() {
       navigateToHome();
       return;
     }
+    if (nextView === "settings") {
+      window.location.hash = `/settings/${settingsSection}`;
+      return;
+    }
     window.location.hash =
       nextView === "sessions" ? "/sessions" : `/${nextView}`;
+  };
+
+  const navigateToSettingsSection = (section: SettingsSection) => {
+    window.location.hash = `/settings/${section}`;
   };
 
   const navigateToRun = (runId: number) => {
@@ -186,7 +177,6 @@ export function App() {
 
   const activeView =
     navigationItems.find((item) => item.id === view) ?? navigationItems[0];
-  const activeTheme = viewThemes[view];
   const isRunDetailView = view === "runs" && selectedRunId !== null;
   const isHomeView = view === "home";
   const activeSectionLabel =
@@ -195,12 +185,12 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <div
-        className={cn("min-h-screen", !isHomeView && "xl:pr-[23rem]")}
+        className={cn("min-h-screen", !isHomeView && "xl:pr-[17.25rem]")}
         style={{
           backgroundImage:
             isHomeView || isRunDetailView
               ? "none"
-              : `radial-gradient(circle at top, ${activeTheme.pageGlow}, transparent 28%)`,
+              : "radial-gradient(circle at top, var(--shell-glow), transparent 28%)",
         }}
       >
         {isHomeView ? (
@@ -215,20 +205,37 @@ export function App() {
           <>
             <div className="xl:hidden">
               <div className="mx-auto max-w-7xl px-5 pt-5 lg:px-10">
-                <div className="rounded-[2rem] border border-white/80 bg-white/85 p-5 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.55)]">
+                <div className="rounded-[2rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-5 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.2)]">
                   <div className="space-y-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                       <div className="space-y-2">
                         <button
-                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                          className="group inline-flex min-h-12 items-center rounded-full border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface))] px-3 py-2 text-foreground shadow-[0_18px_36px_-30px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-[hsl(var(--surface-elevated))]"
                           onClick={navigateToHome}
                           type="button"
                         >
                           <Sparkles className="h-3.5 w-3.5 text-slate-700" />
                           {t("nav.home")}
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_8px_18px_-16px_rgba(15,23,42,0.42)]">
+                            {!markUnavailable ? (
+                              <img
+                                alt=""
+                                className="h-3.5 w-3.5 object-contain"
+                                onError={() => setMarkUnavailable(true)}
+                                src="/branding/benchforge-mark.png"
+                              />
+                            ) : (
+                              <span className="text-sm font-semibold text-slate-700">
+                                B
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-foreground">
+                            BenchForge
+                          </span>
                         </button>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[hsl(var(--foreground-soft))]">
                             {activeSectionLabel}
                           </p>
                           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
@@ -253,8 +260,8 @@ export function App() {
                             className={cn(
                               "group flex min-w-[13rem] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition",
                               isActive
-                                ? "border-slate-900 bg-slate-950 text-white shadow-lg shadow-slate-900/15"
-                                : "border-slate-200 bg-white/80 text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+                                ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-lg shadow-slate-900/10"
+                                : "border-border bg-[hsl(var(--surface-overlay))] text-foreground hover:bg-[hsl(var(--surface-muted))]",
                             )}
                             onClick={() => navigateToView(item.id)}
                             type="button"
@@ -263,8 +270,8 @@ export function App() {
                               className={cn(
                                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
                                 isActive
-                                  ? "bg-white/12 text-white"
-                                  : "bg-slate-100 text-slate-700",
+                                  ? "bg-[hsl(var(--surface-strong-foreground)/0.12)] text-current"
+                                  : "bg-[hsl(var(--muted))] text-foreground",
                               )}
                             >
                               <Icon className="h-5 w-5" />
@@ -276,7 +283,9 @@ export function App() {
                               <span
                                 className={cn(
                                   "mt-0.5 block text-xs leading-5",
-                                  isActive ? "text-slate-300" : "text-slate-500",
+                                  isActive
+                                    ? "text-[hsl(var(--surface-strong-foreground)/0.76)]"
+                                    : "text-[hsl(var(--foreground-soft))]",
                                 )}
                               >
                                 {item.description}
@@ -288,56 +297,81 @@ export function App() {
                     </nav>
 
                     <div className="mt-3 flex justify-end">
-                      <button
-                        className={cn(
-                          "group inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] transition",
-                          view === "contributors"
-                            ? "border-slate-900 bg-slate-950 text-white shadow-lg shadow-slate-900/15"
-                            : "border-slate-200 bg-white/75 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-800",
-                        )}
-                        onClick={() => navigateToView("contributors")}
-                        title={t("nav.openContributors")}
-                        type="button"
-                      >
-                        <UsersRound className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">{t("common.credits")}</span>
-                        <span className="sr-only">{t("nav.openContributors")}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className={cn(
+                            "group inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] transition",
+                            view === "contributors"
+                              ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-lg shadow-slate-900/10"
+                              : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
+                          )}
+                          onClick={() => navigateToView("contributors")}
+                          title={t("nav.openContributors")}
+                          type="button"
+                        >
+                          <UsersRound className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">{t("common.credits")}</span>
+                          <span className="sr-only">{t("nav.openContributors")}</span>
+                        </button>
+
+                        <button
+                          aria-current={view === "settings" ? "page" : undefined}
+                          className={cn(
+                            "group inline-flex h-9 w-9 items-center justify-center rounded-full border transition",
+                            view === "settings"
+                              ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-lg shadow-slate-900/10"
+                              : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
+                          )}
+                          onClick={() => navigateToView("settings")}
+                          title={t("nav.openSettings")}
+                          type="button"
+                        >
+                          <Settings className="h-4 w-4" />
+                          <span className="sr-only">{t("nav.openSettings")}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <aside className="fixed inset-y-0 right-0 z-30 hidden w-[21rem] p-5 xl:block">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-[2.4rem] border border-white/70 bg-[linear-gradient(180deg,_rgba(255,255,255,0.86),_rgba(241,245,249,0.78))] px-5 py-6 shadow-[0_34px_110px_-54px_rgba(15,23,42,0.75)] backdrop-blur-xl">
-                <div
-                  className={cn(
-                    "absolute inset-x-0 top-0 h-40",
-                    activeTheme.railGlow,
-                  )}
-                />
-                <div className="absolute -left-12 top-24 h-44 w-44 rounded-full bg-[rgba(15,23,42,0.04)] blur-3xl" />
-                <div
-                  className={cn(
-                    "absolute bottom-10 right-[-3.5rem] h-48 w-48 rounded-full blur-3xl",
-                    activeTheme.railOrb,
-                  )}
-                />
+            <aside className="fixed inset-y-0 right-0 z-30 hidden w-[15.75rem] p-3 xl:block">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-[2rem] border border-[hsl(var(--border)/0.75)] bg-[hsl(var(--surface-glass))] px-3.5 py-4 shadow-[0_34px_110px_-54px_rgba(15,23,42,0.3)] backdrop-blur-xl">
+                <div className="absolute inset-x-0 top-0 h-40 bg-[var(--shell-rail-glow)]" />
+                <div className="absolute -left-12 top-24 h-44 w-44 rounded-full bg-[hsl(var(--primary)/0.08)] blur-3xl" />
+                <div className="absolute bottom-10 right-[-3.5rem] h-48 w-48 rounded-full bg-[var(--shell-rail-orb)] blur-3xl" />
 
                 <div className="relative flex h-full flex-col">
-                  <div className="mb-4 flex justify-end">
+                  <div className="mb-2 flex justify-end">
                     <button
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-white"
+                      className="group inline-flex min-h-10 items-center rounded-full border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface))] pl-2.5 pr-3 py-1.5 text-foreground shadow-[0_18px_36px_-30px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-[hsl(var(--surface-elevated))]"
                       onClick={navigateToHome}
                       type="button"
                     >
                       <Sparkles className="h-3.5 w-3.5 text-slate-700" />
                       {t("common.benchforge")}
+                      <span className="-ml-1.5 mr-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_8px_18px_-16px_rgba(15,23,42,0.42)]">
+                        {!markUnavailable ? (
+                          <img
+                            alt=""
+                            className="h-3.5 w-3.5 object-contain"
+                            onError={() => setMarkUnavailable(true)}
+                            src="/branding/benchforge-mark.png"
+                          />
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-700">
+                            B
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[8.5px] font-semibold uppercase tracking-[0.24em] text-foreground">
+                        BenchForge
+                      </span>
                     </button>
                   </div>
 
-                  <nav className="relative mt-8 space-y-3">
+                  <nav className="relative mt-5 space-y-2.5">
                     {navigationItems.map((item, index) => {
                       const Icon = item.icon;
                       const isActive = item.id === view;
@@ -347,34 +381,34 @@ export function App() {
                           key={item.id}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "group flex w-full flex-row-reverse items-center gap-4 rounded-[1.8rem] border px-4 py-4 text-right transition duration-200",
+                            "group flex w-full flex-row-reverse items-center gap-3 rounded-[1.5rem] border px-3.5 py-3.5 text-right transition duration-200",
                             isActive
-                              ? "border-slate-900 bg-slate-950 text-white shadow-[0_24px_50px_-30px_rgba(15,23,42,0.95)]"
-                              : "border-white/70 bg-white/75 text-slate-700 hover:border-slate-300 hover:bg-white",
+                              ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-[0_24px_50px_-30px_rgba(15,23,42,0.28)]"
+                              : "border-[hsl(var(--border)/0.7)] bg-[hsl(var(--surface-overlay))] text-foreground hover:bg-[hsl(var(--surface))]",
                           )}
                           onClick={() => navigateToView(item.id)}
                           type="button"
                         >
-                          <span
-                            className={cn(
-                              "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors",
-                              isActive
-                                ? "bg-white/12 text-white"
-                                : "bg-slate-100 text-slate-700 group-hover:bg-slate-200",
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
+                            <span
+                              className={cn(
+                                "flex h-10.5 w-10.5 shrink-0 items-center justify-center rounded-[1rem] transition-colors",
+                                isActive
+                                  ? "bg-[hsl(var(--surface-strong-foreground)/0.12)] text-current"
+                                  : "bg-[hsl(var(--muted))] text-foreground group-hover:bg-[hsl(var(--surface-muted))]",
+                              )}
+                            >
+                            <Icon className="h-[1.05rem] w-[1.05rem]" />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center justify-between gap-3">
-                              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                              <span className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
                                 0{index + 1}
                               </span>
-                              <span className="truncate text-sm font-semibold">
+                              <span className="truncate text-[0.84rem] font-semibold leading-4">
                                 {item.label}
                               </span>
                             </span>
-                            <span className="mt-1 block text-xs leading-5 text-slate-500">
+                            <span className="mt-0.5 block text-[0.67rem] leading-4 text-[hsl(var(--foreground-soft))]">
                               {item.description}
                             </span>
                           </span>
@@ -383,13 +417,13 @@ export function App() {
                     })}
                   </nav>
 
-                  <div className="mt-auto flex justify-end pt-6">
+                  <div className="mt-auto flex justify-end gap-2 pt-5">
                     <button
                       className={cn(
-                        "group inline-flex w-fit items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] transition",
+                        "group inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[8.5px] font-semibold uppercase tracking-[0.18em] transition",
                         view === "contributors"
-                          ? "border-slate-950 bg-slate-950 text-white shadow-[0_18px_30px_-24px_rgba(15,23,42,0.85)]"
-                          : "border-slate-200 bg-slate-950 text-white/90 hover:border-slate-950 hover:bg-slate-900 hover:text-white",
+                          ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-[0_18px_30px_-24px_rgba(15,23,42,0.24)]"
+                          : "border-[hsl(var(--surface-strong)/0.22)] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground)/0.9)] hover:brightness-[1.06]",
                       )}
                       onClick={() => navigateToView("contributors")}
                       title={t("nav.openContributors")}
@@ -397,6 +431,22 @@ export function App() {
                     >
                       <UsersRound className="h-3.5 w-3.5 text-white/90" />
                       <span>{t("common.credits")}</span>
+                    </button>
+
+                    <button
+                      aria-current={view === "settings" ? "page" : undefined}
+                      className={cn(
+                        "group inline-flex h-[2.125rem] w-[2.125rem] items-center justify-center rounded-full border transition",
+                        view === "settings"
+                          ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-[0_18px_30px_-24px_rgba(15,23,42,0.24)]"
+                          : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
+                      )}
+                      onClick={() => navigateToView("settings")}
+                      title={t("nav.openSettings")}
+                      type="button"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="sr-only">{t("nav.openSettings")}</span>
                     </button>
                   </div>
                 </div>
@@ -414,6 +464,14 @@ export function App() {
                 />
               ) : null}
               {view === "contributors" ? <ContributorsPage /> : null}
+              {view === "settings" ? (
+                <SettingsPage
+                  activeSection={settingsSection}
+                  currentTheme={theme}
+                  onNavigateToSection={navigateToSettingsSection}
+                  onThemeChange={setTheme}
+                />
+              ) : null}
               {view === "runs" && selectedRunId === null ? (
                 <RunsPage onOpenRun={navigateToRun} />
               ) : null}

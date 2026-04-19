@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
-import re
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_value, encrypt_value
 from app.core.security import build_bearer_token
+from app.features.api_key_presets.repository import ApiKeyPresetRepository
 from app.features.models_registry.builtin_seed import BUILTIN_MODEL_PROFILE_SEEDS
 from app.features.models_registry.models import ModelProfile
 from app.features.models_registry.repository import ModelProfileRepository
@@ -27,9 +29,98 @@ class ModelProfileNotFoundError(ValueError):
     pass
 
 
+class ModelProfileValidationError(ValueError):
+    pass
+
+
 def slugify(value: str) -> str:
     slug = SLUG_PATTERN.sub("-", value.strip().lower()).strip("-")
     return slug or "model"
+
+
+def mask_secret_preview(secret: str | None) -> str | None:
+    if not secret:
+        return None
+
+    if len(secret) <= 4:
+        return "*" * len(secret)
+
+    return f"{secret[:2]}******{secret[-2:]}"
+
+
+def build_connection_test_request(
+    model_profile: ModelProfile,
+) -> tuple[str, str, dict[str, object] | None]:
+    api_style = model_profile.api_style.strip().lower()
+    provider_type = model_profile.provider_type.strip().lower()
+
+    if provider_type == "openai":
+        endpoint_parts = urlsplit(model_profile.endpoint_url)
+        model_lookup_path = f"/v1/models/{model_profile.model_identifier}"
+        return (
+            "GET",
+            urlunsplit(
+                (
+                    endpoint_parts.scheme,
+                    endpoint_parts.netloc,
+                    model_lookup_path,
+                    "",
+                    "",
+                )
+            ),
+            None,
+        )
+
+    if api_style == "openai_compatible":
+        return (
+            "POST",
+            model_profile.endpoint_url,
+            {
+                "model": model_profile.model_identifier,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+            },
+        )
+
+    if api_style == "huggingface":
+        return (
+            "POST",
+            model_profile.endpoint_url,
+            {
+                "inputs": "ping",
+                "parameters": {"return_full_text": False, "max_new_tokens": 1},
+            },
+        )
+
+    return ("GET", model_profile.endpoint_url, None)
+
+
+def interpret_connection_test_result(
+    status_code: int,
+    method: str,
+) -> ModelProfileConnectionTestResponse:
+    if status_code < 400:
+        return ModelProfileConnectionTestResponse(
+            ok=True,
+            status_code=status_code,
+            detail=f"Received HTTP {status_code} from endpoint via {method}.",
+        )
+
+    if status_code == 429:
+        return ModelProfileConnectionTestResponse(
+            ok=True,
+            status_code=status_code,
+            detail=(
+                f"Received HTTP 429 from endpoint via {method}. "
+                "Connection is valid, but the provider rate-limited or quota-limited the test request."
+            ),
+        )
+
+    return ModelProfileConnectionTestResponse(
+        ok=False,
+        status_code=status_code,
+        detail=f"Received HTTP {status_code} from endpoint via {method}.",
+    )
 
 
 async def build_unique_model_slug(
@@ -50,6 +141,11 @@ async def build_unique_model_slug(
 
 
 def serialize_model_profile(model_profile: ModelProfile) -> ModelProfileRead:
+    decrypted_secret = (
+        decrypt_value(model_profile.secret_encrypted)
+        if model_profile.secret_encrypted is not None
+        else None
+    )
     return ModelProfileRead(
         id=model_profile.id,
         display_name=model_profile.display_name,
@@ -61,6 +157,8 @@ def serialize_model_profile(model_profile: ModelProfile) -> ModelProfileRead:
         endpoint_url=model_profile.endpoint_url,
         model_identifier=model_profile.model_identifier,
         has_secret=model_profile.secret_encrypted is not None,
+        secret_preview=mask_secret_preview(decrypted_secret),
+        api_key_preset_id=model_profile.api_key_preset_id,
         timeout_seconds=model_profile.timeout_seconds,
         context_window=model_profile.context_window,
         pricing_input_per_million=(
@@ -86,9 +184,31 @@ def serialize_model_profile(model_profile: ModelProfile) -> ModelProfileRead:
 class ModelProfileService:
     session: AsyncSession
     repository: ModelProfileRepository = field(init=False)
+    api_key_preset_repository: ApiKeyPresetRepository = field(init=False)
 
     def __post_init__(self) -> None:
         self.repository = ModelProfileRepository(self.session)
+        self.api_key_preset_repository = ApiKeyPresetRepository(self.session)
+
+    async def _resolve_secret_encrypted(
+        self,
+        secret: str | None,
+        api_key_preset_id: int | None,
+    ) -> str | None:
+        normalized_secret = secret.strip() if secret else ""
+        if normalized_secret:
+            return encrypt_value(normalized_secret)
+        if api_key_preset_id is None:
+            return None
+
+        preset = await self.api_key_preset_repository.get_api_key_preset(
+            api_key_preset_id
+        )
+        if preset is None:
+            raise ModelProfileValidationError(
+                f"API key preset {api_key_preset_id} not found."
+            )
+        return preset.secret_encrypted
 
     async def list_model_profiles(
         self,
@@ -120,7 +240,11 @@ class ModelProfileService:
             runtime_type=payload.runtime_type,
             endpoint_url=payload.endpoint_url.strip(),
             model_identifier=payload.model_identifier.strip(),
-            secret_encrypted=encrypt_value(payload.secret) if payload.secret else None,
+            secret_encrypted=await self._resolve_secret_encrypted(
+                payload.secret,
+                payload.api_key_preset_id,
+            ),
+            api_key_preset_id=payload.api_key_preset_id,
             timeout_seconds=payload.timeout_seconds,
             context_window=payload.context_window,
             pricing_input_per_million=payload.pricing_input_per_million,
@@ -169,9 +293,21 @@ class ModelProfileService:
         if "model_identifier" in updates and updates["model_identifier"] is not None:
             model_profile.model_identifier = updates["model_identifier"].strip()
         if "secret" in updates:
-            model_profile.secret_encrypted = (
-                encrypt_value(updates["secret"]) if updates["secret"] else None
+            model_profile.secret_encrypted = await self._resolve_secret_encrypted(
+                updates["secret"],
+                updates.get("api_key_preset_id"),
             )
+            if updates["secret"]:
+                model_profile.api_key_preset_id = None
+        elif (
+            "api_key_preset_id" in updates
+            and updates["api_key_preset_id"] is not None
+        ):
+            model_profile.secret_encrypted = await self._resolve_secret_encrypted(
+                None,
+                updates["api_key_preset_id"],
+            )
+            model_profile.api_key_preset_id = updates["api_key_preset_id"]
         if "timeout_seconds" in updates and updates["timeout_seconds"] is not None:
             model_profile.timeout_seconds = updates["timeout_seconds"]
         if "context_window" in updates:
@@ -219,6 +355,7 @@ class ModelProfileService:
                 endpoint_url=seed.endpoint_url,
                 model_identifier=seed.model_identifier,
                 secret_encrypted=encrypt_value(seed.secret) if seed.secret else None,
+                api_key_preset_id=None,
                 timeout_seconds=seed.timeout_seconds,
                 context_window=None,
                 pricing_input_per_million=seed.pricing_input_per_million,
@@ -262,15 +399,24 @@ class ModelProfileService:
             headers["Authorization"] = build_bearer_token(
                 decrypt_value(model_profile.secret_encrypted)
             )
+        method, request_url, request_payload = build_connection_test_request(model_profile)
+        if request_payload is not None:
+            headers["Content-Type"] = "application/json"
 
         try:
             async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-                response = await client.get(model_profile.endpoint_url, headers=headers)
-            return ModelProfileConnectionTestResponse(
-                ok=response.status_code < 400,
-                status_code=response.status_code,
-                detail=f"Received HTTP {response.status_code} from endpoint.",
-            )
+                if method == "POST":
+                    response = await client.post(
+                        request_url,
+                        headers=headers,
+                        json=request_payload,
+                    )
+                else:
+                    response = await client.get(
+                        request_url,
+                        headers=headers,
+                    )
+            return interpret_connection_test_result(response.status_code, method)
         except httpx.HTTPError as exc:
             return ModelProfileConnectionTestResponse(
                 ok=False,

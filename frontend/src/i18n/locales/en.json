@@ -43,7 +43,8 @@
     "contributors": "Contributors",
     "navigationRail": "Navigation rail",
     "desktopNav": "Desktop gets the right-side sticky navigation. Mobile keeps the same sections in a lighter compact strip.",
-    "openContributors": "Open contributors"
+    "openContributors": "Open contributors",
+    "openSettings": "Open settings"
   },
 
   "home": {
@@ -579,7 +580,8 @@
       "managedEndpoint": "Managed endpoint",
       "details": "details",
       "failed": "{{count}} failed",
-      "done": "done"
+      "done": "done",
+      "noLocalInstructions": "No local load instructions were provided."
     },
     "phase2": {
       "title": "Phase 2 · Judging",

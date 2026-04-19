@@ -15,6 +15,10 @@ export class ApiError extends Error {
   }
 }
 
+export function buildNetworkErrorMessage(apiUrl: string): string {
+  return `Backend unavailable. Unable to reach ${apiUrl}. Check that the backend is running.`;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
@@ -28,15 +32,8 @@ export async function apiRequest<T>(
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Network request failed.";
-    throw new ApiError(
-      `Unable to reach the API at ${API_URL}. Check that the backend is running and CORS allows the frontend origin. (${message})`,
-      0,
-    );
+  } catch {
+    throw new ApiError(buildNetworkErrorMessage(API_URL), 0);
   }
 
   if (!response.ok) {
@@ -47,6 +44,10 @@ export async function apiRequest<T>(
       errorBody?.detail ?? "Unexpected API error.",
       response.status,
     );
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return (await response.json()) as T;

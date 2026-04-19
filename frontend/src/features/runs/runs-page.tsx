@@ -21,6 +21,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadErrorState } from "@/components/ui/load-error-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -67,6 +68,18 @@ type RunPhaseKey = "phase1" | "phase2" | "phase3";
 
 const terminalStatuses = new Set(["completed", "failed", "cancelled"]);
 
+function isServiceAvailabilityError(message: string | null): boolean {
+  if (!message) {
+    return false;
+  }
+
+  const normalizedMessage = message.toLowerCase();
+  return (
+    normalizedMessage.includes("database unavailable") ||
+    normalizedMessage.includes("backend unavailable")
+  );
+}
+
 export function RunsPage({ onOpenRun }: RunsPageProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -100,6 +113,11 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
     ),
   ).length;
   const readyReports = visibleRuns.filter((item) => item.report_status === "completed").length;
+  const loadError =
+    (runsQuery.error instanceof ApiError && runsQuery.error.message) || null;
+  const retryLoad = () => {
+    void runsQuery.refetch();
+  };
 
   return (
     <div className="px-5 py-8 lg:px-10 lg:py-10">
@@ -119,9 +137,10 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               </p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={Activity}
               label={t("runs.list.metrics.visible")}
               tone="red"
@@ -129,6 +148,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             />
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={CheckCircle2}
               label={t("runs.list.metrics.completed")}
               tone="red"
@@ -136,6 +156,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             />
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={SquareTerminal}
               label={t("runs.list.metrics.active")}
               tone="red"
@@ -143,6 +164,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             />
             <MetricCard
               compact
+              className="rounded-[1.2rem]"
               icon={Gavel}
               label={t("runs.list.metrics.reports")}
               tone="red"
@@ -152,9 +174,9 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
         </div>
       </section>
 
-      <section className="mt-8">
-        <Card className="overflow-hidden border-border/70 bg-white/90 shadow-sm">
-          <div className="border-b border-border/80 px-5 py-4">
+      <section className="mt-5">
+        <Card className="overflow-hidden border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
+          <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-slate-950">{t("runs.list.card.title")}</h2>
@@ -163,7 +185,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                 </p>
               </div>
               <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   className="pl-9"
                   placeholder={t("runs.list.card.searchPlaceholder")}
@@ -174,11 +196,19 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
             </div>
           </div>
 
+          {loadError ? (
+            <LoadErrorState
+              message={loadError}
+              onRetry={retryLoad}
+              resourceLabel="runs"
+            />
+          ) : null}
+
           <div className="divide-y divide-border/70">
             {runsQuery.isLoading ? (
               <div className="px-5 py-12 text-sm text-slate-500">{t("runs.list.card.loading")}</div>
             ) : visibleRuns.length === 0 ? (
-              <div className="px-5 py-8">
+              <div className="px-4 py-7">
                 <EmptyStatePanel
                   title={t("runs.list.card.empty.title")}
                   description={t("runs.list.card.empty.description")}
@@ -188,7 +218,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               visibleRuns.map((item) => (
                 <button
                   key={item.id}
-                  className="block w-full px-5 py-4 text-left transition hover:bg-slate-50"
+                  className="block w-full px-3.5 py-3 text-left transition hover:bg-[hsl(var(--surface-muted))]"
                   onClick={() => {
                     onOpenRun(item.id);
                   }}
@@ -240,7 +270,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
         title={previewRun ? t("runs.list.preview.title", { name: previewRun.name }) : t("runs.list.preview.defaultTitle")}
       >
         {previewRun ? (
-          <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-white">
+          <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface))]">
             <iframe
               className="h-[78vh] w-full"
               src={`${API_URL}/runs/${previewRun.id}/report/pdf`}
@@ -508,6 +538,20 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
         ? 0.65
         : 0
     : 0;
+  const loadError =
+    (runQuery.error instanceof ApiError && runQuery.error.message) ||
+    (responsesQuery.error instanceof ApiError && responsesQuery.error.message) ||
+    (localNextQuery.error instanceof ApiError && localNextQuery.error.message) ||
+    (judgingQuery.error instanceof ApiError && judgingQuery.error.message) ||
+    null;
+  const retryLoad = () => {
+    void Promise.all([
+      runQuery.refetch(),
+      responsesQuery.refetch(),
+      localNextQuery.refetch(),
+      judgingQuery.refetch(),
+    ]);
+  };
 
   return (
     <div className="px-5 py-8 lg:px-10 lg:py-10">
@@ -520,13 +564,13 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
       {selectedRun ? (
         <div className="space-y-6">
-          <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+          <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
                   {t("runs.detail.runLabel", { id: selectedRun.id })}
                 </p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                   {selectedRun.name}
                 </h2>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -583,10 +627,32 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
               </div>
             </div>
 
-            {feedback ? (
-              <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                {feedback}
+            {loadError ? (
+              <div className="mt-5">
+                <LoadErrorState
+                  compact
+                  message={loadError}
+                  onRetry={retryLoad}
+                  resourceLabel="this run"
+                />
               </div>
+            ) : null}
+
+            {feedback ? (
+              isServiceAvailabilityError(feedback) ? (
+                <div className="mt-5">
+                  <LoadErrorState
+                    compact
+                    message={feedback}
+                    onRetry={retryLoad}
+                    resourceLabel="run operations"
+                  />
+                </div>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] px-4 py-3 text-sm text-[hsl(var(--theme-accent-soft-foreground))]">
+                  {feedback}
+                </div>
+              )
             ) : null}
           </Card>
 
@@ -602,7 +668,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
           {activePhase === "phase1" ? (
             <div className="space-y-6">
-              <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+              <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <SectionHeading
                     title={t("runs.phase1.executionTitle")}
@@ -638,14 +704,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 </div>
               </Card>
 
-              <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+              <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <SectionHeading
                   title={t("runs.phase1.responsesTitle")}
                   description={t("runs.phase1.responsesDescription")}
                 />
                 <div className="mt-5 overflow-x-auto">
                   <table className="min-w-full divide-y divide-border/80 text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-500">
+                    <thead className="bg-[hsl(var(--surface-muted))] text-left text-[hsl(var(--foreground-soft))]">
                       <tr>
                         <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.prompt")}</th>
                         <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.candidate")}</th>
@@ -689,8 +755,9 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                               <tr
                                 key={response.id}
                                 className={cn(
-                                  "cursor-pointer transition hover:bg-slate-50",
-                                  selectedResponseId === response.id && "bg-slate-50",
+                                  "cursor-pointer transition hover:bg-[hsl(var(--surface-muted))]",
+                                  selectedResponseId === response.id &&
+                                    "bg-[hsl(var(--surface-muted))]",
                                 )}
                                 onClick={() => {
                                   setSelectedResponseId(response.id);
@@ -720,21 +787,21 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                   ) : response.status === "failed" ? (
                                     <XCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
                                   ) : (
-                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--foreground-soft))]" />
                                   )}
                                   <StatusPill status={response.status} />
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
                                 {formatDuration(response.metric?.duration_ms)}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
                                 {response.metric?.total_tokens ?? "—"}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
                                 {formatCost(response.metric?.estimated_cost)}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">{response.retry_count}</td>
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">{response.retry_count}</td>
                               <td className="px-4 py-3 text-right">
                                 {["failed", "cancelled"].includes(response.status) ? (
                                   <Button
@@ -750,7 +817,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                     {t("common.retry")}
                                   </Button>
                                 ) : (
-                                  <span className="text-xs text-slate-400">—</span>
+                                  <span className="text-xs text-[hsl(var(--foreground-soft))]">—</span>
                                 )}
                               </td>
                             </tr>
@@ -866,7 +933,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           <p className="text-sm text-slate-500">{t("common.loading")}</p>
         </Card>
       ) : (
-        <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
+        <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-6 shadow-sm">
           <EmptyStatePanel
             title={t("runs.list.card.empty.title")}
             description={t("runs.list.card.empty.description")}
@@ -1153,7 +1220,7 @@ function CandidateExecutionCard({
   const isCurrentLocal = localState?.model_snapshot_id === candidate.id;
   const completionRatio = promptCount > 0 ? completedCount / promptCount : 0;
   const localInstructions =
-    localState?.local_load_instructions || "No local load instructions were provided.";
+    localState?.local_load_instructions || t("runs.phase1.noLocalInstructions");
   const startedCount = responses.filter(
     (item) => item.retry_count > 0 || item.status !== "pending",
   ).length;

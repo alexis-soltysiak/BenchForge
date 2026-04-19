@@ -9,11 +9,10 @@ export function Input({
   return (
     <input
       className={cn(
-        "h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400",
+        "h-11 w-full rounded-xl border border-border bg-[hsl(var(--surface))] px-3 text-sm text-foreground outline-none transition placeholder:text-[hsl(var(--foreground-soft))] focus:border-[hsl(var(--primary)/0.5)] focus:bg-[hsl(var(--surface-elevated))]",
         className,
       )}
       {...props}
     />
   );
 }
-

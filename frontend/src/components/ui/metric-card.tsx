@@ -15,37 +15,37 @@ const metricToneStyles: Record<
 > = {
   slate: {
     dot: "bg-slate-500",
-    iconShell: "border-slate-200/80 bg-slate-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-slate-700",
-    valueAccent: "bg-slate-200",
+    valueAccent: "bg-slate-300",
   },
   sky: {
     dot: "bg-sky-500",
-    iconShell: "border-sky-200/80 bg-sky-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-sky-700",
     valueAccent: "bg-sky-200",
   },
   amber: {
     dot: "bg-amber-500",
-    iconShell: "border-amber-200/80 bg-amber-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-amber-700",
     valueAccent: "bg-amber-200",
   },
   emerald: {
     dot: "bg-emerald-500",
-    iconShell: "border-emerald-200/80 bg-emerald-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-emerald-700",
     valueAccent: "bg-emerald-200",
   },
   teal: {
     dot: "bg-teal-500",
-    iconShell: "border-teal-200/80 bg-teal-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-teal-700",
     valueAccent: "bg-teal-200",
   },
   red: {
     dot: "bg-red-500",
-    iconShell: "border-red-200/80 bg-red-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-red-700",
     valueAccent: "bg-red-200",
   },
@@ -71,15 +71,15 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "rounded-[1.6rem] border border-white/80 bg-white/92 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.28)] backdrop-blur",
-        compact ? "px-3.5 py-3.5" : "px-4.5 py-4.5",
+        "rounded-[1.45rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] shadow-[0_18px_36px_-28px_rgba(15,23,42,0.18)] backdrop-blur",
+        compact ? "px-2.5 py-2" : "px-3.5 py-3.5",
         className,
       )}
     >
       <div
         className={cn(
           "relative flex h-full flex-col justify-between",
-          compact ? "min-h-[5.4rem]" : "min-h-[6.9rem]",
+          compact ? "min-h-[3.45rem]" : "min-h-[5.6rem]",
         )}
       >
         <div className="flex items-start justify-between gap-3">
@@ -91,10 +91,10 @@ export function MetricCard({
                   toneStyles.dot,
                 )}
               />
-              <p
-                className={cn(
-                  "text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-                  compact ? "max-w-[6rem] leading-5" : "max-w-[8.5rem] leading-5",
+                <p
+                  className={cn(
+                  "text-[11px] font-semibold uppercase tracking-[0.2em] text-[hsl(var(--foreground-soft))]",
+                  compact ? "max-w-[5rem] text-[10px] leading-[0.9rem]" : "max-w-[7rem] leading-5",
                 )}
               >
                 {label}
@@ -103,38 +103,38 @@ export function MetricCard({
           </div>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center justify-center rounded-[1rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_20px_-18px_rgba(15,23,42,0.2)]",
+              "inline-flex shrink-0 items-center justify-center rounded-[1rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_10px_20px_-18px_rgba(15,23,42,0.2)]",
               toneStyles.iconShell,
-              compact ? "h-11 w-11" : "h-12 w-12",
+              compact ? "h-8 w-8" : "h-10 w-10",
             )}
           >
             <Icon
               className={cn(
-                compact ? "h-[1.05rem] w-[1.05rem]" : "h-[1.15rem] w-[1.15rem]",
+                compact ? "h-[0.82rem] w-[0.82rem]" : "h-4 w-4",
                 toneStyles.iconColor,
               )}
             />
           </span>
         </div>
 
-        <div className={compact ? "mt-3" : "mt-5"}>
+        <div className={compact ? "mt-1.5" : "mt-3.5"}>
           <p
             className={cn(
-              "font-semibold leading-none tracking-tight text-slate-950",
-              compact ? "text-[2.15rem]" : "text-[2.85rem]",
+              "font-semibold leading-none tracking-tight text-foreground",
+              compact ? "text-[1.5rem]" : "text-[2.2rem]",
             )}
           >
             {value}
           </p>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-1.5 flex items-center gap-1.5">
             <div
               className={cn(
                 "h-[3px] rounded-full",
-                compact ? "w-9" : "w-12",
+                compact ? "w-6" : "w-9",
                 toneStyles.valueAccent,
               )}
             />
-            <div className="h-px flex-1 bg-slate-200/80" />
+            <div className="h-px flex-1 bg-[hsl(var(--border)/0.9)]" />
           </div>
         </div>
       </div>
