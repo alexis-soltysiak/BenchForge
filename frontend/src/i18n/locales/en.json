@@ -1,0 +1,804 @@
+{
+  "common": {
+    "workspaceEditor": "Workspace Editor",
+    "cancel": "Cancel",
+    "saveChanges": "Save changes",
+    "credits": "Credits",
+    "benchforge": "BenchForge",
+    "loading": "Loading...",
+    "done": "Done",
+    "add": "Add",
+    "close": "Close",
+    "nextStep": "Next step",
+    "retry": "Retry",
+    "start": "Start",
+    "back": "Back to runs",
+    "browse": "Browse",
+    "manage": "Manage",
+    "filtered": "Filtered",
+    "active": "Active",
+    "archived": "Archived",
+    "inactive": "Inactive",
+    "noDescription": "No description"
+  },
+
+  "nav": {
+    "home": "BenchForge Workspace",
+    "prompts": {
+      "label": "Prompt Library",
+      "description": "Reusable prompt assets"
+    },
+    "models": {
+      "label": "Model Registry",
+      "description": "Profiles and endpoints"
+    },
+    "sessions": {
+      "label": "Sessions",
+      "description": "Benchmark configuration"
+    },
+    "runs": {
+      "label": "Runs",
+      "description": "Execution and judging"
+    },
+    "contributors": "Contributors",
+    "navigationRail": "Navigation rail",
+    "desktopNav": "Desktop gets the right-side sticky navigation. Mobile keeps the same sections in a lighter compact strip.",
+    "openContributors": "Open contributors"
+  },
+
+  "home": {
+    "hero": {
+      "badge": "How it works",
+      "title": "Build a readable benchmark path, from prompt to run.",
+      "description": "BenchForge is a simple, self-hostable workspace to compare models on the same test base. Create prompts, register models, assemble sessions, launch runs, and read results.",
+      "exploreSessions": "Explore sessions",
+      "viewRuns": "View runs",
+      "startWithPrompts": "Start with prompts"
+    },
+    "pillars": {
+      "structured": {
+        "title": "Structured",
+        "text": "Every benchmark stays in a predictable object model."
+      },
+      "replayable": {
+        "title": "Replayable",
+        "text": "Sessions let you rerun exactly the same test base later."
+      },
+      "readable": {
+        "title": "Readable",
+        "text": "The path from prompt to result stays visible at a glance."
+      }
+    },
+    "pipeline": {
+      "eyebrow": "Pipeline",
+      "title": "Prompts, models, sessions, runs.",
+      "objectiveLabel": "Objective",
+      "objective": "Compare, decide, iterate."
+    },
+    "flowSteps": {
+      "prompts": {
+        "subtitle": "Create the content to test",
+        "description": "Centralise your prompts, variants and execution rules to keep a clean, reusable base."
+      },
+      "models": {
+        "subtitle": "Register the engines",
+        "description": "Register models, endpoints and parameters to compare multiple providers or configurations."
+      },
+      "sessions": {
+        "subtitle": "Assemble the scenario",
+        "description": "Combine prompts, models, candidates and judges into a clear, replayable benchmark session."
+      },
+      "runs": {
+        "subtitle": "Launch and measure",
+        "description": "The session produces a run: execution, tracking, arbitration and result reading to decide quickly and accurately."
+      }
+    },
+    "howToUse": {
+      "eyebrow": "How to use it",
+      "title": "A simple path from idea to evaluation.",
+      "configureModels": "Configure models",
+      "steps": {
+        "step01": {
+          "title": "Prepare the prompts",
+          "body": "Start by writing the problem, constraints and variants to compare. BenchForge keeps everything structured."
+        },
+        "step02": {
+          "title": "Connect the models",
+          "body": "Add one or more models, local or remote. You can then measure the differences on the same test base."
+        },
+        "step03": {
+          "title": "Compose a session",
+          "body": "A session links prompts, models and evaluation rules. It is your benchmark plan, not just a list of items."
+        },
+        "step04": {
+          "title": "Launch a run",
+          "body": "The run executes the session, collects responses and prepares result reading to compare cleanly."
+        }
+      }
+    },
+    "cta": {
+      "startingPoint": {
+        "eyebrow": "Starting point",
+        "title": "Create prompts first, then let the rest of the pipeline follow.",
+        "description": "The project is intentionally ordered. If the prompt layer is clean, the model registry, session builder and results stay easy to understand."
+      },
+      "readyToLaunch": {
+        "eyebrow": "Ready to launch",
+        "title": "Compose a session and launch a run when the setup is stable.",
+        "description": "Sessions wrap the benchmark. Runs execute it. Result: reproducible comparisons, easy to audit and share."
+      },
+      "footer": {
+        "text": "BenchForge keeps the benchmark path visible from the first prompt to the final run.",
+        "browsePrompts": "Browse prompts",
+        "openSessions": "Open sessions"
+      }
+    }
+  },
+
+  "prompts": {
+    "hero": {
+      "badge": "Reusable Assets",
+      "title": "Prompt Library",
+      "description": "Manage reusable prompts, keep categories consistent, and archive old entries without deleting benchmark history."
+    },
+    "metrics": {
+      "visible": "Visible Prompts",
+      "categories": "Categories",
+      "systemPacks": "System Packs"
+    },
+    "filters": {
+      "searchPlaceholder": "Search names, descriptions, tags",
+      "categoryLabel": "Category",
+      "allCategories": "All categories",
+      "chooseCategory": "Choose a category",
+      "narrowLibrary": "Narrow the library to one family of prompts.",
+      "tagsLabel": "Tags",
+      "addOrRemoveTags": "Add or remove tags",
+      "manageTags": "Manage tags",
+      "addTagsHint": "Add tags to refine the library, or remove them to broaden it.",
+      "addTagPlaceholder": "Add a tag",
+      "activeTags": "Active tags",
+      "clearAll": "Clear all",
+      "suggestions": "Suggestions",
+      "clickToAdd": "Click to add",
+      "noSuggestions": "No remaining tags to suggest.",
+      "resetFilters": "Reset filters",
+      "showArchived": "Show archived prompts",
+      "showUnarchived": "Show unarchived prompts",
+      "showArchivedTitle": "Show archived",
+      "showUnarchivedTitle": "Show unarchived",
+      "newPrompt": "New prompt"
+    },
+    "table": {
+      "name": "Name",
+      "category": "Category",
+      "tags": "Tags",
+      "updated": "Updated",
+      "status": "Status",
+      "actions": "Actions",
+      "noTags": "No tags",
+      "loadingPrompts": "Loading prompt library...",
+      "noArchivedPrompts": "No archived prompts yet.",
+      "seedingHint": "Built-in prompts are seeded automatically on first load. Refresh if the library is still empty.",
+      "noMatchingPrompts": "No prompts match the current filters."
+    },
+    "editor": {
+      "createTitle": "Create prompt",
+      "editTitle": "Edit prompt",
+      "description": "Create a reusable prompt or refine an existing one without leaving the library view.",
+      "nameLabel": "Name",
+      "nameHint": "Example: \"Summarize a product launch email\"",
+      "namePlaceholder": "Summarize a product launch email",
+      "categoryLabel": "Category",
+      "categoryHint": "Select the closest prompt family used in the library.",
+      "descriptionLabel": "Description",
+      "descriptionHint": "Example: \"Short benchmark brief displayed in the library.\"",
+      "descriptionPlaceholder": "Short benchmark brief displayed in the library.",
+      "tagsLabel": "Tags",
+      "tagsHint": "Example: \"summarization, writing, business\"",
+      "tagsPlaceholder": "Comma-separated tags",
+      "systemPromptLabel": "System prompt",
+      "systemPromptHint": "Example: \"You are a precise analyst who writes concise answers.\"",
+      "systemPromptPlaceholder": "You are a precise analyst who writes concise answers.",
+      "userPromptLabel": "User prompt",
+      "userPromptHint": "Example: \"Summarize the following text in 5 clear bullet points.\"",
+      "userPromptPlaceholder": "Summarize the following text in 5 clear bullet points.",
+      "evalNotesLabel": "Evaluation notes",
+      "evalNotesHint": "Example: \"Check factual accuracy, structure and concise tone.\"",
+      "evalNotesPlaceholder": "Check factual accuracy, structure and concise tone.",
+      "activeCheckbox": "Prompt available for upcoming sessions",
+      "activeHint": "Keep this enabled when the prompt should remain selectable in future sessions.",
+      "createButton": "Create prompt",
+      "saveButton": "Save changes"
+    },
+    "feedback": {
+      "updated": "Prompt \"{{name}}\" updated.",
+      "created": "Prompt \"{{name}}\" created.",
+      "archived": "Prompt \"{{name}}\" archived.",
+      "saveFailed": "Unable to save prompt.",
+      "archiveFailed": "Unable to archive prompt."
+    }
+  },
+
+  "models": {
+    "hero": {
+      "badge": "Connection Profiles",
+      "title": "Model Registry",
+      "description": "Manage candidate and judge profiles across remote APIs and local runtimes, with masked secrets and direct endpoint validation."
+    },
+    "metrics": {
+      "visible": "Visible Models",
+      "candidates": "Candidates",
+      "judges": "Judges"
+    },
+    "filters": {
+      "searchPlaceholder": "Search names, providers, runtimes",
+      "rolesLabel": "Roles",
+      "allRoles": "All roles",
+      "pickRoles": "Pick roles",
+      "selectRoles": "Select one or more registry roles.",
+      "providerLabel": "Provider",
+      "allProviders": "All providers",
+      "chooseProvider": "Choose a provider",
+      "narrowProvider": "Narrow the registry to one provider.",
+      "runtimeLabel": "Runtime",
+      "allRuntimes": "All runtimes",
+      "chooseRuntime": "Choose a runtime",
+      "filterRuntime": "Filter for remote or local model profiles.",
+      "remote": "Remote",
+      "local": "Local",
+      "resetFilters": "Reset filters",
+      "showArchived": "Show archived models",
+      "showUnarchived": "Show unarchived models",
+      "showArchivedTitle": "Show archived",
+      "showUnarchivedTitle": "Show unarchived",
+      "newProfile": "New profile"
+    },
+    "table": {
+      "displayName": "Display name",
+      "role": "Role",
+      "provider": "Provider",
+      "runtime": "Runtime",
+      "status": "Status",
+      "actions": "Actions",
+      "loadingRegistry": "Loading model registry...",
+      "noArchivedProfiles": "No archived model profiles yet.",
+      "noMatchingProfiles": "No model profiles match the current filters.",
+      "testingConnection": "Testing connection...",
+      "missingSecret": "Missing secret"
+    },
+    "roles": {
+      "candidate": {
+        "label": "Candidate",
+        "description": "Generates benchmark answers"
+      },
+      "judge": {
+        "label": "Judge",
+        "description": "Scores model outputs"
+      },
+      "both": {
+        "label": "Both",
+        "description": "Can do both jobs"
+      }
+    },
+    "warning": {
+      "secretMissing": "Secret missing",
+      "secretMissingDetail": "This remote model cannot be used until a secret is configured."
+    },
+    "toast": {
+      "done": "Done"
+    },
+    "editor": {
+      "createTitle": "Create profile",
+      "editTitle": "Edit profile",
+      "description": "Create a new shared model profile or adjust an existing one from a dedicated editor.",
+      "displayNameLabel": "Display name",
+      "displayNameHint": "Example: \"GPT-4.1 Mini - Remote\"",
+      "displayNamePlaceholder": "GPT-4.1 Mini - Remote",
+      "roleLabel": "Role",
+      "roleHint": "Choose Candidate for generation, Judge for scoring, or Both.",
+      "providerTypeLabel": "Provider type",
+      "providerTypeHint": "Pick a known provider or type your own value. Example: \"openai\", \"google\", \"mistral\", \"groq\", \"deepseek\", \"huggingface\" or \"ollama\".",
+      "providerTypePlaceholder": "openai",
+      "apiStyleLabel": "API style",
+      "apiStyleHint": "Recommended options are driven by the provider. You can still type a custom style if you know what you are doing.",
+      "apiStylePlaceholder": "openai_compatible",
+      "runtimeTypeLabel": "Runtime type",
+      "runtimeTypeHint": "Choose Remote for API calls or Local for operator-driven execution.",
+      "endpointUrlLabel": "Endpoint URL",
+      "endpointUrlHint": "Auto-filled from {{provider}}. You can still override it manually if your deployment uses a custom URL.",
+      "modelIdentifierLabel": "Model identifier",
+      "modelIdentifierHint": "Suggested from {{provider}} docs. You can select one or type any custom identifier.",
+      "secretLabel": "Secret",
+      "secretHintLocal": "Local runtime does not require a secret.",
+      "secretHintRemoteMissing": "Remote models need a secret before they are usable.",
+      "secretHintStored": "Leave empty to keep the existing secret unchanged.",
+      "secretHintDefault": "Remote models need a secret before they are usable.",
+      "secretPlaceholderLocal": "Not required for local runtime",
+      "secretPlaceholderOptional": "Optional bearer token",
+      "secretPlaceholderKeepStored": "Leave blank to keep stored secret",
+      "secretNoLocalNote": "No secret is needed for local runtimes.",
+      "secretRemoteMissingWarning": "Remote models without a secret are marked unusable until one is set.",
+      "secretStoredNote": "A secret is already stored. Leave this blank to keep it unchanged.",
+      "timeoutLabel": "Timeout seconds",
+      "timeoutHint": "Example: \"60\"",
+      "timeoutPlaceholder": "60",
+      "contextWindowLabel": "Context window",
+      "contextWindowHint": "Example: \"128000\"",
+      "contextWindowPlaceholder": "Optional",
+      "pricingInputLabel": "Input pricing / 1M",
+      "pricingInputHintLocal": "Local runtimes are forced to 0.",
+      "pricingInputHint": "Example: \"0.15\"",
+      "pricingOutputLabel": "Output pricing / 1M",
+      "pricingOutputHintLocal": "Local runtimes are forced to 0.",
+      "pricingOutputHint": "Example: \"0.60\"",
+      "notesLabel": "Notes",
+      "notesHint": "Example: \"Use for fast draft generation on short prompts.\"",
+      "notesPlaceholder": "Use for fast draft generation on short prompts.",
+      "localLoadLabel": "Local load instructions",
+      "localLoadHint": "Example: \"Launch Ollama, load the model, then click Confirm ready.\"",
+      "localLoadPlaceholder": "Launch Ollama, load the model, then click Confirm ready.",
+      "activeCheckbox": "Profile available for new sessions",
+      "activeHint": "Disable this if the profile should stay in history but no longer appear in new session setup.",
+      "createButton": "Create profile",
+      "saveButton": "Save changes"
+    },
+    "feedback": {
+      "updated": "Model \"{{name}}\" updated.",
+      "created": "Model \"{{name}}\" created.",
+      "archived": "Model \"{{name}}\" archived.",
+      "saveFailed": "Unable to save model profile.",
+      "archiveFailed": "Unable to archive model profile."
+    }
+  },
+
+  "sessions": {
+    "hero": {
+      "badge": "Benchmark Setup",
+      "title": "Sessions",
+      "description": "Assemble prompts, candidate models, and a judge into reusable benchmark sessions ready for launch."
+    },
+    "metrics": {
+      "visible": "Visible Sessions",
+      "promptLibrary": "Prompt Library",
+      "modelRegistry": "Model Registry"
+    },
+    "list": {
+      "title": "Sessions List",
+      "description": "Browse and manage benchmark session definitions.",
+      "searchPlaceholder": "Search sessions",
+      "showArchived": "Show archived",
+      "showUnarchived": "Show unarchived",
+      "configureSelection": "Configure selection",
+      "newSession": "New session",
+      "loading": "Loading sessions...",
+      "noArchived": "No archived sessions yet.",
+      "empty": "No sessions found. Create a benchmark session with seeded prompts and registered models to launch your first run.",
+      "syncing": "Syncing changes...",
+      "launching": "Launching run..."
+    },
+    "table": {
+      "session": "Session",
+      "composition": "Composition",
+      "rubric": "Rubric",
+      "updated": "Updated",
+      "status": "Status",
+      "actions": "Actions",
+      "prompts": "{{count}} prompts",
+      "candidates": "{{current}}/{{max}} candidates",
+      "judges": "{{count}} judges"
+    },
+    "actions": {
+      "configure": "Configure",
+      "configureDescription": "Open the step-by-step selection flow for prompts, candidates, and judge.",
+      "edit": "Edit",
+      "editDescription": "Edit the session name, description, status, candidate limit, and rubric version.",
+      "launch": "Launch",
+      "launchDescription": "Create and start a new benchmark run from this session configuration.",
+      "duplicate": "Duplicate",
+      "duplicateDescription": "Clone this session with its current prompts, candidates, and judge selections.",
+      "archive": "Archive",
+      "archiveDescription": "Archive this session so it disappears from the active list without deleting history."
+    },
+    "editor": {
+      "createTitle": "Create session",
+      "editTitle": "Edit session",
+      "description": "Create a benchmark session or update the selected one without leaving the setup screen.",
+      "nameLabel": "Name",
+      "nameHint": "Example: \"Release Notes Benchmark - April\"",
+      "namePlaceholder": "Release Notes Benchmark - April",
+      "descriptionLabel": "Description",
+      "descriptionHint": "Example: \"Compare three models on product update summarization.\"",
+      "descriptionPlaceholder": "Compare three models on product update summarization.",
+      "statusLabel": "Status",
+      "statusHint": "Use Draft while configuring, then Ready when the session can be launched.",
+      "maxCandidatesLabel": "Max candidates",
+      "maxCandidatesHint": "Choose how many candidate model slots this session can accept.",
+      "rubricVersionLabel": "Rubric version",
+      "rubricVersionHint": "Example: \"mvp-v1\"",
+      "rubricVersionPlaceholder": "mvp-v1",
+      "createButton": "Create session",
+      "saveButton": "Save session"
+    },
+    "configure": {
+      "title": "Configure {{name}}",
+      "defaultTitle": "Configure session",
+      "current": "Current",
+      "open": "Open",
+      "selected": "{{count}} selected",
+      "steps": {
+        "prompts": {
+          "label": "Prompts",
+          "description": "Choose the prompts included in this benchmark session."
+        },
+        "candidates": {
+          "label": "Candidates",
+          "description": "Attach up to {{max}} candidate models for this run configuration."
+        },
+        "judges": {
+          "label": "Judge",
+          "description": "Assign the judge model responsible for evaluation."
+        }
+      },
+      "selected_list": "Selected",
+      "library_list": "Library",
+      "noSelection": {
+        "prompts": "No prompts selected yet.",
+        "candidates": "No candidate models selected yet.",
+        "judges": "No judge selected yet."
+      },
+      "noItems": "No matching items available."
+    },
+    "feedback": {
+      "updated": "Session \"{{name}}\" updated.",
+      "created": "Session \"{{name}}\" created.",
+      "archived": "Session \"{{name}}\" archived.",
+      "duplicated": "Session duplicated as \"{{name}}\".",
+      "promptAdded": "Prompt added to session.",
+      "promptRemoved": "Prompt removed from session.",
+      "candidateAdded": "Candidate added to session.",
+      "candidateRemoved": "Candidate removed from session.",
+      "judgeAdded": "Judge added to session.",
+      "judgeRemoved": "Judge removed from session.",
+      "runLaunched": "Run \"{{name}}\" launched.",
+      "saveFailed": "Unable to save session.",
+      "launchFailed": "Unable to launch run.",
+      "operationFailed": "Operation failed."
+    }
+  },
+
+  "runs": {
+    "list": {
+      "hero": {
+        "badge": "Execution Monitor",
+        "title": "Runs",
+        "description": "Track benchmark progress, inspect candidate outputs, and guide local execution when an operator needs to take over."
+      },
+      "metrics": {
+        "visible": "Visible Runs",
+        "completed": "Completed",
+        "active": "Active Runs",
+        "reports": "Reports Ready"
+      },
+      "card": {
+        "title": "Runs List",
+        "description": "Browse immutable run snapshots and reopen their operational detail.",
+        "searchPlaceholder": "Search runs",
+        "loading": "Loading runs...",
+        "empty": {
+          "title": "No runs found",
+          "description": "Launch a benchmark from the Sessions page to create the first immutable run snapshot."
+        },
+        "sessionInfo": "Session #{{id}} · {{prompts}} prompts · {{models}} models",
+        "reportStatus": "Report {{status}}",
+        "rubric": "Rubric {{version}}",
+        "launched": "Launched {{date}}"
+      },
+      "preview": {
+        "title": "Report Preview · {{name}}",
+        "defaultTitle": "Report Preview",
+        "description": "Embedded PDF preview of the generated benchmark report."
+      }
+    },
+    "detail": {
+      "runLabel": "Run #{{id}}",
+      "startAllEndpoints": "Start all endpoints",
+      "resumeAllEndpoints": "Resume all endpoints",
+      "inProgress": "In progress",
+      "records": "{{count}} records",
+      "snapshots": "Snapshots",
+      "prompts": "{{count}} prompts",
+      "candidates": "{{count}} candidates",
+      "judge": "{{count}} judge",
+      "launched": "Launched",
+      "completed": "Completed",
+      "rubric": "Rubric"
+    },
+    "phases": {
+      "locked": "Locked",
+      "current": "Current",
+      "open": "Open",
+      "phase1": {
+        "label": "Phase 1",
+        "subtitle": "Candidates"
+      },
+      "phase2": {
+        "label": "Phase 2",
+        "subtitle": "Judging"
+      },
+      "phase3": {
+        "label": "Phase 3",
+        "subtitle": "Report"
+      }
+    },
+    "phase1": {
+      "executionTitle": "Phase 1 · Candidate Execution",
+      "executionDescription": "Each candidate LLM executes the entire prompt list. Endpoint models run directly; local models go through an LM Studio handoff.",
+      "responsesTitle": "Phase 1 · Responses By Prompt",
+      "responsesDescription": "One row = one prompt executed by one candidate. Click a response to open its detailed inspection in a large modal.",
+      "candidates": "Candidates",
+      "expectedResponses": "Expected Responses",
+      "completedResponses": "Completed Responses",
+      "table": {
+        "prompt": "Prompt",
+        "candidate": "Candidate",
+        "status": "Status",
+        "duration": "Duration",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "retries": "Retries",
+        "action": "Action",
+        "loading": "Loading candidate responses...",
+        "empty": "No responses recorded yet. Candidate execution has not produced persisted outputs yet."
+      },
+      "unknownPrompt": "Unknown prompt",
+      "unknownCategory": "Unknown category",
+      "unknownModel": "Unknown model",
+      "missingSnapshot": "Missing snapshot",
+      "localCandidate": "Local candidate. Load it in LM Studio, confirm readiness, then start the current handoff.",
+      "localCandidateDesc": "Local candidate. Load it in LM Studio, confirm readiness, then start the current handoff.",
+      "remoteCandidate": "Remote candidate. Endpoint execution can run in parallel with every other remote candidate.",
+      "remoteCandidateDesc": "Remote candidate. Endpoint execution can run in parallel with every other remote candidate.",
+      "prompts": "Prompts",
+      "running": "Running",
+      "remaining": "Remaining",
+      "machine": "Machine",
+      "endpoint": "Endpoint",
+      "modelId": "Model ID",
+      "hoverHandoff": "Hover for handoff",
+      "hoverEndpoint": "Hover for endpoint",
+      "confirmReady": "Confirm ready",
+      "startCurrentModel": "Start current model",
+      "startEndpoint": "Start endpoint",
+      "startingEndpoint": "Starting endpoint",
+      "ready": "Ready",
+      "completed_label": "Completed",
+      "lmStudioInstructions": "LM Studio Instructions",
+      "queuedLocal": "This local candidate is queued and will expose its handoff details when it becomes the active local model.",
+      "currentMachine": "Current machine",
+      "managedEndpoint": "Managed endpoint",
+      "details": "details",
+      "failed": "{{count}} failed",
+      "done": "done"
+    },
+    "phase2": {
+      "title": "Phase 2 · Judging",
+      "description": "This phase unlocks only when all candidates have completed all prompts.",
+      "lockedTitle": "Phase 2 locked",
+      "lockedDescription": "Candidate execution must finish first. {{completed}}/{{expected}} candidate responses are completed.",
+      "noBatches": {
+        "title": "No judge batches yet",
+        "description": "Phase 1 is complete. Start judging manually to create one judge batch per prompt."
+      },
+      "startJudging": "Start judging",
+      "judgingInProgress": "Judging in progress…",
+      "retryAllFailed": "Retry all failed",
+      "runningBatches": "Running all judge batches…",
+      "retryingBatch": "Retrying batch…",
+      "batchInfo": "Batch {{index}} · {{count}} candidates",
+      "completed": "Completed",
+      "failed": "Failed",
+      "pending": "Pending",
+      "selectBatch": {
+        "title": "Select a judge batch",
+        "description": "Choose one batch to inspect rankings, criterion scores, and written feedback."
+      },
+      "noEvaluation": {
+        "title": "No parsed judge evaluation yet",
+        "description": "The selected batch has not completed."
+      },
+      "schema": "schema {{version}}",
+      "unknownCategory": "Unknown category"
+    },
+    "phase3": {
+      "title": "Phase 3 · Aggregation And Report",
+      "description": "After judging, you can aggregate the final scores and generate HTML and PDF artifacts.",
+      "lockedTitle": "Phase 3 locked",
+      "lockedDescription": "Judging must complete successfully for every batch before report generation is available.",
+      "generateArtifacts": "Generate report artifacts",
+      "downloadPdf": "Download PDF",
+      "reportStatus": "Report status",
+      "htmlPath": "HTML path",
+      "pdfPath": "PDF path",
+      "pending": "Pending",
+      "rankingMatrix": {
+        "title": "Prompt Ranking Matrix",
+        "description": "One column per prompt. The best score for each prompt stands out visually in the matrix.",
+        "candidate": "Candidate",
+        "bestScore": "Best score {{score}}",
+        "noScore": "No score",
+        "noRanking": {
+          "title": "No prompt ranking yet",
+          "description": "Prompt-by-prompt ranking becomes available after judge batches complete."
+        }
+      },
+      "aggregatedSummary": {
+        "candidate": "Candidate",
+        "judge": "Judge",
+        "latency": "Latency",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "global": "Global",
+        "noSummary": {
+          "title": "No aggregated summaries yet",
+          "description": "Aggregation runs after judging completes successfully."
+        },
+        "noGlobalSummary": "No global summary generated.",
+        "bestPatterns": "Best patterns",
+        "weakPatterns": "Weak patterns",
+        "noStrengths": "No repeated strengths captured.",
+        "noWeaknesses": "No repeated weaknesses captured."
+      }
+    },
+    "response": {
+      "title": "Selected Response · {{prompt}}",
+      "defaultTitle": "Selected Response",
+      "description": "Detailed inspection of the selected response, with the payload, normalized text and execution metrics.",
+      "promptLabel": "Prompt",
+      "candidateLabel": "Candidate",
+      "unknownPrompt": "Unknown prompt",
+      "unknownModel": "Unknown model",
+      "normalizedResponse": "Normalized Response",
+      "noNormalizedResponse": "No normalized response recorded yet.",
+      "error": "Error",
+      "requestPayload": "Request Payload",
+      "noPayload": "No payload persisted yet."
+    },
+    "ranking": {
+      "noRankingTitle": "No prompt ranking yet",
+      "noRankingDesc": "Prompt-by-prompt ranking becomes available after judge batches complete.",
+      "title": "Prompt Ranking Matrix",
+      "description": "One column per prompt. The best score for each prompt stands out visually in the matrix.",
+      "candidate": "Candidate",
+      "bestScore": "Best score",
+      "noScore": "No score",
+      "score": "Score",
+      "ranked": "Ranked",
+      "noShortFeedback": "No short feedback."
+    },
+    "summary": {
+      "noSummaryTitle": "No aggregated summaries yet",
+      "noSummaryDesc": "Aggregation runs after judging completes successfully.",
+      "candidate": "Candidate",
+      "judge": "Judge",
+      "latency": "Latency",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "global": "Global",
+      "unknownModel": "Unknown model",
+      "missingSnapshot": "Missing snapshot",
+      "noGlobalSummary": "No global summary generated.",
+      "bestPatterns": "Best patterns",
+      "weakPatterns": "Weak patterns",
+      "noStrengths": "No repeated strengths captured.",
+      "noWeaknesses": "No repeated weaknesses captured."
+    },
+    "judging": {
+      "loading": "Loading judge batches...",
+      "noBatchesTitle": "No judge batches yet",
+      "noBatchesDesc": "Phase 1 is complete. Start judging manually to create one judge batch per prompt.",
+      "judgingInProgress": "Judging in progress…",
+      "startJudging": "Start judging",
+      "runningAllBatches": "Running all judge batches…",
+      "retryingBatch": "Retrying batch…",
+      "completed": "Completed",
+      "failed": "Failed",
+      "pending": "Pending",
+      "batchInfo": "Batch {{index}} · {{count}} candidates",
+      "retryAllFailed": "Retry all failed"
+    },
+    "judgeCard": {
+      "candidateModel": "Candidate model",
+      "overall": "Overall",
+      "relevance": "Relevance",
+      "accuracy": "Accuracy",
+      "completeness": "Completeness",
+      "clarity": "Clarity",
+      "instruction": "Instruction",
+      "confidence": "Confidence",
+      "strengths": "Strengths",
+      "weaknesses": "Weaknesses",
+      "shortFeedback": "Short feedback",
+      "detailedFeedback": "Detailed feedback",
+      "noStrengths": "No strengths summary provided.",
+      "noWeaknesses": "No weaknesses summary provided.",
+      "noShortFeedback": "No short feedback provided.",
+      "noDetailedFeedback": "No detailed feedback provided."
+    },
+    "candidate": {
+      "status": {
+        "candidateReady": "candidate ready",
+        "runningLocal": "running local prompts",
+        "runningEndpoint": "running endpoint prompts",
+        "awaitingLocalLoad": "awaiting local load",
+        "readyToStart": "ready to start",
+        "queuedLocalHandoff": "queued local handoff",
+        "endpointFailed": "endpoint failed",
+        "endpointInProgress": "endpoint in progress",
+        "readyToLaunch": "ready to launch"
+      }
+    },
+    "judge": {
+      "scores": {
+        "relevance": "Relevance",
+        "accuracy": "Accuracy",
+        "completeness": "Completeness",
+        "clarity": "Clarity",
+        "instruction": "Instruction",
+        "confidence": "Confidence",
+        "overall": "Overall"
+      },
+      "feedback": {
+        "strengths": "Strengths",
+        "weaknesses": "Weaknesses",
+        "shortFeedback": "Short feedback",
+        "detailedFeedback": "Detailed feedback",
+        "noStrengths": "No strengths summary provided.",
+        "noWeaknesses": "No weaknesses summary provided.",
+        "noShort": "No short feedback provided.",
+        "noDetailed": "No detailed feedback provided.",
+        "noShortFallback": "No short feedback.",
+        "bestScore": "Best score",
+        "ranked": "Ranked"
+      }
+    },
+    "feedback": {
+      "selectBatchTitle": "Select a judge batch",
+      "selectBatchDesc": "Choose one batch to inspect rankings, criterion scores, and written feedback.",
+      "noEvaluationTitle": "No parsed judge evaluation yet",
+      "noEvaluationDesc": "The selected batch has not completed.",
+      "unknownPrompt": "Unknown prompt",
+      "unknownCategory": "Unknown category",
+      "schema": "schema",
+      "resumed": "Remote candidates resumed.",
+      "localReady": "Local model \"{{name}}\" marked ready.",
+      "localStarted": "Current local model started.",
+      "endpointStarted": "Endpoint candidate started.",
+      "responsRetried": "Prompt response retried.",
+      "judgingRetried": "Judging retried.",
+      "batchRetried": "Batch retried.",
+      "judgingStarted": "Judging started.",
+      "resumeFailed": "Unable to resume run.",
+      "localReadyFailed": "Unable to confirm local readiness.",
+      "localStartFailed": "Unable to start local model.",
+      "endpointStartFailed": "Unable to start endpoint candidate.",
+      "responseRetryFailed": "Unable to retry prompt response.",
+      "judgingRetryFailed": "Unable to retry judging.",
+      "batchRetryFailed": "Unable to retry batch.",
+      "judgingStartFailed": "Unable to start judging.",
+      "reportFailed": "Unable to generate report.",
+      "pdfFailed": "Unable to download PDF report."
+    }
+  },
+
+  "contributors": {
+    "eyebrow": "Credits wall",
+    "title": "Contributors",
+    "mainSection": "Main contributors",
+    "othersSection": "Others",
+    "noMain": "No main contributors found.",
+    "noOthers": "No other contributors found.",
+    "badgeMain": "master",
+    "badgeOther": "other"
+  }
+}

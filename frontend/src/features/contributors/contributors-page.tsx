@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 
+import { useTranslation } from "react-i18next";
+
 import contributorsSource from "virtual:contributors-md";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -91,6 +93,7 @@ function ContributorItem({
   contributor: Contributor;
   variant: "main" | "other";
 }) {
+  const { t } = useTranslation();
   return (
     <Card className="border-slate-200 bg-white shadow-sm">
       <div
@@ -110,7 +113,7 @@ function ContributorItem({
               className="uppercase tracking-[0.18em]"
               variant={variant === "main" ? "accent" : "neutral"}
             >
-              {variant === "main" ? "master" : "other"}
+              {variant === "main" ? t("contributors.badgeMain") : t("contributors.badgeOther")}
             </Badge>
           </div>
           <p className="mt-2 truncate font-mono text-sm text-slate-700">
@@ -123,6 +126,7 @@ function ContributorItem({
 }
 
 export function ContributorsPage() {
+  const { t } = useTranslation();
   const { mainContributors, otherContributors } = useMemo(() => {
     return {
       mainContributors: contributors.filter((contributor) => contributor.main),
@@ -137,10 +141,10 @@ export function ContributorsPage() {
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-slate-500">
-              Credits wall
+              {t("contributors.eyebrow")}
             </p>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              Contributors
+              {t("contributors.title")}
             </h1>
           </div>
         </div>
@@ -148,10 +152,10 @@ export function ContributorsPage() {
 
         <section className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            Main contributors
+            {t("contributors.mainSection")}
           </h2>
           {mainContributors.length === 0 ? (
-            <EmptyState text="No main contributors found." />
+            <EmptyState text={t("contributors.noMain")} />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {mainContributors.map((contributor) => (
@@ -167,10 +171,10 @@ export function ContributorsPage() {
 
         <section className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            Others
+            {t("contributors.othersSection")}
           </h2>
           {otherContributors.length === 0 ? (
-            <EmptyState text="No other contributors found." />
+            <EmptyState text={t("contributors.noOthers")} />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {otherContributors.map((contributor) => (

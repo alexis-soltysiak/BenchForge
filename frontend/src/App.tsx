@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ContributorsPage } from "@/features/contributors/contributors-page";
 import { HomePage } from "@/features/home/home-page";
@@ -21,37 +22,12 @@ import { cn } from "@/lib/utils";
 
 type View = "home" | "prompts" | "models" | "sessions" | "runs" | "contributors";
 
-const navigationItems: Array<{
-  id: View;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-  {
-    id: "prompts",
-    label: "Prompt Library",
-    description: "Reusable prompt assets",
-    icon: FileText,
-  },
-  {
-    id: "models",
-    label: "Model Registry",
-    description: "Profiles and endpoints",
-    icon: Database,
-  },
-  {
-    id: "sessions",
-    label: "Sessions",
-    description: "Benchmark configuration",
-    icon: Layers3,
-  },
-  {
-    id: "runs",
-    label: "Runs",
-    description: "Execution and judging",
-    icon: Activity,
-  },
-];
+const navigationIcons: Record<Exclude<View, "home" | "contributors">, LucideIcon> = {
+  prompts: FileText,
+  models: Database,
+  sessions: Layers3,
+  runs: Activity,
+};
 
 const viewThemes: Record<
   View,
@@ -107,8 +83,41 @@ const viewThemes: Record<
 };
 
 export function App() {
+  const { t } = useTranslation();
   const [view, setView] = useState<View>("home");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+
+  const navigationItems: Array<{
+    id: View;
+    label: string;
+    description: string;
+    icon: LucideIcon;
+  }> = [
+    {
+      id: "prompts",
+      label: t("nav.prompts.label"),
+      description: t("nav.prompts.description"),
+      icon: navigationIcons.prompts,
+    },
+    {
+      id: "models",
+      label: t("nav.models.label"),
+      description: t("nav.models.description"),
+      icon: navigationIcons.models,
+    },
+    {
+      id: "sessions",
+      label: t("nav.sessions.label"),
+      description: t("nav.sessions.description"),
+      icon: navigationIcons.sessions,
+    },
+    {
+      id: "runs",
+      label: t("nav.runs.label"),
+      description: t("nav.runs.description"),
+      icon: navigationIcons.runs,
+    },
+  ];
 
   useEffect(() => {
     const syncRoute = () => {
@@ -181,7 +190,7 @@ export function App() {
   const isRunDetailView = view === "runs" && selectedRunId !== null;
   const isHomeView = view === "home";
   const activeSectionLabel =
-    view === "contributors" ? "Contributors" : activeView.label;
+    view === "contributors" ? t("nav.contributors") : activeView.label;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -216,20 +225,19 @@ export function App() {
                           type="button"
                         >
                           <Sparkles className="h-3.5 w-3.5 text-slate-700" />
-                          BenchForge Workspace
+                          {t("nav.home")}
                         </button>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                             {activeSectionLabel}
                           </p>
                           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-950">
-                            Navigation rail
+                            {t("nav.navigationRail")}
                           </h1>
                         </div>
                       </div>
                       <p className="max-w-sm text-sm leading-6 text-slate-600">
-                        Desktop gets the right-side sticky navigation. Mobile
-                        keeps the same sections in a lighter compact strip.
+                        {t("nav.desktopNav")}
                       </p>
                     </div>
 
@@ -288,12 +296,12 @@ export function App() {
                             : "border-slate-200 bg-white/75 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-800",
                         )}
                         onClick={() => navigateToView("contributors")}
-                        title="Open contributors"
+                        title={t("nav.openContributors")}
                         type="button"
                       >
                         <UsersRound className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Credits</span>
-                        <span className="sr-only">Open contributors</span>
+                        <span className="hidden sm:inline">{t("common.credits")}</span>
+                        <span className="sr-only">{t("nav.openContributors")}</span>
                       </button>
                     </div>
                   </div>
@@ -325,7 +333,7 @@ export function App() {
                       type="button"
                     >
                       <Sparkles className="h-3.5 w-3.5 text-slate-700" />
-                      BenchForge
+                      {t("common.benchforge")}
                     </button>
                   </div>
 
@@ -384,11 +392,11 @@ export function App() {
                           : "border-slate-200 bg-slate-950 text-white/90 hover:border-slate-950 hover:bg-slate-900 hover:text-white",
                       )}
                       onClick={() => navigateToView("contributors")}
-                      title="Open contributors"
+                      title={t("nav.openContributors")}
                       type="button"
                     >
                       <UsersRound className="h-3.5 w-3.5 text-white/90" />
-                      <span>Credits</span>
+                      <span>{t("common.credits")}</span>
                     </button>
                   </div>
                 </div>

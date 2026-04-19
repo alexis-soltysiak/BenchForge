@@ -1,6 +1,8 @@
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
+import i18next from "i18next";
 import {
   Check,
   Archive,
@@ -344,23 +346,11 @@ function matchesRuntime(model: ModelProfile, runtimeType: string): boolean {
 }
 
 function roleLabel(role: ModelFormState["role"]): string {
-  if (role === "candidate") {
-    return "Candidate";
-  }
-  if (role === "judge") {
-    return "Judge";
-  }
-  return "Both";
+  return i18next.t(`models.roles.${role}.label`);
 }
 
 function roleDescription(role: ModelFormState["role"]): string {
-  if (role === "candidate") {
-    return "Generates benchmark answers";
-  }
-  if (role === "judge") {
-    return "Scores model outputs";
-  }
-  return "Can do both jobs";
+  return i18next.t(`models.roles.${role}.description`);
 }
 
 function uniqueProviderTypes(models: ModelProfile[]): string[] {
@@ -374,6 +364,7 @@ function uniqueProviderTypes(models: ModelProfile[]): string[] {
 }
 
 export function ModelRegistryPage() {
+  const { t } = useTranslation();
   const initialModelFilters = readModelFilterState();
   const [showArchived, setShowArchived] = useState(
     initialModelFilters.showArchived,
@@ -488,8 +479,8 @@ export function ModelRegistryPage() {
       setFeedback(null);
       showToast(
         selectedModel
-          ? `Model "${model.display_name}" updated.`
-          : `Model "${model.display_name}" created.`,
+          ? t("models.feedback.updated", { name: model.display_name })
+          : t("models.feedback.created", { name: model.display_name }),
       );
       setIsEditorOpen(false);
       startTransition(() => {
@@ -499,7 +490,7 @@ export function ModelRegistryPage() {
     },
     onError: (error) => {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to save model profile.",
+        error instanceof ApiError ? error.message : t("models.feedback.saveFailed"),
       );
     },
   });
@@ -509,7 +500,7 @@ export function ModelRegistryPage() {
     onSuccess: async (model) => {
       await queryClient.invalidateQueries({ queryKey: ["model-profiles"] });
       setFeedback(null);
-      showToast(`Model "${model.display_name}" archived.`);
+      showToast(t("models.feedback.archived", { name: model.display_name }));
       setIsEditorOpen(false);
       startTransition(() => {
         setSelectedModel(null);
@@ -519,7 +510,7 @@ export function ModelRegistryPage() {
       setFeedback(
         error instanceof ApiError
           ? error.message
-          : "Unable to archive model profile.",
+          : t("models.feedback.archiveFailed"),
       );
     },
   });
@@ -713,34 +704,33 @@ export function ModelRegistryPage() {
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-4">
             <span className="inline-flex rounded-full border border-sky-300 bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-950">
-              Connection Profiles
+              {t("models.hero.badge")}
             </span>
             <div className="space-y-3">
               <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">
-                Model Registry
+                {t("models.hero.title")}
               </h1>
               <p className="max-w-2xl text-base leading-7 text-slate-600">
-                Manage candidate and judge profiles across remote APIs and local
-                runtimes, with masked secrets and direct endpoint validation.
+                {t("models.hero.description")}
               </p>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <MetricCard
               icon={Database}
-              label="Visible Models"
+              label={t("models.metrics.visible")}
               tone="sky"
               value={String(visibleModels.length)}
             />
             <MetricCard
               icon={CircleGauge}
-              label="Candidates"
+              label={t("models.metrics.candidates")}
               tone="sky"
               value={String(roleCounts?.candidates ?? 0)}
             />
             <MetricCard
               icon={Shield}
-              label="Judges"
+              label={t("models.metrics.judges")}
               tone="sky"
               value={String(roleCounts?.judges ?? 0)}
             />
@@ -756,7 +746,7 @@ export function ModelRegistryPage() {
                 <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
                 <Input
                   className="h-14 pl-9"
-                  placeholder="Search names, providers, runtimes"
+                  placeholder={t("models.filters.searchPlaceholder")}
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -774,25 +764,25 @@ export function ModelRegistryPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Roles
+                      {t("models.filters.rolesLabel")}
                     </p>
                     <p className="truncate text-sm font-semibold text-slate-950">
                       {selectedRoles.length > 0
                         ? selectedRoles.map(roleLabel).join(", ")
-                        : "All roles"}
+                        : t("models.filters.allRoles")}
                     </p>
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    Browse
+                    {t("common.browse")}
                   </span>
                 </button>
 
                 {isRoleMenuOpen ? (
                   <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
                     <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-950">Pick roles</p>
+                      <p className="text-sm font-semibold text-slate-950">{t("models.filters.pickRoles")}</p>
                       <p className="text-xs text-slate-500">
-                        Select one or more registry roles.
+                        {t("models.filters.selectRoles")}
                       </p>
                     </div>
                     <div className="space-y-2 p-2">
@@ -844,16 +834,16 @@ export function ModelRegistryPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Provider
+                      {t("models.filters.providerLabel")}
                     </p>
                     <p className="truncate text-sm font-semibold text-slate-950">
                       {selectedProviderType === "all"
-                        ? "All providers"
+                        ? t("models.filters.allProviders")
                         : selectedProviderType}
                     </p>
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    Browse
+                    {t("common.browse")}
                   </span>
                 </button>
 
@@ -861,10 +851,10 @@ export function ModelRegistryPage() {
                   <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
                     <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
                       <p className="text-sm font-semibold text-slate-950">
-                        Choose a provider
+                        {t("models.filters.chooseProvider")}
                       </p>
                       <p className="text-xs text-slate-500">
-                        Narrow the registry to one provider.
+                        {t("models.filters.narrowProvider")}
                       </p>
                     </div>
                     <div className="max-h-72 overflow-y-auto p-2">
@@ -881,7 +871,7 @@ export function ModelRegistryPage() {
                           setIsProviderMenuOpen(false);
                         }}
                       >
-                        <span className="font-medium">All providers</span>
+                        <span className="font-medium">{t("models.filters.allProviders")}</span>
                         {selectedProviderType === "all" ? (
                           <Check className="h-4 w-4" />
                         ) : null}
@@ -925,16 +915,16 @@ export function ModelRegistryPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Runtime
+                      {t("models.filters.runtimeLabel")}
                     </p>
                     <p className="truncate text-sm font-semibold text-slate-950">
                       {selectedRuntimeType === "all"
-                        ? "All runtimes"
+                        ? t("models.filters.allRuntimes")
                         : selectedRuntimeType}
                     </p>
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    Browse
+                    {t("common.browse")}
                   </span>
                 </button>
 
@@ -942,10 +932,10 @@ export function ModelRegistryPage() {
                   <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
                     <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
                       <p className="text-sm font-semibold text-slate-950">
-                        Choose a runtime
+                        {t("models.filters.chooseRuntime")}
                       </p>
                       <p className="text-xs text-slate-500">
-                        Filter for remote or local model profiles.
+                        {t("models.filters.filterRuntime")}
                       </p>
                     </div>
                     <div className="space-y-2 p-2">
@@ -953,10 +943,10 @@ export function ModelRegistryPage() {
                         const isSelected = selectedRuntimeType === runtime;
                         const label =
                           runtime === "all"
-                            ? "All runtimes"
+                            ? t("models.filters.allRuntimes")
                             : runtime === "remote"
-                              ? "Remote"
-                              : "Local";
+                              ? t("models.filters.remote")
+                              : t("models.filters.local");
                         return (
                           <button
                             key={runtime}
@@ -1004,12 +994,12 @@ export function ModelRegistryPage() {
                     <RotateCcw className="h-3.5 w-3.5" />
                   </Button>
                   <Button
-                    aria-label={showArchived ? "Show unarchived models" : "Show archived models"}
+                    aria-label={showArchived ? t("models.filters.showUnarchived") : t("models.filters.showArchived")}
                     className={cn(
                       showArchived &&
                         "border-sky-300 bg-sky-100 text-sky-950 shadow-[0_14px_28px_-18px_rgba(37,99,235,0.45)] hover:bg-sky-200",
                     )}
-                    title={showArchived ? "Show unarchived" : "Show archived"}
+                    title={showArchived ? t("models.filters.showUnarchivedTitle") : t("models.filters.showArchivedTitle")}
                     type="button"
                     variant={showArchived ? "secondary" : "ghost"}
                     size="icon"
@@ -1019,7 +1009,7 @@ export function ModelRegistryPage() {
                   </Button>
                   <Button onClick={openCreateModal}>
                     <Plus className="h-4 w-4" />
-                  New profile
+                  {t("models.filters.newProfile")}
                 </Button>
               </div>
             </div>
@@ -1046,23 +1036,23 @@ export function ModelRegistryPage() {
             <table className="min-w-full table-fixed text-left">
               <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
-                  <th className="w-[26%] px-5 py-3 font-semibold">Display name</th>
-                  <th className="w-[10%] px-5 py-3 font-semibold">Role</th>
-                  <th className="w-[15%] px-5 py-3 font-semibold">Provider</th>
-                  <th className="w-[10%] px-5 py-3 font-semibold">Runtime</th>
-                  <th className="w-[14%] px-5 py-3 font-semibold">Status</th>
-                  <th className="w-[8%] px-5 py-3 font-semibold">Actions</th>
+                  <th className="w-[26%] px-5 py-3 font-semibold">{t("models.table.displayName")}</th>
+                  <th className="w-[10%] px-5 py-3 font-semibold">{t("models.table.role")}</th>
+                  <th className="w-[15%] px-5 py-3 font-semibold">{t("models.table.provider")}</th>
+                  <th className="w-[10%] px-5 py-3 font-semibold">{t("models.table.runtime")}</th>
+                  <th className="w-[14%] px-5 py-3 font-semibold">{t("models.table.status")}</th>
+                  <th className="w-[8%] px-5 py-3 font-semibold">{t("models.table.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {modelsQuery.isLoading ? (
-                  <TableEmptyRow message="Loading model registry..." />
+                  <TableEmptyRow message={t("models.table.loadingRegistry")} />
                 ) : visibleModels.length === 0 ? (
                   <TableEmptyRow
                     message={
                       showArchived
-                        ? "No archived model profiles yet."
-                        : "No model profiles match the current filters."
+                        ? t("models.table.noArchivedProfiles")
+                        : t("models.table.noMatchingProfiles")
                     }
                   />
                 ) : (
@@ -1121,7 +1111,7 @@ export function ModelRegistryPage() {
                                     }
                                     onMouseLeave={closeWarningSoon}
                                     type="button"
-                                    title="Missing secret"
+                                    title={t("models.table.missingSecret")}
                                   >
                                     <TriangleAlert className="h-4 w-4" />
                                   </button>
@@ -1141,7 +1131,7 @@ export function ModelRegistryPage() {
                               </p>
                               {isTestingConnection ? (
                                 <p className="truncate text-xs font-medium text-sky-700">
-                                  Testing connection...
+                                  {t("models.table.testingConnection")}
                                 </p>
                               ) : rowConnectionFeedback ? (
                                 <p
@@ -1181,12 +1171,12 @@ export function ModelRegistryPage() {
                         <td className="px-5 py-4 align-top">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant={model.is_archived ? "muted" : "success"}>
-                              {model.is_archived ? "Archived" : "Active"}
+                              {model.is_archived ? t("common.archived") : t("common.active")}
                             </Badge>
                             {!model.is_active && !model.is_archived ? (
-                              <Badge variant="neutral">Inactive</Badge>
+                              <Badge variant="neutral">{t("common.inactive")}</Badge>
                             ) : null}
-                            {isUnusable ? <Badge variant="muted">Missing secret</Badge> : null}
+                            {isUnusable ? <Badge variant="muted">{t("models.table.missingSecret")}</Badge> : null}
                           </div>
                         </td>
                         <td className="px-5 py-4 align-top" onClick={(event) => event.stopPropagation()}>
@@ -1216,12 +1206,12 @@ export function ModelRegistryPage() {
       </section>
 
       <Modal
-        description="Create a new shared model profile or adjust an existing one from a dedicated editor."
+        description={t("models.editor.description")}
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
         size="xl"
         tone="sky"
-        title={selectedModel ? "Edit profile" : "Create profile"}
+        title={selectedModel ? t("models.editor.editTitle") : t("models.editor.createTitle")}
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
           {loadError ? (
@@ -1232,11 +1222,11 @@ export function ModelRegistryPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              hint='Example: "GPT-4.1 Mini - Remote"'
-              label="Display name"
+              hint={t("models.editor.displayNameHint")}
+              label={t("models.editor.displayNameLabel")}
             >
               <Input
-                placeholder="GPT-4.1 Mini - Remote"
+                placeholder={t("models.editor.displayNamePlaceholder")}
                 required
                 value={formState.displayName}
                 onChange={(event) =>
@@ -1248,8 +1238,8 @@ export function ModelRegistryPage() {
               />
             </Field>
             <Field
-              hint="Choose Candidate for generation, Judge for scoring, or Both."
-              label="Role"
+              hint={t("models.editor.roleHint")}
+              label={t("models.editor.roleLabel")}
             >
               <Select
                 value={formState.role}
@@ -1260,21 +1250,21 @@ export function ModelRegistryPage() {
                   }))
                 }
               >
-                <option value="candidate">Candidate</option>
-                <option value="judge">Judge</option>
-                <option value="both">Both</option>
+                <option value="candidate">{t("models.roles.candidate.label")}</option>
+                <option value="judge">{t("models.roles.judge.label")}</option>
+                <option value="both">{t("models.roles.both.label")}</option>
               </Select>
             </Field>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              hint='Pick a known provider or type your own value. Example: "openai", "google", "mistral", "groq", "deepseek", "huggingface" or "ollama".'
-              label="Provider type"
+              hint={t("models.editor.providerTypeHint")}
+              label={t("models.editor.providerTypeLabel")}
             >
               <Input
                 list="provider-type-options"
-                placeholder="openai"
+                placeholder={t("models.editor.providerTypePlaceholder")}
                 value={formState.providerType}
                 onChange={(event) =>
                   updateFormWithSuggestions((current) => ({
@@ -1285,12 +1275,12 @@ export function ModelRegistryPage() {
               />
             </Field>
             <Field
-              hint='Recommended options are driven by the provider. You can still type a custom style if you know what you are doing.'
-              label="API style"
+              hint={t("models.editor.apiStyleHint")}
+              label={t("models.editor.apiStyleLabel")}
             >
               <Input
                 list="api-style-options"
-                placeholder="openai_compatible"
+                placeholder={t("models.editor.apiStylePlaceholder")}
                 value={formState.apiStyle}
                 onChange={(event) =>
                   updateFormWithSuggestions((current) => ({
@@ -1304,8 +1294,8 @@ export function ModelRegistryPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              hint="Choose Remote for API calls or Local for operator-driven execution."
-              label="Runtime type"
+              hint={t("models.editor.runtimeTypeHint")}
+              label={t("models.editor.runtimeTypeLabel")}
             >
               <Select
                 value={formState.runtimeType}
@@ -1323,15 +1313,15 @@ export function ModelRegistryPage() {
                   })
                 }
               >
-                <option value="remote">Remote</option>
-                <option value="local">Local</option>
+                <option value="remote">{t("models.filters.remote")}</option>
+                <option value="local">{t("models.filters.local")}</option>
               </Select>
             </Field>
           </div>
 
           <Field
-            hint={`Auto-filled from ${getFieldHintLabel(formState.providerType)}. You can still override it manually if your deployment uses a custom URL.`}
-            label="Endpoint URL"
+            hint={t("models.editor.endpointUrlHint", { provider: getFieldHintLabel(formState.providerType) })}
+            label={t("models.editor.endpointUrlLabel")}
           >
             <Input
               placeholder={suggestedEndpointUrl || "https://api.openai.com/v1/chat/completions"}
@@ -1350,8 +1340,8 @@ export function ModelRegistryPage() {
           </Field>
 
           <Field
-            hint={`Suggested from ${getFieldHintLabel(formState.providerType)} docs. You can select one or type any custom identifier.`}
-            label="Model identifier"
+            hint={t("models.editor.modelIdentifierHint", { provider: getFieldHintLabel(formState.providerType) })}
+            label={t("models.editor.modelIdentifierLabel")}
           >
             <Input
               list="model-identifier-options"
@@ -1375,25 +1365,25 @@ export function ModelRegistryPage() {
           <Field
             hint={
               formState.runtimeType === "local"
-                ? "Local runtime does not require a secret."
+                ? t("models.editor.secretHintLocal")
                 : remoteSecretMissing
-                  ? "Remote models need a secret before they are usable."
+                  ? t("models.editor.secretHintRemoteMissing")
                   : hasStoredSecret
-                  ? "Leave empty to keep the existing secret unchanged."
-                  : "Remote models need a secret before they are usable."
+                  ? t("models.editor.secretHintStored")
+                  : t("models.editor.secretHintDefault")
             }
-            label="Secret"
+            label={t("models.editor.secretLabel")}
           >
             <div className="space-y-2">
               <Input
                 placeholder={
                   formState.runtimeType === "local"
-                    ? "Not required for local runtime"
+                    ? t("models.editor.secretPlaceholderLocal")
                     : remoteSecretMissing
-                      ? "Optional bearer token"
+                      ? t("models.editor.secretPlaceholderOptional")
                       : hasStoredSecret
-                      ? "Leave blank to keep stored secret"
-                      : "Optional bearer token"
+                      ? t("models.editor.secretPlaceholderKeepStored")
+                      : t("models.editor.secretPlaceholderOptional")
                 }
                 type="password"
                 value={formState.secret}
@@ -1406,15 +1396,15 @@ export function ModelRegistryPage() {
               />
               {formState.runtimeType === "local" ? (
                 <p className="text-xs text-slate-500">
-                  No secret is needed for local runtimes.
+                  {t("models.editor.secretNoLocalNote")}
                 </p>
               ) : remoteSecretMissing ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
-                  Remote models without a secret are marked unusable until one is set.
+                  {t("models.editor.secretRemoteMissingWarning")}
                 </div>
               ) : hasStoredSecret ? (
                 <p className="text-xs text-slate-500">
-                  A secret is already stored. Leave this blank to keep it unchanged.
+                  {t("models.editor.secretStoredNote")}
                 </p>
               ) : null}
             </div>
@@ -1422,12 +1412,12 @@ export function ModelRegistryPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              hint='Example: "60"'
-              label="Timeout seconds"
+              hint={t("models.editor.timeoutHint")}
+              label={t("models.editor.timeoutLabel")}
             >
               <Input
                 inputMode="numeric"
-                placeholder="60"
+                placeholder={t("models.editor.timeoutPlaceholder")}
                 value={formState.timeoutSeconds}
                 onChange={(event) =>
                   setFormState((current) => ({
@@ -1438,12 +1428,12 @@ export function ModelRegistryPage() {
               />
             </Field>
             <Field
-              hint='Example: "128000"'
-              label="Context window"
+              hint={t("models.editor.contextWindowHint")}
+              label={t("models.editor.contextWindowLabel")}
             >
               <Input
                 inputMode="numeric"
-                placeholder="Optional"
+                placeholder={t("models.editor.contextWindowPlaceholder")}
                 value={formState.contextWindow}
                 onChange={(event) =>
                   setFormState((current) => ({
@@ -1459,10 +1449,10 @@ export function ModelRegistryPage() {
             <Field
               hint={
                 formState.runtimeType === "local"
-                  ? "Local runtimes are forced to 0."
-                  : 'Example: "0.15"'
+                  ? t("models.editor.pricingInputHintLocal")
+                  : t("models.editor.pricingInputHint")
               }
-              label="Input pricing / 1M"
+              label={t("models.editor.pricingInputLabel")}
             >
               <Input
                 inputMode="decimal"
@@ -1480,10 +1470,10 @@ export function ModelRegistryPage() {
             <Field
               hint={
                 formState.runtimeType === "local"
-                  ? "Local runtimes are forced to 0."
-                  : 'Example: "0.60"'
+                  ? t("models.editor.pricingOutputHintLocal")
+                  : t("models.editor.pricingOutputHint")
               }
-              label="Output pricing / 1M"
+              label={t("models.editor.pricingOutputLabel")}
             >
               <Input
                 inputMode="decimal"
@@ -1501,11 +1491,11 @@ export function ModelRegistryPage() {
           </div>
 
           <Field
-            hint='Example: "Use for fast draft generation on short prompts."'
-            label="Notes"
+            hint={t("models.editor.notesHint")}
+            label={t("models.editor.notesLabel")}
           >
             <Textarea
-              placeholder="Use for fast draft generation on short prompts."
+              placeholder={t("models.editor.notesPlaceholder")}
               value={formState.notes}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -1517,11 +1507,11 @@ export function ModelRegistryPage() {
           </Field>
 
           <Field
-            hint='Example: "Launch Ollama, load the model, then click Confirm ready."'
-            label="Local load instructions"
+            hint={t("models.editor.localLoadHint")}
+            label={t("models.editor.localLoadLabel")}
           >
             <Textarea
-              placeholder="Launch Ollama, load the model, then click Confirm ready."
+              placeholder={t("models.editor.localLoadPlaceholder")}
               value={formState.localLoadInstructions}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -1544,11 +1534,10 @@ export function ModelRegistryPage() {
               }
               type="checkbox"
             />
-            Profile available for new sessions
+            {t("models.editor.activeCheckbox")}
           </label>
           <p className="-mt-2 text-xs leading-5 text-slate-500">
-            Disable this if the profile should stay in history but no longer appear in
-            new session setup.
+            {t("models.editor.activeHint")}
           </p>
 
           {feedback ? (
@@ -1572,7 +1561,7 @@ export function ModelRegistryPage() {
               </Button>
             ) : null}
             <Button onClick={() => setIsEditorOpen(false)} type="button" variant="soft">
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               disabled={
@@ -1584,7 +1573,7 @@ export function ModelRegistryPage() {
               }
               type="submit"
             >
-              {selectedModel ? "Save changes" : "Create profile"}
+              {selectedModel ? t("models.editor.saveButton") : t("models.editor.createButton")}
             </Button>
           </div>
         </form>
@@ -1618,9 +1607,9 @@ export function ModelRegistryPage() {
                 top: warningAnchor.bottom + 8,
               }}
             >
-              <p className="font-semibold">Secret missing</p>
+              <p className="font-semibold">{t("models.warning.secretMissing")}</p>
               <p className="mt-1">
-                This remote model cannot be used until a secret is configured.
+                {t("models.warning.secretMissingDetail")}
               </p>
             </div>,
             document.body,
@@ -1630,7 +1619,7 @@ export function ModelRegistryPage() {
       {toast
         ? createPortal(
             <div className="fixed bottom-5 right-5 z-[1000] w-[22rem] rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 shadow-xl">
-              <p className="font-semibold">Done</p>
+              <p className="font-semibold">{t("models.toast.done")}</p>
               <p className="mt-1 leading-6">{toast.message}</p>
             </div>,
             document.body,
