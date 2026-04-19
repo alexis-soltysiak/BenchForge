@@ -15,37 +15,37 @@ const metricToneStyles: Record<
 > = {
   slate: {
     dot: "bg-slate-500",
-    iconShell: "border-slate-200/80 bg-slate-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-slate-700",
-    valueAccent: "bg-slate-200",
+    valueAccent: "bg-slate-300",
   },
   sky: {
     dot: "bg-sky-500",
-    iconShell: "border-sky-200/80 bg-sky-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-sky-700",
     valueAccent: "bg-sky-200",
   },
   amber: {
     dot: "bg-amber-500",
-    iconShell: "border-amber-200/80 bg-amber-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-amber-700",
     valueAccent: "bg-amber-200",
   },
   emerald: {
     dot: "bg-emerald-500",
-    iconShell: "border-emerald-200/80 bg-emerald-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-emerald-700",
     valueAccent: "bg-emerald-200",
   },
   teal: {
     dot: "bg-teal-500",
-    iconShell: "border-teal-200/80 bg-teal-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-teal-700",
     valueAccent: "bg-teal-200",
   },
   red: {
     dot: "bg-red-500",
-    iconShell: "border-red-200/80 bg-red-50/95",
+    iconShell: "border-border bg-[hsl(var(--surface))]",
     iconColor: "text-red-700",
     valueAccent: "bg-red-200",
   },
@@ -71,7 +71,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "rounded-[1.45rem] border border-white/80 bg-white/92 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.28)] backdrop-blur",
+        "rounded-[1.45rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] shadow-[0_18px_36px_-28px_rgba(15,23,42,0.18)] backdrop-blur",
         compact ? "px-2.5 py-2" : "px-3.5 py-3.5",
         className,
       )}
@@ -91,9 +91,9 @@ export function MetricCard({
                   toneStyles.dot,
                 )}
               />
-              <p
-                className={cn(
-                  "text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500",
+                <p
+                  className={cn(
+                  "text-[11px] font-semibold uppercase tracking-[0.2em] text-[hsl(var(--foreground-soft))]",
                   compact ? "max-w-[5rem] text-[10px] leading-[0.9rem]" : "max-w-[7rem] leading-5",
                 )}
               >
@@ -103,7 +103,7 @@ export function MetricCard({
           </div>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center justify-center rounded-[1rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_20px_-18px_rgba(15,23,42,0.2)]",
+              "inline-flex shrink-0 items-center justify-center rounded-[1rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_10px_20px_-18px_rgba(15,23,42,0.2)]",
               toneStyles.iconShell,
               compact ? "h-8 w-8" : "h-10 w-10",
             )}
@@ -120,7 +120,7 @@ export function MetricCard({
         <div className={compact ? "mt-1.5" : "mt-3.5"}>
           <p
             className={cn(
-              "font-semibold leading-none tracking-tight text-slate-950",
+              "font-semibold leading-none tracking-tight text-foreground",
               compact ? "text-[1.5rem]" : "text-[2.2rem]",
             )}
           >
@@ -134,7 +134,7 @@ export function MetricCard({
                 toneStyles.valueAccent,
               )}
             />
-            <div className="h-px flex-1 bg-slate-200/80" />
+            <div className="h-px flex-1 bg-[hsl(var(--border)/0.9)]" />
           </div>
         </div>
       </div>

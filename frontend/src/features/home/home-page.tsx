@@ -128,14 +128,14 @@ export function HomePage({
         <div className="absolute left-[-8rem] top-[-8rem] h-72 w-72 rounded-full bg-amber-200/35 blur-3xl" />
         <div className="absolute right-[-7rem] top-32 h-80 w-80 rounded-full bg-sky-200/30 blur-3xl" />
         <div className="absolute bottom-[-10rem] left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-emerald-200/20 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.06),_transparent_30%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.08),_transparent_30%)]" />
       </div>
 
       <div className="relative mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-3 rounded-[1.6rem] border border-white/70 bg-white/70 px-4 py-3 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-3 rounded-[1.6rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] px-4 py-3 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.22)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="group inline-flex min-h-12 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-1.5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.35)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]">
+            <div className="group inline-flex min-h-12 items-center rounded-full border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface))] px-3 py-1.5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)] transition-transform duration-200 hover:-translate-y-0.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,_rgba(255,248,235,0.96),_rgba(255,255,255,0.98))] text-[hsl(var(--surface-strong))] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.4)]">
                 {!markUnavailable ? (
                   <img
                     alt=""
@@ -148,17 +148,17 @@ export function HomePage({
                 )}
               </div>
               <div className="ml-3 min-w-0">
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-600">
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
                   BenchForge
                 </p>
-                <p className="truncate text-[11px] text-slate-500">
+                <p className="truncate text-[11px] text-[hsl(var(--foreground-soft))]">
                   Benchmark studio
                 </p>
               </div>
             </div>
 
             <div className="hidden sm:block">
-              <p className="text-[0.92rem] text-slate-600">
+              <p className="text-[0.92rem] text-[hsl(var(--foreground-soft))]">
                 Benchmark studio for prompts, models, sessions and runs.
               </p>
             </div>
@@ -184,15 +184,15 @@ export function HomePage({
 
         <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <div className="space-y-4">
-            <Badge className="bg-slate-950 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white">
+            <Badge className="bg-[hsl(var(--surface-strong))] px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-[hsl(var(--surface-strong-foreground))]">
               How it works
             </Badge>
 
             <div className="max-w-3xl space-y-3">
-              <h1 className="font-display text-[2.85rem] font-semibold tracking-tight text-slate-950 sm:text-[3.5rem]">
+              <h1 className="font-display text-[2.85rem] font-semibold tracking-tight text-foreground sm:text-[3.5rem]">
                 Construis un parcours de benchmark lisible, du prompt au run.
               </h1>
-              <p className="max-w-2xl text-[1rem] leading-7 text-slate-600">
+              <p className="max-w-2xl text-[1rem] leading-7 text-[hsl(var(--foreground-soft))]">
                 BenchForge est un espace simple et auto-hébergeable pour
                 comparer des modèles avec la même base de test. Tu crées les
                 prompts, tu enregistres les modèles, tu assembles les sessions,
@@ -232,12 +232,12 @@ export function HomePage({
               ].map((item) => (
                 <Card
                   key={item.title}
-                  className="border-white/80 bg-white/80 p-3 shadow-[0_18px_50px_-35px_rgba(15,23,42,0.45)]"
+                  className="border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-3 shadow-[0_18px_50px_-35px_rgba(15,23,42,0.22)]"
                 >
-                  <p className="text-[0.92rem] font-semibold text-slate-950">
+                  <p className="text-[0.92rem] font-semibold text-foreground">
                     {item.title}
                   </p>
-                  <p className="mt-1.5 text-[0.82rem] leading-5 text-slate-600">
+                  <p className="mt-1.5 text-[0.82rem] leading-5 text-[hsl(var(--foreground-soft))]">
                     {item.text}
                   </p>
                 </Card>
@@ -245,23 +245,23 @@ export function HomePage({
             </div>
           </div>
 
-          <Card className="relative overflow-hidden border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(248,250,252,0.92))] p-4 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.5)]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.05),_transparent_45%)]" />
+          <Card className="relative overflow-hidden border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-4 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.24)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.1),_transparent_45%)]" />
             <div className="relative space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
                     Pipeline
                   </p>
-                  <h2 className="mt-1.5 font-display text-[1.35rem] font-semibold tracking-tight text-slate-950">
+                  <h2 className="mt-1.5 font-display text-[1.35rem] font-semibold tracking-tight text-foreground">
                     Prompts, modèles, sessions, runs.
                   </h2>
                 </div>
-                <div className="rounded-[1rem] border border-slate-200 bg-white px-2.5 py-1.5 text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                <div className="rounded-[1rem] border border-border bg-[hsl(var(--surface))] px-2.5 py-1.5 text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--foreground-soft))]">
                     Objectif
                   </p>
-                  <p className="mt-1 text-[0.82rem] font-semibold text-slate-950">
+                  <p className="mt-1 text-[0.82rem] font-semibold text-foreground">
                     Comparer, décider, recommencer.
                   </p>
                 </div>
@@ -274,9 +274,9 @@ export function HomePage({
                   return (
                     <div key={step.id} className="relative">
                       {index < flowSteps.length - 1 ? (
-                        <div className="absolute left-5 top-[3.85rem] h-7 w-px bg-gradient-to-b from-slate-200 to-transparent" />
+                        <div className="absolute left-5 top-[3.85rem] h-7 w-px bg-gradient-to-b from-[hsl(var(--border))] to-transparent" />
                       ) : null}
-                      <div className="flex gap-3 rounded-[1.35rem] border border-slate-200 bg-white/90 p-3 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.45)]">
+                      <div className="flex gap-3 rounded-[1.35rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface))] p-3 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.22)]">
                         <div
                           className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] ring-1",
@@ -289,10 +289,10 @@ export function HomePage({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-400">
+                              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[hsl(var(--foreground-soft))]">
                                 0{index + 1}
                               </p>
-                              <h3 className="mt-0.5 text-[0.92rem] font-semibold text-slate-950">
+                              <h3 className="mt-0.5 text-[0.92rem] font-semibold text-foreground">
                                 {step.title}
                               </h3>
                             </div>
@@ -305,7 +305,7 @@ export function HomePage({
                               {step.subtitle}
                             </span>
                           </div>
-                          <p className="mt-2 text-[0.8rem] leading-5 text-slate-600">
+                          <p className="mt-2 text-[0.8rem] leading-5 text-[hsl(var(--foreground-soft))]">
                             {step.description}
                           </p>
                         </div>
@@ -321,10 +321,10 @@ export function HomePage({
         <section className="space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="max-w-2xl space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
                   How to use it
                 </p>
-                <h2 className="font-display text-3xl font-semibold tracking-tight text-slate-950">
+                <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground">
                 Un chemin simple de l'idée à l'évaluation.
                 </h2>
               </div>
@@ -336,18 +336,18 @@ export function HomePage({
 
           <div className="grid gap-4 lg:grid-cols-4">
             {howItWorks.map((item) => (
-              <Card
-                key={item.step}
-                className="group relative overflow-hidden border-slate-200/80 bg-white/85 p-5 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.5)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_60px_-42px_rgba(15,23,42,0.6)]"
-              >
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-900 via-slate-400 to-transparent opacity-75" />
-                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                <Card
+                  key={item.step}
+                  className="group relative overflow-hidden border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-5 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.24)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_60px_-42px_rgba(15,23,42,0.32)]"
+                >
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[hsl(var(--surface-strong))] via-[hsl(var(--foreground-soft))] to-transparent opacity-75" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[hsl(var(--foreground-soft))]">
                   {item.step}
                 </p>
-                <h3 className="mt-3 text-lg font-semibold text-slate-950">
+                <h3 className="mt-3 text-lg font-semibold text-foreground">
                   {item.title}
                 </h3>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
+                <p className="mt-3 text-sm leading-6 text-[hsl(var(--foreground-soft))]">
                   {item.body}
                 </p>
               </Card>
@@ -356,7 +356,7 @@ export function HomePage({
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
-          <Card className="border-slate-200/80 bg-slate-950 p-6 text-white shadow-[0_28px_80px_-48px_rgba(15,23,42,0.75)]">
+          <Card className="border-[hsl(var(--surface-strong)/0.2)] bg-[hsl(var(--surface-strong))] p-6 text-[hsl(var(--surface-strong-foreground))] shadow-[0_28px_80px_-48px_rgba(15,23,42,0.42)]">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
                 <Target className="h-5 w-5" />
@@ -379,25 +379,25 @@ export function HomePage({
           </Card>
 
           <div className="flex items-center justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
-              <ArrowRight className="h-5 w-5 text-slate-700 lg:rotate-0" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-[hsl(var(--surface))] shadow-sm">
+              <ArrowRight className="h-5 w-5 text-foreground lg:rotate-0" />
             </div>
           </div>
 
-          <Card className="border-slate-200/80 bg-white/85 p-6 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.5)]">
+          <Card className="border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-6 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.24)]">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-900">
                 <Rocket className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
                   Prêt à lancer
                 </p>
-                <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight text-slate-950">
+                <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight text-foreground">
                   Compose une session et lance un run quand le setup est
                   stable.
                 </h3>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+                <p className="mt-3 max-w-xl text-sm leading-6 text-[hsl(var(--foreground-soft))]">
                   Les sessions emballent le benchmark. Les runs l'exécutent.
                   Résultat: des comparaisons reproductibles, faciles à auditer et
                   à partager.
@@ -407,10 +407,10 @@ export function HomePage({
           </Card>
         </section>
 
-        <section className="flex flex-col gap-3 rounded-[2rem] border border-white/70 bg-white/70 px-5 py-5 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-3 rounded-[2rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] px-5 py-5 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.22)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-[hsl(var(--foreground-soft))]">
               BenchForge garde le chemin du benchmark visible du premier prompt
               au run final.
             </p>

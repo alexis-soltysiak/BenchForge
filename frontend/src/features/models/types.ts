@@ -9,6 +9,8 @@ export type ModelProfile = {
   endpoint_url: string;
   model_identifier: string;
   has_secret: boolean;
+  secret_preview: string | null;
+  api_key_preset_id: number | null;
   timeout_seconds: number;
   context_window: number | null;
   pricing_input_per_million: string | null;
@@ -35,6 +37,7 @@ export type ModelProfilePayload = {
   endpoint_url: string;
   model_identifier: string;
   secret?: string | null;
+  api_key_preset_id?: number | null;
   timeout_seconds: number;
   context_window: number | null;
   pricing_input_per_million: string | null;

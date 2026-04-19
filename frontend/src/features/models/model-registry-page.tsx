@@ -30,6 +30,8 @@ import type {
   ModelProfile,
   ModelProfilePayload,
 } from "@/features/models/types";
+import { fetchApiKeyPresets } from "@/features/settings/api-keys-api";
+import type { ApiKeyPreset } from "@/features/settings/api-keys-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -51,6 +53,8 @@ type ModelFormState = {
   runtimeType: "remote" | "local";
   endpointUrl: string;
   modelIdentifier: string;
+  secretMode: "manual" | "preset";
+  apiKeyPresetId: string;
   secret: string;
   timeoutSeconds: string;
   contextWindow: string;
@@ -146,6 +150,8 @@ const emptyForm: ModelFormState = {
   runtimeType: "remote",
   endpointUrl: "https://api.openai.com/v1/chat/completions",
   modelIdentifier: "gpt-5.2",
+  secretMode: "manual",
+  apiKeyPresetId: "",
   secret: "",
   timeoutSeconds: "60",
   contextWindow: "",
@@ -265,6 +271,7 @@ function getFieldHintLabel(providerType: string): string {
 }
 
 function toFormState(model: ModelProfile): ModelFormState {
+  const hasPreset = model.api_key_preset_id !== null;
   return {
     displayName: model.display_name,
     role: model.role,
@@ -273,6 +280,8 @@ function toFormState(model: ModelProfile): ModelFormState {
     runtimeType: model.runtime_type,
     endpointUrl: model.endpoint_url,
     modelIdentifier: model.model_identifier,
+    secretMode: hasPreset ? "preset" : "manual",
+    apiKeyPresetId: hasPreset ? String(model.api_key_preset_id) : "",
     secret: "",
     timeoutSeconds: String(model.timeout_seconds),
     contextWindow: model.context_window ? String(model.context_window) : "",
@@ -298,7 +307,12 @@ function toPayload(state: ModelFormState): ModelProfilePayload {
     runtime_type: state.runtimeType,
     endpoint_url: state.endpointUrl.trim(),
     model_identifier: state.modelIdentifier.trim(),
-    ...(state.secret.trim() ? { secret: state.secret.trim() } : {}),
+    ...(state.secretMode === "manual" && state.secret.trim()
+      ? { secret: state.secret.trim() }
+      : {}),
+    ...(state.secretMode === "preset" && state.apiKeyPresetId
+      ? { api_key_preset_id: Number(state.apiKeyPresetId) }
+      : {}),
     timeout_seconds: Number(state.timeoutSeconds),
     context_window: state.contextWindow ? Number(state.contextWindow) : null,
     pricing_input_per_million: pricingInputPerMillion,
@@ -364,6 +378,29 @@ function roleDescription(role: ModelFormState["role"]): string {
   return "Can do both jobs";
 }
 
+function getConnectionFeedbackLabel(
+  feedback: ConnectionFeedbackState | null,
+  isTesting: boolean,
+  runtimeType: ModelProfile["runtime_type"],
+): string {
+  if (isTesting) {
+    return "Testing...";
+  }
+  if (!feedback) {
+    return "";
+  }
+  if (runtimeType === "local" && !feedback.ok) {
+    return "Model not loaded yet";
+  }
+  if (feedback.ok) {
+    return feedback.status_code ? `Success ${feedback.status_code}` : "Success";
+  }
+  if (feedback.status_code) {
+    return `Failure ${feedback.status_code}`;
+  }
+  return "Failure";
+}
+
 function uniqueProviderTypes(models: ModelProfile[]): string[] {
   return Array.from(
     new Set(
@@ -408,10 +445,15 @@ export function ModelRegistryPage() {
   const lastSuggestedModelRef = useRef<string | null>(null);
   const warningCloseTimerRef = useRef<number | null>(null);
   const toastCloseTimerRef = useRef<number | null>(null);
+  const connectionFeedbackCloseTimerRef = useRef<number | null>(null);
 
   const modelsQuery = useQuery({
     queryKey: ["model-profiles", showArchived],
     queryFn: () => fetchModelProfiles(showArchived),
+  });
+  const apiKeyPresetsQuery = useQuery({
+    queryKey: ["api-key-presets"],
+    queryFn: fetchApiKeyPresets,
   });
 
   useEffect(() => {
@@ -462,6 +504,9 @@ export function ModelRegistryPage() {
       if (toastCloseTimerRef.current !== null) {
         window.clearTimeout(toastCloseTimerRef.current);
       }
+      if (connectionFeedbackCloseTimerRef.current !== null) {
+        window.clearTimeout(connectionFeedbackCloseTimerRef.current);
+      }
     },
     [],
   );
@@ -475,6 +520,17 @@ export function ModelRegistryPage() {
       setToast(null);
       toastCloseTimerRef.current = null;
     }, 5000);
+  };
+
+  const showConnectionFeedback = (nextFeedback: ConnectionFeedbackState) => {
+    if (connectionFeedbackCloseTimerRef.current !== null) {
+      window.clearTimeout(connectionFeedbackCloseTimerRef.current);
+    }
+    setConnectionFeedback(nextFeedback);
+    connectionFeedbackCloseTimerRef.current = window.setTimeout(() => {
+      setConnectionFeedback(null);
+      connectionFeedbackCloseTimerRef.current = null;
+    }, 3000);
   };
 
   const saveMutation = useMutation({
@@ -492,7 +548,6 @@ export function ModelRegistryPage() {
           ? `Model "${model.display_name}" updated.`
           : `Model "${model.display_name}" created.`,
       );
-      setIsEditorOpen(false);
       startTransition(() => {
         setSelectedModel(model);
         setFormState(toFormState(model));
@@ -533,13 +588,13 @@ export function ModelRegistryPage() {
     mutationFn: async (model: ModelProfile) =>
       testModelProfileConnection(model.id, Number(formState.timeoutSeconds)),
     onSuccess: (result, model) => {
-      setConnectionFeedback({
+      showConnectionFeedback({
         ...result,
         modelId: model.id,
       });
     },
     onError: (error, model) => {
-      setConnectionFeedback({
+      showConnectionFeedback({
         modelId: model.id,
         ok: false,
         status_code: null,
@@ -593,11 +648,22 @@ export function ModelRegistryPage() {
 
   const modelIdentifierSuggestions =
     getProviderPreset(formState.providerType)?.modelIdentifiers ?? [];
+  const providerMatchedApiKeyPresets = (apiKeyPresetsQuery.data?.items ?? []).filter(
+    (preset) =>
+      normalizePresetKey(preset.provider_type) ===
+      normalizePresetKey(formState.providerType),
+  );
+  const availableApiKeyPresets =
+    providerMatchedApiKeyPresets.length > 0
+      ? providerMatchedApiKeyPresets
+      : (apiKeyPresetsQuery.data?.items ?? []);
   const suggestedEndpointUrl = getSuggestedEndpointUrl(formState);
   const hasStoredSecret = selectedModel?.has_secret ?? false;
   const hasFormSecret = formState.secret.trim().length > 0;
+  const hasSelectedApiKeyPreset = formState.apiKeyPresetId.trim().length > 0;
   const remoteSecretMissing =
-    formState.runtimeType === "remote" && !(hasStoredSecret || hasFormSecret);
+    formState.runtimeType === "remote" &&
+    !(hasStoredSecret || hasFormSecret || hasSelectedApiKeyPreset);
 
   const updateFormWithSuggestions = (
     updater: (current: ModelFormState) => ModelFormState,
@@ -712,14 +778,15 @@ export function ModelRegistryPage() {
 
   return (
     <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-      <section className="relative overflow-hidden rounded-[1.65rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_28%),linear-gradient(135deg,_rgba(239,246,255,0.98),_rgba(255,255,255,0.96))] p-3.5 shadow-xl lg:p-4">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
+      <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
+        <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
         <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
-          <div className="max-w-[30rem] space-y-2">
-            <span className="inline-flex rounded-full border border-sky-300 bg-sky-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-950">
+          <div className="relative max-w-[30rem] space-y-2">
+            <span className="inline-flex rounded-full border border-[hsl(var(--hero-pill-border))] bg-[hsl(var(--hero-pill-bg))] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--hero-pill-foreground))]">
               Connection Profiles
             </span>
-            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-slate-950 lg:text-[2.2rem]">
+            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
               Model Registry
             </h1>
           </div>
@@ -753,7 +820,7 @@ export function ModelRegistryPage() {
       </section>
 
       <section className="mt-5">
-        <Card className="overflow-visible border-border/70 bg-white/90 shadow-sm">
+        <Card className="overflow-visible border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
           <div className="relative z-30 border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.85fr)_auto] xl:items-stretch">
               <label className="relative min-h-10">
@@ -768,7 +835,7 @@ export function ModelRegistryPage() {
 
               <div className="relative min-w-0">
                 <button
-                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-[hsl(var(--surface))] px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.12)] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))]"
                   type="button"
                   onClick={() => {
                     setIsRoleMenuOpen((current) => !current);
@@ -777,10 +844,10 @@ export function ModelRegistryPage() {
                   }}
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                       Roles
                     </p>
-                    <p className="truncate text-[0.95rem] font-semibold text-slate-950">
+                    <p className="truncate text-[0.95rem] font-semibold text-foreground">
                       {selectedRoles.length > 0
                         ? selectedRoles.map(roleLabel).join(", ")
                         : "All roles"}
@@ -789,10 +856,10 @@ export function ModelRegistryPage() {
                 </button>
 
                 {isRoleMenuOpen ? (
-                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
-                    <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-950">Pick roles</p>
-                      <p className="text-xs text-slate-500">
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
+                    <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
+                      <p className="text-sm font-semibold text-foreground">Pick roles</p>
+                      <p className="text-xs text-[hsl(var(--foreground-soft))]">
                         Select one or more registry roles.
                       </p>
                     </div>
@@ -805,8 +872,8 @@ export function ModelRegistryPage() {
                             className={cn(
                               "flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition",
                               isSelected
-                                ? "bg-sky-100 text-sky-950"
-                                : "hover:bg-slate-50",
+                                ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
+                                : "hover:bg-[hsl(var(--surface-muted))]",
                             )}
                             type="button"
                             onClick={() => toggleRole(role)}
@@ -815,7 +882,7 @@ export function ModelRegistryPage() {
                               <span className="block text-sm font-medium">
                                 {roleLabel(role)}
                               </span>
-                              <span className="block text-xs text-slate-500">
+                              <span className="block text-xs text-[hsl(var(--foreground-soft))]">
                                 {roleDescription(role)}
                               </span>
                             </span>
@@ -835,7 +902,7 @@ export function ModelRegistryPage() {
 
               <div className="relative min-w-0">
                 <button
-                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-[hsl(var(--surface))] px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.12)] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))]"
                   type="button"
                   onClick={() => {
                     setIsProviderMenuOpen((current) => !current);
@@ -844,10 +911,10 @@ export function ModelRegistryPage() {
                   }}
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                       Provider
                     </p>
-                    <p className="truncate text-[0.95rem] font-semibold text-slate-950">
+                    <p className="truncate text-[0.95rem] font-semibold text-foreground">
                       {selectedProviderType === "all"
                         ? "All providers"
                         : selectedProviderType}
@@ -856,12 +923,12 @@ export function ModelRegistryPage() {
                 </button>
 
                 {isProviderMenuOpen ? (
-                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
-                    <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-950">
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
+                    <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
+                      <p className="text-sm font-semibold text-foreground">
                         Choose a provider
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-[hsl(var(--foreground-soft))]">
                         Narrow the registry to one provider.
                       </p>
                     </div>
@@ -870,8 +937,8 @@ export function ModelRegistryPage() {
                         className={cn(
                           "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
                           selectedProviderType === "all"
-                            ? "bg-sky-100 text-sky-950"
-                            : "hover:bg-slate-50",
+                            ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
+                            : "hover:bg-[hsl(var(--surface-muted))]",
                         )}
                         type="button"
                         onClick={() => {
@@ -892,8 +959,8 @@ export function ModelRegistryPage() {
                             className={cn(
                               "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
                               isSelected
-                                ? "bg-sky-100 text-sky-950"
-                                : "hover:bg-slate-50",
+                                ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
+                                : "hover:bg-[hsl(var(--surface-muted))]",
                             )}
                             type="button"
                             onClick={() => {
@@ -913,7 +980,7 @@ export function ModelRegistryPage() {
 
               <div className="relative min-w-0">
                 <button
-                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-white px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.24)] transition hover:border-sky-300 hover:bg-sky-50/60"
+                  className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-[hsl(var(--surface))] px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.12)] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))]"
                   type="button"
                   onClick={() => {
                     setIsRuntimeMenuOpen((current) => !current);
@@ -922,10 +989,10 @@ export function ModelRegistryPage() {
                   }}
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                       Runtime
                     </p>
-                    <p className="truncate text-[0.95rem] font-semibold text-slate-950">
+                    <p className="truncate text-[0.95rem] font-semibold text-foreground">
                       {selectedRuntimeType === "all"
                         ? "All runtimes"
                         : selectedRuntimeType}
@@ -934,12 +1001,12 @@ export function ModelRegistryPage() {
                 </button>
 
                 {isRuntimeMenuOpen ? (
-                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_64px_-24px_rgba(15,23,42,0.35)]">
-                    <div className="border-b border-border/70 bg-gradient-to-b from-sky-50 to-white px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-950">
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
+                    <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
+                      <p className="text-sm font-semibold text-foreground">
                         Choose a runtime
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-[hsl(var(--foreground-soft))]">
                         Filter for remote or local model profiles.
                       </p>
                     </div>
@@ -958,8 +1025,8 @@ export function ModelRegistryPage() {
                             className={cn(
                               "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
                               isSelected
-                                ? "bg-sky-100 text-sky-950"
-                                : "hover:bg-slate-50",
+                                ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
+                                : "hover:bg-[hsl(var(--surface-muted))]",
                             )}
                             type="button"
                             onClick={() => {
@@ -1002,7 +1069,7 @@ export function ModelRegistryPage() {
                     aria-label={showArchived ? "Show unarchived models" : "Show archived models"}
                     className={cn(
                       showArchived &&
-                        "border-sky-300 bg-sky-100 text-sky-950 shadow-[0_14px_28px_-18px_rgba(37,99,235,0.45)] hover:bg-sky-200",
+                        "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-[0_14px_28px_-18px_rgba(15,23,42,0.18)] hover:brightness-[0.98]",
                     )}
                     title={showArchived ? "Show unarchived" : "Show archived"}
                     type="button"
@@ -1029,7 +1096,7 @@ export function ModelRegistryPage() {
           ) : null}
 
           {feedback ? (
-            <div className="border-b border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-950">
+            <div className="border-b border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-muted))] px-5 py-3 text-sm text-[hsl(var(--theme-accent-soft-foreground))]">
               {feedback}
             </div>
           ) : null}
@@ -1037,11 +1104,12 @@ export function ModelRegistryPage() {
             <div
               className={cn(
                 "relative z-10 overflow-x-auto",
-                showArchived && "border-l-4 border-sky-300 bg-sky-50/20 pl-0",
+                showArchived &&
+                  "border-l-4 border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-muted)/0.56)] pl-0",
               )}
             >
             <table className="min-w-full table-fixed text-left">
-              <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.14em] text-slate-500">
+              <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                 <tr>
                   <th className="w-[26%] px-3 py-2 font-semibold lg:px-3.5">Display name</th>
                   <th className="w-[10%] px-3 py-2 font-semibold lg:px-3.5">Role</th>
@@ -1069,14 +1137,20 @@ export function ModelRegistryPage() {
                     const rowConnectionFeedback =
                       connectionFeedback?.modelId === model.id ? connectionFeedback : null;
                     const isUnusable = model.runtime_type === "remote" && !model.has_secret;
+                    const connectionFeedbackLabel = getConnectionFeedbackLabel(
+                      rowConnectionFeedback,
+                      isTestingConnection,
+                      model.runtime_type,
+                    );
 
                     return (
                       <tr
                         key={model.id}
                         className={cn(
                           "cursor-pointer border-t border-border/70 transition-colors",
-                          isSelected && "bg-sky-50/70",
-                          isUnusable && "bg-slate-50/80 text-slate-500 opacity-75",
+                          isSelected && "bg-[hsl(var(--theme-accent-muted)/0.78)]",
+                          isUnusable &&
+                            "bg-[hsl(var(--surface-muted)/0.86)] text-[hsl(var(--foreground-soft))] opacity-75",
                         )}
                         onClick={() => {
                           openEditModal(model);
@@ -1103,7 +1177,7 @@ export function ModelRegistryPage() {
                                 )}
                               />
                             </Button>
-                            <div className="min-w-0 space-y-1">
+                            <div className="min-w-0 flex-1 space-y-1">
                               <div className="flex items-center gap-2">
                                 {isUnusable ? (
                                   <button
@@ -1124,42 +1198,40 @@ export function ModelRegistryPage() {
                                   </button>
                                 ) : null}
                                 <p
-                                  className="block w-full truncate text-left text-[0.95rem] font-semibold text-slate-950 transition hover:text-sky-900"
+                                  className="block w-full truncate text-left text-[0.95rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]"
                                   title={model.display_name}
                                 >
                                   {model.display_name}
                                 </p>
                               </div>
-                              <p
-                                className="truncate text-[0.92rem] text-slate-500"
-                                title={model.model_identifier}
-                              >
-                                {model.model_identifier}
-                              </p>
-                              {isTestingConnection ? (
-                                <p className="truncate text-xs font-medium text-sky-700">
-                                  Testing connection...
-                                </p>
-                              ) : rowConnectionFeedback ? (
+                              <div className="relative h-5 w-full overflow-hidden">
                                 <p
                                   className={cn(
-                                    "truncate text-xs font-medium",
-                                    rowConnectionFeedback.ok
-                                      ? "text-emerald-700"
-                                      : "text-rose-700",
+                                    "absolute inset-0 block w-full truncate transition",
+                                    isTestingConnection
+                                      ? "text-[0.78rem] font-medium text-sky-700"
+                                      : rowConnectionFeedback
+                                        ? cn(
+                                            "text-[0.78rem] font-medium",
+                                            rowConnectionFeedback.ok
+                                              ? "text-emerald-700"
+                                              : "text-rose-700",
+                                          )
+                                        : "text-[0.92rem] text-slate-500",
                                   )}
                                   title={
-                                    rowConnectionFeedback.status_code
-                                      ? `HTTP ${rowConnectionFeedback.status_code} — ${rowConnectionFeedback.detail}`
-                                      : rowConnectionFeedback.detail
+                                    isTestingConnection
+                                      ? "Testing connection..."
+                                      : rowConnectionFeedback
+                                        ? rowConnectionFeedback.status_code
+                                          ? `HTTP ${rowConnectionFeedback.status_code} — ${rowConnectionFeedback.detail}`
+                                          : rowConnectionFeedback.detail
+                                        : model.model_identifier
                                   }
                                 >
-                                  {rowConnectionFeedback.status_code
-                                    ? `HTTP ${rowConnectionFeedback.status_code} — `
-                                    : ""}
-                                  {rowConnectionFeedback.detail}
+                                  {connectionFeedbackLabel || model.model_identifier}
                                 </p>
-                              ) : null}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -1372,45 +1444,109 @@ export function ModelRegistryPage() {
               formState.runtimeType === "local"
                 ? "Local runtime does not require a secret."
                 : remoteSecretMissing
-                  ? "Remote models need a secret before they are usable."
+                  ? "Remote models need either a manual secret or an API key preset."
                   : hasStoredSecret
-                  ? "Leave empty to keep the existing secret unchanged."
-                  : "Remote models need a secret before they are usable."
+                    ? "Leave manual secret blank to keep the existing one, or switch to a preset to replace it."
+                    : "Choose between a manual secret and a preset from Settings."
             }
             label="Secret"
           >
             <div className="space-y-2">
-              <Input
-                placeholder={
-                  formState.runtimeType === "local"
-                    ? "Not required for local runtime"
-                    : remoteSecretMissing
-                      ? "Optional bearer token"
-                      : hasStoredSecret
-                      ? "Leave blank to keep stored secret"
-                      : "Optional bearer token"
-                }
-                type="password"
-                value={formState.secret}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    secret: event.target.value,
-                  }))
-                }
-              />
+              {formState.runtimeType === "remote" ? (
+                <Select
+                  value={formState.secretMode}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      secretMode: event.target.value as ModelFormState["secretMode"],
+                      apiKeyPresetId:
+                        event.target.value === "preset" ? current.apiKeyPresetId : "",
+                      secret: event.target.value === "manual" ? current.secret : "",
+                    }))
+                  }
+                >
+                  <option value="manual">Manual secret</option>
+                  <option value="preset">Use API key preset</option>
+                </Select>
+              ) : null}
+              {formState.runtimeType === "remote" && formState.secretMode === "preset" ? (
+                <Select
+                  value={formState.apiKeyPresetId}
+                  onChange={(event) => {
+                    const nextApiKeyPresetId = event.target.value;
+                    const nextState = {
+                      ...formState,
+                      secretMode: "preset" as const,
+                      apiKeyPresetId: nextApiKeyPresetId,
+                      secret: "",
+                    };
+
+                    setFormState(nextState);
+
+                    if (selectedModel && nextApiKeyPresetId) {
+                      setFeedback(null);
+                      void saveMutation.mutateAsync(toPayload(nextState));
+                    }
+                  }}
+                >
+                  <option value="">Select a saved preset</option>
+                  {availableApiKeyPresets.map((preset: ApiKeyPreset) => (
+                    <option key={preset.id} value={String(preset.id)}>
+                      {preset.name} ({preset.provider_type})
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <Input
+                    placeholder={
+                      formState.runtimeType === "local"
+                        ? "Not required for local runtime"
+                        : hasStoredSecret
+                          ? `Stored key: ${selectedModel?.secret_preview ?? "******"}`
+                          : "Optional bearer token"
+                    }
+                    type="password"
+                    value={formState.secret}
+                    onChange={(event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        secret: event.target.value,
+                      }))
+                    }
+                  />
+                  {selectedModel && formState.runtimeType === "remote" ? (
+                    <Button
+                      className="h-10 px-4"
+                      disabled={saveMutation.isPending || !formState.secret.trim()}
+                      type="submit"
+                      variant="secondary"
+                    >
+                      Save
+                    </Button>
+                  ) : null}
+                </div>
+              )}
               {formState.runtimeType === "local" ? (
                 <p className="text-xs text-slate-500">
                   No secret is needed for local runtimes.
                 </p>
+              ) : formState.secretMode === "preset" ? (
+                availableApiKeyPresets.length > 0 ? (
+                  <p className="text-xs text-slate-500">
+                    Presets come from Settings / API Keys and will be copied into this model
+                    profile when you save.
+                  </p>
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
+                    No API key preset is available yet for this provider. Create one in
+                    Settings / API Keys or switch back to a manual secret.
+                  </div>
+                )
               ) : remoteSecretMissing ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
-                  Remote models without a secret are marked unusable until one is set.
+                  Remote models without a secret or preset are marked unusable until one is set.
                 </div>
-              ) : hasStoredSecret ? (
-                <p className="text-xs text-slate-500">
-                  A secret is already stored. Leave this blank to keep it unchanged.
-                </p>
               ) : null}
             </div>
           </Field>
@@ -1575,7 +1711,10 @@ export function ModelRegistryPage() {
                 !formState.displayName.trim() ||
                 !formState.endpointUrl.trim() ||
                 !formState.modelIdentifier.trim() ||
-                !formState.timeoutSeconds.trim()
+                !formState.timeoutSeconds.trim() ||
+                (formState.runtimeType === "remote" &&
+                  formState.secretMode === "preset" &&
+                  !formState.apiKeyPresetId.trim())
               }
               type="submit"
             >

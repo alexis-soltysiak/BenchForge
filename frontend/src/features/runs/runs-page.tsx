@@ -118,14 +118,15 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
 
   return (
     <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-      <section className="relative overflow-hidden rounded-[1.65rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.16),_transparent_30%),linear-gradient(135deg,_rgba(255,244,245,0.92),_rgba(255,255,255,0.98)_44%,_rgba(255,255,255,0.96))] p-3.5 shadow-xl lg:p-4">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
+      <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
+        <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
         <div className="relative flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center xl:gap-4">
-          <div className="max-w-[30rem] space-y-2">
-            <span className="inline-flex rounded-full border border-rose-200 bg-white/85 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-700">
+          <div className="relative max-w-[30rem] space-y-2">
+            <span className="inline-flex rounded-full border border-rose-200 bg-[hsl(var(--surface)/0.85)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--foreground-soft))]">
               Execution Monitor
             </span>
-            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-slate-950 lg:text-[2.2rem]">
+            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
               Runs
             </h1>
           </div>
@@ -167,11 +168,11 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
       </section>
 
       <section className="mt-5">
-        <Card className="overflow-hidden border-border/70 bg-white/90 shadow-sm">
+        <Card className="overflow-hidden border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
           <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-950">Runs List</h2>
+                <h2 className="text-lg font-semibold text-foreground">Runs List</h2>
               </div>
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -195,7 +196,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
 
           <div className="divide-y divide-border/70">
             {runsQuery.isLoading ? (
-              <div className="px-4 py-10 text-[0.92rem] text-slate-500">Loading runs...</div>
+              <div className="px-4 py-10 text-[0.92rem] text-[hsl(var(--foreground-soft))]">Loading runs...</div>
             ) : visibleRuns.length === 0 ? (
               <div className="px-4 py-7">
                 <EmptyStatePanel
@@ -207,7 +208,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               visibleRuns.map((item) => (
                 <button
                   key={item.id}
-                  className="block w-full px-3.5 py-3 text-left transition hover:bg-slate-50"
+                  className="block w-full px-3.5 py-3 text-left transition hover:bg-[hsl(var(--surface-muted))]"
                   onClick={() => {
                     onOpenRun(item.id);
                   }}
@@ -215,8 +216,8 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-[0.95rem] font-semibold text-slate-950">{item.name}</p>
-                      <p className="mt-1 text-[0.92rem] text-slate-500">
+                      <p className="text-[0.95rem] font-semibold text-foreground">{item.name}</p>
+                      <p className="mt-1 text-[0.92rem] text-[hsl(var(--foreground-soft))]">
                         Session #{item.session_id} · {item.prompt_count} prompts ·{" "}
                         {item.model_count} models
                       </p>
@@ -240,7 +241,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                       <StatusPill status={item.status} />
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-[hsl(var(--foreground-soft))]">
                     <span>Report {item.report_status}</span>
                     <span>Rubric {item.rubric_version}</span>
                     <span>Launched {formatDate(item.launched_at)}</span>
@@ -260,7 +261,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
         title={previewRun ? `Report Preview · ${previewRun.name}` : "Report Preview"}
       >
         {previewRun ? (
-          <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-white">
+          <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface))]">
             <iframe
               className="h-[78vh] w-full"
               src={`${API_URL}/runs/${previewRun.id}/report/pdf`}
@@ -553,13 +554,13 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
       {selectedRun ? (
         <div className="space-y-6">
-          <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+          <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
+                <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                   Run #{selectedRun.id}
                 </p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                   {selectedRun.name}
                 </h2>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -645,7 +646,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   />
                 </div>
               ) : (
-                <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+                <div className="mt-5 rounded-2xl border border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] px-4 py-3 text-sm text-[hsl(var(--theme-accent-soft-foreground))]">
                   {feedback}
                 </div>
               )
@@ -664,7 +665,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
           {activePhase === "phase1" ? (
             <div className="space-y-6">
-              <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+              <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <SectionHeading
                     title="Phase 1 · Candidate Execution"
@@ -700,14 +701,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 </div>
               </Card>
 
-              <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
+              <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <SectionHeading
                   title="Phase 1 · Responses By Prompt"
                   description="Une ligne = un prompt exécuté par un candidat. Clique une réponse pour ouvrir son inspection détaillée dans un grand modal."
                 />
                 <div className="mt-5 overflow-x-auto">
                   <table className="min-w-full divide-y divide-border/80 text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-500">
+                    <thead className="bg-[hsl(var(--surface-muted))] text-left text-[hsl(var(--foreground-soft))]">
                       <tr>
                         <th className="px-4 py-3 font-semibold">Prompt</th>
                         <th className="px-4 py-3 font-semibold">Candidate</th>
@@ -722,13 +723,13 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                     <tbody className="divide-y divide-border/70">
                       {responsesQuery.isLoading ? (
                         <tr>
-                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
                             Loading candidate responses...
                           </td>
                         </tr>
                       ) : responses.length === 0 ? (
                         <tr>
-                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
                             No responses recorded yet. Candidate execution has not produced persisted outputs yet.
                           </td>
                         </tr>
@@ -751,8 +752,9 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                               <tr
                                 key={response.id}
                                 className={cn(
-                                  "cursor-pointer transition hover:bg-slate-50",
-                                  selectedResponseId === response.id && "bg-slate-50",
+                                  "cursor-pointer transition hover:bg-[hsl(var(--surface-muted))]",
+                                  selectedResponseId === response.id &&
+                                    "bg-[hsl(var(--surface-muted))]",
                                 )}
                                 onClick={() => {
                                   setSelectedResponseId(response.id);
@@ -761,14 +763,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                               >
                               <td className="px-4 py-3">
                                 <div>
-                                  <p className="font-medium text-slate-950">{prompt?.name ?? "Unknown prompt"}</p>
-                                  <p className="text-xs text-slate-500">{prompt?.category_name ?? "Unknown category"}</p>
+                                  <p className="font-medium text-foreground">{prompt?.name ?? "Unknown prompt"}</p>
+                                  <p className="text-xs text-[hsl(var(--foreground-soft))]">{prompt?.category_name ?? "Unknown category"}</p>
                                 </div>
                               </td>
                               <td className="px-4 py-3">
                                 <div>
-                                  <p className="font-medium text-slate-950">{model?.display_name ?? "Unknown model"}</p>
-                                  <p className="text-xs text-slate-500">
+                                  <p className="font-medium text-foreground">{model?.display_name ?? "Unknown model"}</p>
+                                  <p className="text-xs text-[hsl(var(--foreground-soft))]">
                                     {model ? `${model.provider_type} / ${model.runtime_type}` : "Missing snapshot"}
                                   </p>
                                 </div>
@@ -782,21 +784,21 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                   ) : response.status === "failed" ? (
                                     <XCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
                                   ) : (
-                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--foreground-soft))]" />
                                   )}
                                   <StatusPill status={response.status} />
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
                                 {formatDuration(response.metric?.duration_ms)}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
                                 {response.metric?.total_tokens ?? "—"}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
                                 {formatCost(response.metric?.estimated_cost)}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">{response.retry_count}</td>
+                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">{response.retry_count}</td>
                               <td className="px-4 py-3 text-right">
                                 {["failed", "cancelled"].includes(response.status) ? (
                                   <Button
@@ -812,7 +814,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                     Retry
                                   </Button>
                                 ) : (
-                                  <span className="text-xs text-slate-400">—</span>
+                                  <span className="text-xs text-[hsl(var(--foreground-soft))]">—</span>
                                 )}
                               </td>
                             </tr>
@@ -924,11 +926,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           ) : null}
         </div>
       ) : runQuery.isLoading ? (
-        <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Loading run details...</p>
+        <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-6 shadow-sm">
+          <p className="text-sm text-[hsl(var(--foreground-soft))]">Loading run details...</p>
         </Card>
       ) : (
-        <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
+        <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-6 shadow-sm">
           <EmptyStatePanel
             title="Run not found"
             description="The requested run could not be loaded from the API."
