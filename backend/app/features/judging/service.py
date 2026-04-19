@@ -133,6 +133,19 @@ class JudgingService:
                 "Judging has already started for this run. Use retry judging instead."
             )
 
+        self._validate_run_ready_for_judging(run)
+        run.status = "judging"
+        await self.repository.commit()
+        await self._ensure_batches(run)
+        await self.repository.commit()
+        refreshed_batches = list(await self.repository.list_batches(run.id))
+        return self._serialize_run_judging(run, refreshed_batches)
+
+    async def continue_judging(self, run_id: int) -> RunJudgingRead:
+        run = await self.repository.get_run(run_id)
+        if run is None:
+            raise JudgingError(f"Run {run_id} not found.")
+
         return await self._run_judging(run)
 
     async def retry_judging(self, run_id: int) -> RunJudgingRead:
@@ -163,6 +176,7 @@ class JudgingService:
             batch.status = "failed"
             batch.completed_at = datetime.now(UTC)
             batch.error_message = str(exc)
+            await self.repository.commit()
 
         all_batches = list(await self.repository.list_batches(run_id))
         still_failed = any(b.status == "failed" for b in all_batches)
@@ -189,6 +203,7 @@ class JudgingService:
             total_batches=len(batches),
             completed_batches=sum(1 for item in batches if item.status == "completed"),
             failed_batches=sum(1 for item in batches if item.status == "failed"),
+            running_batches=sum(1 for item in batches if item.status == "running"),
             pending_batches=sum(1 for item in batches if item.status == "pending"),
             items=[serialize_judge_batch(item) for item in batches],
         )
@@ -198,6 +213,7 @@ class JudgingService:
             item for item in run.model_snapshots if item.role == "candidate"
         ]
         judge_snapshots = [item for item in run.model_snapshots if item.role == "judge"]
+        effective_candidate_responses = self._effective_candidate_responses(run)
         if len(judge_snapshots) != 1:
             raise JudgingError("MVP requires exactly one judge snapshot in the run.")
         if not run.prompt_snapshots or not candidate_snapshots:
@@ -206,11 +222,11 @@ class JudgingService:
             )
 
         expected = len(run.prompt_snapshots) * len(candidate_snapshots)
-        if len(run.candidate_responses) != expected:
+        if len(effective_candidate_responses) != expected:
             raise JudgingError("Candidate response matrix is incomplete for judging.")
         incomplete = [
             item
-            for item in run.candidate_responses
+            for item in effective_candidate_responses
             if item.status != "completed" or not item.normalized_response_text
         ]
         if incomplete:
@@ -233,6 +249,7 @@ class JudgingService:
                 batch.status = "failed"
                 batch.completed_at = datetime.now(UTC)
                 batch.error_message = str(exc)
+                await self.repository.commit()
                 failed = True
 
         if failed:
@@ -328,6 +345,7 @@ class JudgingService:
         batch.started_at = datetime.now(UTC)
         batch.completed_at = None
         batch.error_message = None
+        await self.repository.commit()
 
         result = await adapter.generate(
             endpoint_url=judge_snapshot.endpoint_url,
@@ -364,6 +382,7 @@ class JudgingService:
                 ]
             ],
         )
+        await self.repository.commit()
 
     def _build_evaluation_candidate(
         self,
@@ -408,19 +427,50 @@ class JudgingService:
         return sorted(
             [
                 item
-                for item in run.candidate_responses
+                for item in self._effective_candidate_responses(run)
                 if item.prompt_snapshot_id == prompt_snapshot_id
             ],
             key=lambda response: response.model_snapshot_id,
         )
 
+    def _effective_candidate_responses(self, run: SessionRun) -> list[CandidateResponse]:
+        by_pair: dict[tuple[int, int], CandidateResponse] = {}
+
+        for response in run.candidate_responses:
+            key = (response.prompt_snapshot_id, response.model_snapshot_id)
+            current = by_pair.get(key)
+            if current is None or self._is_newer_candidate_response(response, current):
+                by_pair[key] = response
+
+        return list(by_pair.values())
+
+    def _is_newer_candidate_response(
+        self,
+        candidate: CandidateResponse,
+        current: CandidateResponse,
+    ) -> bool:
+        candidate_retry = candidate.retry_count or 0
+        current_retry = current.retry_count or 0
+        if candidate_retry != current_retry:
+            return candidate_retry > current_retry
+
+        candidate_timestamp = self._candidate_response_timestamp(candidate)
+        current_timestamp = self._candidate_response_timestamp(current)
+        if candidate_timestamp != current_timestamp:
+            return candidate_timestamp > current_timestamp
+
+        return candidate.id > current.id
+
+    def _candidate_response_timestamp(self, response: CandidateResponse) -> datetime:
+        return response.completed_at or response.started_at or datetime.min.replace(tzinfo=UTC)
+
     def _build_judge_system_prompt(self) -> str:
         return (
-            "You are a strict benchmark judge. Return JSON only. "
-            "Score each candidate from 0 to 100 for relevance, accuracy, "
-            "completeness, clarity, instruction_following, and overall_score. "
-            "Include ranking_in_batch, strengths, "
-            "weaknesses, short_feedback, detailed_feedback, and confidence."
+            "Tu es un juge de benchmark strict. Retourne uniquement du JSON. "
+            "Évalue chaque candidat de 0 à 100 pour relevance, accuracy, "
+            "completeness, clarity, instruction_following et overall_score. "
+            "Inclus aussi ranking_in_batch, strengths, weaknesses, "
+            "short_feedback, detailed_feedback et confidence."
         )
 
     def _build_judge_prompt(

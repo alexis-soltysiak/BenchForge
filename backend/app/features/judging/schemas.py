@@ -53,5 +53,6 @@ class RunJudgingRead(BaseModel):
     total_batches: int
     completed_batches: int
     failed_batches: int
+    running_batches: int
     pending_batches: int
     items: list[JudgeBatchRead]

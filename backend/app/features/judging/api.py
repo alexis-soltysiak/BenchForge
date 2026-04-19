@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.database import get_db_session
 from app.features.judging.schemas import RunJudgingRead
@@ -16,6 +16,15 @@ def get_judging_service(
 
 
 judging_service_dependency = Depends(get_judging_service)
+
+
+async def run_judging_background(
+    run_id: int,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        service = JudgingService(session)
+        await service.continue_judging(run_id)
 
 
 @router.get("/runs/{run_id}/judging", response_model=RunJudgingRead)
@@ -38,10 +47,15 @@ async def get_run_judging(
 @router.post("/runs/{run_id}/judging/start", response_model=RunJudgingRead)
 async def start_run_judging(
     run_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
     service: JudgingService = judging_service_dependency,
 ) -> RunJudgingRead:
     try:
-        return await service.start_judging(run_id)
+        response = await service.start_judging(run_id)
+        session_factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+        background_tasks.add_task(run_judging_background, run_id, session_factory)
+        return response
     except JudgingError as exc:
         detail = str(exc)
         status_code = (

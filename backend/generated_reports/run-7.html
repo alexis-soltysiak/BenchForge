@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test Run Report</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #0f172a;
+        --muted: #475569;
+        --line: #dbe4ee;
+        --panel: #f8fafc;
+        --accent: #0f766e;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--ink);
+        background: white;
+        line-height: 1.5;
+      }
+      h1, h2, h3, h4 { margin: 0 0 12px; }
+      .hero {
+        border-bottom: 2px solid var(--line);
+        padding-bottom: 20px;
+        margin-bottom: 28px;
+      }
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .meta div, .candidate, .prompt, .response {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 16px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0 28px;
+      }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+      }
+      th {
+        background: #eef6f6;
+      }
+      .candidate-grid, .prompt-grid {
+        display: grid;
+        gap: 18px;
+      }
+      .prompt-grid {
+        page-break-before: always;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: white;
+        border: 1px solid var(--line);
+        padding: 12px;
+      }
+      @media print {
+        body { padding: 0; }
+        .prompt { page-break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Test Run Report</h1>
+      <p>Test Run</p>
+      <div class="meta">
+        <div>
+          <strong>Run timestamp:</strong> 2026-04-19T11:53:41.743161+00:00
+        </div>
+        <div><strong>Judge used:</strong> gpt-5.4</div>
+        <div><strong>Prompt count:</strong> 1</div>
+        <div><strong>Candidate count:</strong> 2</div>
+      </div>
+    </section>
+    <section>
+      <h2>Executive Summary</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Candidate</th>
+            <th>Judge score</th>
+            <th>Quality score</th>
+            <th>Cost score</th>
+            <th>Performance score</th>
+            <th>Final global score</th>
+          </tr>
+        </thead>
+        <tbody><tr><td>gpt-5.4-mini</td><td>98.00</td><td>98.00</td><td>100.00</td><td>50.00</td><td>91.10</td></tr><tr><td>gpt-5.4-nano</td><td>97.00</td><td>97.00</td><td>100.00</td><td>50.00</td><td>90.40</td></tr></tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Candidate Sections</h2>
+      <div class="candidate-grid"><section class='candidate'><h3>gpt-5.4-mini</h3><p>openai / remote</p><p><strong>Global score:</strong> 91.10</p><p>Average overall score 98.00 across 1 prompts with mean latency 3730 ms.</p><p><strong>Best patterns:</strong> Correct O(n) hashmap-based solution; Returns indices of the matching pair; Includes clear explanation of approach</p><p><strong>Weak patterns:</strong> Returns None on no solution, which may be less explicit than raising an exception; Minor ambiguity from comment &#x27;or raise an exception if no solution exists&#x27; instead of choosing one behavior</p></section><section class='candidate'><h3>gpt-5.4-nano</h3><p>openai / remote</p><p><strong>Global score:</strong> 90.40</p><p>Average overall score 97.00 across 1 prompts with mean latency 2509 ms.</p><p><strong>Best patterns:</strong> Correct O(n) hashmap-based solution; Returns indices of the matching pair; Explicitly handles no-solution case with ValueError</p><p><strong>Weak patterns:</strong> Less complete presentation because it does not explain the approach or complexity; No usage example provided</p></section></div>
+    </section>
+    <section>
+      <h2>Prompt Sections</h2>
+      <div class="prompt-grid"><section class='prompt'><h3>python_two_sum</h3><p><strong>Category:</strong> Coding</p><pre>Write a Python function `two_sum(nums, target)` that returns the indices of two numbers whose sum equals `target`. Provide an efficient solution.</pre><article class='response'><h4>gpt-5.4-mini</h4><p><strong>Rank:</strong> 1</p><p><strong>Judge score:</strong> 98.00</p><pre>```python
+def two_sum(nums, target):
+    seen = {}  # value -&gt; index
+
+    for i, num in enumerate(nums):
+        complement = target - num
+        if complement in seen:
+            return [seen[complement], i]
+        seen[num] = i
+
+    return None  # or raise an exception if no solution exists
+```
+
+### How it works
+- As you scan the list once, keep a dictionary of numbers you&#x27;ve already seen.
+- For each number `num`, check whether `target - num` was seen before.
+- If yes, return the stored index and the current index.
+
+### Efficiency
+- **Time:** `O(n)`
+- **Space:** `O(n)`
+
+### Example
+```python
+print(two_sum([2, 7, 11, 15], 9))  # [0, 1]
+```</pre><p>Excellent efficient solution with clear explanation and correct complexity.</p><p>Candidate A fully satisfies the prompt with a standard and correct hashmap-based O(n) implementation. It correctly checks for the complement before storing the current value, which handles duplicate cases properly. The explanation, complexity analysis, and example improve completeness and clarity. The only small drawback is that the no-solution behavior is slightly underspecified because it returns None while also commenting that an exception could be raised. This does not affect correctness for the main task.</p></article><article class='response'><h4>gpt-5.4-nano</h4><p><strong>Rank:</strong> 2</p><p><strong>Judge score:</strong> 97.00</p><pre>```python
+def two_sum(nums, target):
+    &quot;&quot;&quot;
+    Returns indices (i, j) such that nums[i] + nums[j] == target.
+    Raises ValueError if no such pair exists.
+    &quot;&quot;&quot;
+    seen = {}  # value -&gt; index
+
+    for i, x in enumerate(nums):
+        need = target - x
+        if need in seen:
+            return seen[need], i
+        seen[x] = i
+
+    raise ValueError(&quot;No two sum solution&quot;)
+```</pre><p>Correct and efficient hashmap solution, but less complete in explanation than Candidate A.</p><p>Candidate B also fully satisfies the core prompt with a correct and efficient O(n) hashmap approach. It properly tracks seen values and returns the prior index with the current index when the complement is found. Raising ValueError for the no-solution case is a reasonable design choice. Compared with Candidate A, it is slightly less complete because it omits explanation, complexity analysis, and an example, but the implementation itself is strong and correct.</p></article></section></div>
+    </section>
+  </body>
+</html>
