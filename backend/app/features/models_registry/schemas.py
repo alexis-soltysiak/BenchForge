@@ -15,6 +15,8 @@ class ModelProfileRead(BaseModel):
     endpoint_url: str
     model_identifier: str
     has_secret: bool
+    secret_preview: str | None
+    api_key_preset_id: int | None
     timeout_seconds: int
     context_window: int | None
     pricing_input_per_million: Decimal | None
@@ -36,6 +38,7 @@ class ModelProfileCreate(BaseModel):
     endpoint_url: str = Field(min_length=1, max_length=500)
     model_identifier: str = Field(min_length=1, max_length=255)
     secret: str | None = None
+    api_key_preset_id: int | None = Field(default=None, ge=1)
     timeout_seconds: int = Field(default=60, ge=1, le=3600)
     context_window: int | None = Field(default=None, ge=1)
     pricing_input_per_million: Decimal | None = Field(default=None, ge=0)
@@ -54,6 +57,7 @@ class ModelProfileUpdate(BaseModel):
     endpoint_url: str | None = Field(default=None, min_length=1, max_length=500)
     model_identifier: str | None = Field(default=None, min_length=1, max_length=255)
     secret: str | None = None
+    api_key_preset_id: int | None = Field(default=None, ge=1)
     timeout_seconds: int | None = Field(default=None, ge=1, le=3600)
     context_window: int | None = Field(default=None, ge=1)
     pricing_input_per_million: Decimal | None = Field(default=None, ge=0)

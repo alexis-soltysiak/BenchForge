@@ -18,6 +18,7 @@ class ModelProfile(Base, TimestampMixin):
     endpoint_url: Mapped[str] = mapped_column(String(500), nullable=False)
     model_identifier: Mapped[str] = mapped_column(String(255), nullable=False)
     secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    api_key_preset_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     timeout_seconds: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -47,4 +48,3 @@ class ModelProfile(Base, TimestampMixin):
         default=False,
         server_default="false",
     )
-
