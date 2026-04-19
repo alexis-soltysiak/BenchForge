@@ -3,113 +3,321 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Test 1 Run Report</title>
+    <title>Test Run Report</title>
     <style>
       :root {
-        color-scheme: light;
         --ink: #0f172a;
         --muted: #475569;
         --line: #dbe4ee;
         --panel: #f8fafc;
         --accent: #0f766e;
+        --accent-light: #eef6f4;
+        --green: #166534;
+        --green-bg: #dcfce7;
+        --red: #991b1b;
+        --red-bg: #fee2e2;
+        --yellow-bg: #fef9c3;
       }
-      * { box-sizing: border-box; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
-        margin: 0;
-        padding: 32px;
+        padding: 40px;
         font-family: Georgia, "Times New Roman", serif;
         color: var(--ink);
         background: white;
-        line-height: 1.5;
+        line-height: 1.6;
+        font-size: 14px;
       }
-      h1, h2, h3, h4 { margin: 0 0 12px; }
-      .hero {
-        border-bottom: 2px solid var(--line);
-        padding-bottom: 20px;
-        margin-bottom: 28px;
-      }
-      .meta {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        margin-top: 16px;
-      }
-      .meta div, .candidate, .prompt, .response {
-        border: 1px solid var(--line);
-        background: var(--panel);
-        padding: 16px;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 18px 0 28px;
-      }
-      th, td {
-        border: 1px solid var(--line);
-        padding: 10px 12px;
-        text-align: left;
-      }
-      th {
-        background: #eef6f6;
-      }
-      .candidate-grid, .prompt-grid {
-        display: grid;
-        gap: 18px;
-      }
-      .prompt-grid {
-        page-break-before: always;
-      }
-      pre {
-        white-space: pre-wrap;
-        word-break: break-word;
-        background: white;
-        border: 1px solid var(--line);
-        padding: 12px;
-      }
+      h1 { font-size: 1.8rem; margin-bottom: 4px; }
+      h2 { font-size: 1.2rem; margin: 32px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+      h3 { font-size: 1.05rem; margin-bottom: 8px; }
+      h4 { font-size: 0.95rem; margin-bottom: 6px; color: var(--accent); }
+      p { margin-bottom: 8px; }
+      .muted { color: var(--muted); font-size: 0.88rem; margin-bottom: 12px; }
+      .hero { border-bottom: 2px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+      .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
+      .meta div { border: 1px solid var(--line); background: var(--panel); padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; }
+      table { width: 100%; border-collapse: collapse; margin: 14px 0 24px; font-size: 0.9rem; }
+      th, td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; }
+      th { background: var(--accent-light); font-family: Helvetica, Arial, sans-serif; font-size: 0.82rem; letter-spacing: 0.03em; }
+      tr:nth-child(even) td { background: var(--panel); }
+      .winner-row td { background: var(--yellow-bg) !important; }
+      .delta-zero { color: var(--muted); }
+      .delta-neg { color: #b91c1c; font-weight: bold; }
+      .candidate-grid, .prompt-grid { display: grid; gap: 20px; }
+      .candidate { border: 1px solid var(--line); background: var(--panel); padding: 20px; border-radius: 6px; }
+      .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }
+      .stat-box { background: white; border: 1px solid var(--line); border-radius: 4px; padding: 10px 14px; text-align: center; }
+      .stat-val { display: block; font-size: 1.15rem; font-weight: bold; color: var(--accent); }
+      .stat-lbl { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 2px; font-family: Helvetica, Arial, sans-serif; }
+      table.sub-scores { margin: 0 0 14px; }
+      table.sub-scores td:first-child { color: var(--muted); font-family: Helvetica, Arial, sans-serif; font-size: 0.85rem; }
+      .patterns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+      .pattern-block { padding: 12px 14px; border-radius: 4px; font-size: 0.9rem; }
+      .strengths-block { background: var(--green-bg); border-left: 3px solid #16a34a; }
+      .weaknesses-block { background: var(--red-bg); border-left: 3px solid #dc2626; }
+      .pattern-block strong { display: block; margin-bottom: 4px; font-family: Helvetica, Arial, sans-serif; font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; }
+      .prompt { border: 1px solid var(--line); background: white; padding: 20px; border-radius: 6px; }
+      .badge { display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 0.78rem; font-family: Helvetica, Arial, sans-serif; padding: 2px 10px; border-radius: 12px; margin-bottom: 12px; }
+      .prompt-label { font-family: Helvetica, Arial, sans-serif; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+      pre { white-space: pre-wrap; word-break: break-word; background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 12px; }
+      pre.sys-pre { background: #fffbeb; border-color: #fbbf24; }
+      .eval-notes { font-size: 0.88rem; color: var(--muted); margin-bottom: 10px; }
+      table.comparison { margin: 10px 0 18px; }
+      .response { border: 1px solid var(--line); padding: 16px; margin-top: 12px; border-radius: 4px; }
+      .response h4 { margin-bottom: 10px; }
+      p.strengths { background: var(--green-bg); padding: 8px 12px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 6px; }
+      p.weaknesses { background: var(--red-bg); padding: 8px 12px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 6px; }
+      p.feedback { font-size: 0.88rem; color: var(--muted); margin-top: 8px; }
+      .bias-notice { background: #fffbeb; border: 1px solid #fbbf24; border-left: 4px solid #f59e0b; padding: 10px 14px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 14px; }
+      .weighting-legend { background: var(--panel); border: 1px solid var(--line); padding: 10px 16px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 16px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+      .weighting-legend span { font-family: Helvetica, Arial, sans-serif; }
+      .weight-pill { background: var(--accent-light); color: var(--accent); font-weight: bold; padding: 2px 8px; border-radius: 10px; font-size: 0.82rem; }
+      .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 10px; }
+      .chart-box { border: 1px solid var(--line); background: var(--panel); padding: 16px; border-radius: 6px; }
+      .chart-box h3 { font-size: 0.95rem; margin-bottom: 10px; }
       @media print {
         body { padding: 0; }
         .prompt { page-break-inside: avoid; }
+        .prompt-grid { page-break-before: always; }
+        .charts-grid { grid-template-columns: 1fr; }
       }
     </style>
   </head>
   <body>
     <section class="hero">
-      <h1>Test 1 Run Report</h1>
-      <p>Test 1 Run</p>
+      <h1>Test Run Report</h1>
+      <p class="muted">Test Run</p>
       <div class="meta">
-        <div>
-          <strong>Run timestamp:</strong> 2026-04-18T08:54:59.394683+00:00
-        </div>
-        <div><strong>Judge used:</strong> gpt-5.4-mini-2026-03-17</div>
-        <div><strong>Prompt count:</strong> 2</div>
-        <div><strong>Candidate count:</strong> 2</div>
+        <div><strong>Run timestamp:</strong> 2026-04-19T17:14:29.288199+00:00</div>
+        <div><strong>Judge:</strong> gpt-5.4</div>
+        <div><strong>Prompts:</strong> 4</div>
+        <div><strong>Candidates:</strong> 2</div>
       </div>
     </section>
+    <p class='bias-notice'>⚠ <strong>Potential judge bias:</strong> The judge (<strong>gpt-5.4</strong>) appears to share a model family with candidate(s) <strong>GPT-5.4-mini, GPT-5.4</strong>. LLMs are known to exhibit self-preference bias. Consider re-running with a different-family judge for an independent baseline.</p>
     <section>
       <h2>Executive Summary</h2>
+      <div class="weighting-legend">
+        <span><strong>Global Score formula:</strong></span>
+        <span><span class="weight-pill">70%</span> Judge Score (holistic quality)</span>
+        <span>+</span>
+        <span><span class="weight-pill">15%</span> Cost Score (normalised inverse)</span>
+        <span>+</span>
+        <span><span class="weight-pill">15%</span> Performance Score (latency + throughput, normalised)</span>
+      </div>
       <table>
         <thead>
           <tr>
             <th>Candidate</th>
             <th>Judge score</th>
             <th>Quality score</th>
-            <th>Cost score</th>
-            <th>Performance score</th>
-            <th>Final global score</th>
+            <th>Total cost</th>
+            <th>Avg latency</th>
+            <th>Global score</th>
+            <th>Δ vs leader</th>
           </tr>
         </thead>
-        <tbody><tr><td>gpt-5.4-mini-2026-03-17</td><td>94.00</td><td>94.00</td><td>100.00</td><td>100.00</td><td>95.80</td></tr><tr><td>gpt-5.4-nano</td><td>50.50</td><td>50.50</td><td>100.00</td><td>0.00</td><td>50.35</td></tr></tbody>
+        <tbody><tr  class="winner-row"><td>★ <strong>GPT-5.4-mini</strong></td><td>53.25</td><td>60.05</td><td>—</td><td>2115 ms</td><td><strong>67.28</strong></td><td class='delta-zero'>—</td></tr><tr><td><strong>GPT-5.4</strong></td><td>56.25</td><td>62.10</td><td>—</td><td>3820 ms</td><td><strong>54.38</strong></td><td class='delta-neg'>-12.90</td></tr></tbody>
       </table>
+      <h3 style="font-size:0.95rem;margin:20px 0 8px">Score by Category</h3><table class='comparison'><thead><tr><th>Category</th><th>GPT-5.4-mini</th><th>GPT-5.4</th></tr></thead><tbody><tr><td><strong>Coding</strong></td><td>99.0</td><td>98.0</td></tr><tr><td><strong>Reasoning</strong></td><td>88.0</td><td>95.0</td></tr><tr><td><strong>Structured Output</strong></td><td>8.0</td><td>8.0</td></tr><tr><td><strong>Translation</strong></td><td>18.0</td><td>24.0</td></tr></tbody></table>
+    </section>
+    <section>
+      <h2>Visual Analysis</h2>
+      <div class="charts-grid">
+        <div class="chart-box">
+          <h3>Sub-Score Radar</h3>
+          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Dimension-level averages across all prompts — shows the "personality" of each model.</p>
+          <svg viewBox="0 0 500 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">
+<polygon points="185.0,152.5 215.9,175.0 204.1,211.3 165.9,211.3 154.1,175.0" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
+<text x="188.0" y="152.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">25</text>
+<polygon points="185.0,120.0 246.8,164.9 223.2,237.6 146.8,237.6 123.2,164.9" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
+<text x="188.0" y="120.0" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">50</text>
+<polygon points="185.0,87.5 277.7,154.9 242.3,263.9 127.7,263.9 92.3,154.9" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
+<text x="188.0" y="87.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">75</text>
+<polygon points="185.0,55.0 308.6,144.8 261.4,290.2 108.6,290.2 61.4,144.8" fill="none" stroke="#dbe4ee" stroke-width="1.5"/>
+<line x1="185" y1="185" x2="185.0" y2="55.0" stroke="#dbe4ee" stroke-width="1"/>
+<text x="185.0" y="35.6" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Relevance</text>
+<line x1="185" y1="185" x2="308.6" y2="144.8" stroke="#dbe4ee" stroke-width="1"/>
+<text x="330.9" y="141.6" text-anchor="start" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Accuracy</text>
+<line x1="185" y1="185" x2="261.4" y2="290.2" stroke="#dbe4ee" stroke-width="1"/>
+<text x="275.2" y="313.1" text-anchor="start" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Completeness</text>
+<line x1="185" y1="185" x2="108.6" y2="290.2" stroke="#dbe4ee" stroke-width="1"/>
+<text x="94.8" y="313.1" text-anchor="end" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Clarity</text>
+<line x1="185" y1="185" x2="61.4" y2="144.8" stroke="#dbe4ee" stroke-width="1"/>
+<text x="39.1" y="141.6" text-anchor="end" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Instr. Following</text>
+<polygon points="185.0,109.6 247.1,164.8 221.1,234.7 115.5,280.7 118.5,163.4" fill="#0f766e" fill-opacity="0.12" stroke="#0f766e" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="185.0" cy="109.6" r="4" fill="#0f766e"/>
+<circle cx="247.1" cy="164.8" r="4" fill="#0f766e"/>
+<circle cx="221.1" cy="234.7" r="4" fill="#0f766e"/>
+<circle cx="115.5" cy="280.7" r="4" fill="#0f766e"/>
+<circle cx="118.5" cy="163.4" r="4" fill="#0f766e"/>
+<polygon points="185.0,106.7 250.2,163.8 222.8,237.1 114.5,282.0 116.1,162.6" fill="#f97316" fill-opacity="0.12" stroke="#f97316" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="185.0" cy="106.7" r="4" fill="#f97316"/>
+<circle cx="250.2" cy="163.8" r="4" fill="#f97316"/>
+<circle cx="222.8" cy="237.1" r="4" fill="#f97316"/>
+<circle cx="114.5" cy="282.0" r="4" fill="#f97316"/>
+<circle cx="116.1" cy="162.6" r="4" fill="#f97316"/>
+<rect x="390" y="50" width="13" height="13" fill="#0f766e" fill-opacity="0.7" rx="2"/>
+<text x="407" y="60" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">GPT-5.4-mini</text>
+<rect x="390" y="76" width="13" height="13" fill="#f97316" fill-opacity="0.7" rx="2"/>
+<text x="407" y="86" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">GPT-5.4</text>
+</svg>
+        </div>
+        <div class="chart-box">
+          <h3>Efficiency Frontier — Latency vs Quality</h3>
+          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Upper-left is ideal: high quality at low latency. The Global Score may penalise a slow but accurate model — use this to judge the trade-off yourself.</p>
+          <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">
+<line x1="65" y1="30" x2="65" y2="250" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="65" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="203" y1="30" x2="203" y2="250" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="65" y1="103" x2="480" y2="103" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="342" y1="30" x2="342" y2="250" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="65" y1="177" x2="480" y2="177" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="480" y1="30" x2="480" y2="250" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="65" y1="250" x2="480" y2="250" stroke="#f1f5f9" stroke-width="1"/>
+<line x1="65" y1="30" x2="65" y2="250" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="65" y1="250" x2="480" y2="250" stroke="#94a3b8" stroke-width="1.5"/>
+<text x="272" y="292" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Latency (ms) — lower is faster →</text>
+<text x="13" y="140" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif" transform="rotate(-90,13,140)">Quality score ↑</text>
+<text x="65" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">1604</text>
+<text x="59" y="34" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">57</text>
+<text x="203" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">2513</text>
+<text x="59" y="107" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">56</text>
+<text x="342" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">3422</text>
+<text x="59" y="181" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">54</text>
+<text x="480" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">4332</text>
+<text x="59" y="254" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">52</text>
+<circle cx="142.8" cy="201.1" r="8" fill="#0f766e" fill-opacity="0.85"/>
+<text x="142.8" y="187.1" text-anchor="middle" font-size="10" fill="#0f766e" font-weight="bold" font-family="Helvetica,Arial,sans-serif">GPT-5.4-mini</text>
+<text x="142.8" y="199.1" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">2115ms / q=53.2</text>
+<circle cx="402.2" cy="78.9" r="8" fill="#f97316" fill-opacity="0.85"/>
+<text x="402.2" y="64.9" text-anchor="middle" font-size="10" fill="#f97316" font-weight="bold" font-family="Helvetica,Arial,sans-serif">GPT-5.4</text>
+<text x="402.2" y="76.9" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">3820ms / q=56.2</text>
+</svg>
+        </div>
+        <div class="chart-box">
+          <h3>Category Efficiency Radar</h3>
+          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Average judge score per prompt category. Shows where each model excels or struggles by task type.</p>
+          <svg viewBox="0 0 500 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">
+<polygon points="185.0,152.5 217.5,185.0 185.0,217.5 152.5,185.0" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
+<text x="188.0" y="152.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">25</text>
+<polygon points="185.0,120.0 250.0,185.0 185.0,250.0 120.0,185.0" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
+<text x="188.0" y="120.0" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">50</text>
+<polygon points="185.0,87.5 282.5,185.0 185.0,282.5 87.5,185.0" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
+<text x="188.0" y="87.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">75</text>
+<polygon points="185.0,55.0 315.0,185.0 185.0,315.0 55.0,185.0" fill="none" stroke="#dbe4ee" stroke-width="1.5"/>
+<line x1="185" y1="185" x2="185.0" y2="55.0" stroke="#dbe4ee" stroke-width="1"/>
+<text x="185.0" y="35.6" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Coding</text>
+<line x1="185" y1="185" x2="315.0" y2="185.0" stroke="#dbe4ee" stroke-width="1"/>
+<text x="338.4" y="189.0" text-anchor="start" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Reasoning</text>
+<line x1="185" y1="185" x2="185.0" y2="315.0" stroke="#dbe4ee" stroke-width="1"/>
+<text x="185.0" y="342.4" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Structured Output</text>
+<line x1="185" y1="185" x2="55.0" y2="185.0" stroke="#dbe4ee" stroke-width="1"/>
+<text x="31.6" y="189.0" text-anchor="end" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Translation</text>
+<polygon points="185.0,56.3 299.4,185.0 185.0,195.4 161.6,185.0" fill="#0f766e" fill-opacity="0.12" stroke="#0f766e" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="185.0" cy="56.3" r="4" fill="#0f766e"/>
+<text x="190.0" y="60.3" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">99</text>
+<circle cx="299.4" cy="185.0" r="4" fill="#0f766e"/>
+<text x="304.4" y="189.0" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">88</text>
+<circle cx="185.0" cy="195.4" r="4" fill="#0f766e"/>
+<text x="190.0" y="199.4" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">8</text>
+<circle cx="161.6" cy="185.0" r="4" fill="#0f766e"/>
+<text x="166.6" y="189.0" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">18</text>
+<polygon points="185.0,57.6 308.5,185.0 185.0,195.4 153.8,185.0" fill="#f97316" fill-opacity="0.12" stroke="#f97316" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="185.0" cy="57.6" r="4" fill="#f97316"/>
+<text x="190.0" y="61.6" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">98</text>
+<circle cx="308.5" cy="185.0" r="4" fill="#f97316"/>
+<text x="313.5" y="189.0" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">95</text>
+<circle cx="185.0" cy="195.4" r="4" fill="#f97316"/>
+<text x="190.0" y="199.4" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">8</text>
+<circle cx="153.8" cy="185.0" r="4" fill="#f97316"/>
+<text x="158.8" y="189.0" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">24</text>
+<rect x="390" y="50" width="13" height="13" fill="#0f766e" fill-opacity="0.7" rx="2"/>
+<text x="407" y="60" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">GPT-5.4-mini</text>
+<rect x="390" y="76" width="13" height="13" fill="#f97316" fill-opacity="0.7" rx="2"/>
+<text x="407" y="86" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">GPT-5.4</text>
+</svg>
+        </div>
+      </div>
     </section>
     <section>
       <h2>Candidate Sections</h2>
-      <div class="candidate-grid"><section class='candidate'><h3>gpt-5.4-mini-2026-03-17</h3><p>openai / remote</p><p><strong>Global score:</strong> 95.80</p><p>Average overall score 94.00 across 2 prompts with mean latency 1706 ms.</p><p><strong>Best patterns:</strong> Correct O(n) hashmap-based implementation.; Returns indices immediately upon finding a valid complement.; Clear explanation of the algorithm, complexity, and example usage.</p><p><strong>Weak patterns:</strong> task_title appears to repeat the instruction rather than transform a user request; priority is inferred without evidence; deadline and owner are null, which may be acceptable but indicates limited extraction</p></section><section class='candidate'><h3>gpt-5.4-nano</h3><p>openai / remote</p><p><strong>Global score:</strong> 50.35</p><p>Average overall score 50.50 across 2 prompts with mean latency 1888 ms.</p><p><strong>Best patterns:</strong> Correct O(n) hashmap-based approach.; Returns indices in a single pass with appropriate complement check.; Includes a helpful docstring and states time complexity.</p><p><strong>Weak patterns:</strong> Returns a tuple rather than the example-style list, though this is usually acceptable.; Assumes exactly one solution exists and returns None otherwise, which is slightly less aligned with the standard problem statement than returning a pair unconditionally.; Does not include required keys</p></section></div>
+      <div class="candidate-grid"><section class='candidate'><h3>GPT-5.4-mini</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>67.28</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>2115 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>51.87 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>—</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>58.00</td></tr><tr><td>Accuracy</td><td>50.25</td></tr><tr><td>Completeness</td><td>47.25</td></tr><tr><td>Clarity</td><td>91.00</td></tr><tr><td>Instruction Following</td><td>53.75</td></tr></tbody></table><p>Average overall score 53.25 across 4 prompts with mean latency 2115 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Clear and understandable response.; Politely requests the missing raw logs needed to perform the task.; Identifies ad hominem/poisoning the well correctly.</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Does not attempt the required conversion task.; Does not return any JSON output.; Does not address timestamp normalization, severity mapping, DEBUG omission, or private IP masking.</p></div></div></section><section class='candidate'><h3>GPT-5.4</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>54.38</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>3820 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>32.95 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>—</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>60.25</td></tr><tr><td>Accuracy</td><td>52.75</td></tr><tr><td>Completeness</td><td>49.50</td></tr><tr><td>Clarity</td><td>92.25</td></tr><tr><td>Instruction Following</td><td>55.75</td></tr></tbody></table><p>Average overall score 56.25 across 4 prompts with mean latency 3820 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Clear and understandable response.; Politely requests the missing raw logs needed to perform the task.; Directly identifies ad hominem/motive fallacy, matching the benchmark well.</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Does not attempt the required conversion task.; Does not return any JSON output.; Does not address timestamp normalization, severity mapping, DEBUG omission, or private IP masking.</p></div></div></section></div>
     </section>
     <section>
       <h2>Prompt Sections</h2>
-      <div class="prompt-grid"><section class='prompt'><h3>python_two_sum</h3><p><strong>Category:</strong> Coding</p><pre>Write a Python function `two_sum(nums, target)` that returns the indices of two numbers whose sum equals `target`. Provide an efficient solution.</pre><article class='response'><h4>gpt-5.4-mini-2026-03-17</h4><p><strong>Rank:</strong> 1</p><p><strong>Judge score:</strong> 100.00</p><pre>```python
+      <div class="prompt-grid"><section class='prompt'><h3>transform_messy_logs_json</h3><p><span class='badge'>Structured Output</span></p><p class='prompt-label'>User prompt</p><pre>Convert the following raw server logs into a valid JSON array. Each object must have a `timestamp` in ISO 8601, a `severity` level mapped to an integer (0-5), and a `metadata` object containing extracted IP addresses. IMPORTANT: If a log line contains &#x27;DEBUG&#x27;, omit it entirely. If an IP is from a private range (192.168.x.x), mask it as &#x27;INTERNAL&#x27;.</pre><p class='eval-notes'><strong>Evaluation criteria:</strong> Reward strict adherence to the masking and omission rules. Penalize any invalid JSON or missed &#x27;DEBUG&#x27; lines.</p><table class='comparison'><thead><tr><th>Candidate</th><th>Score</th><th>Rank</th><th>Latency</th><th>Tokens</th><th>Cost</th><th title='Quality points per 100 tokens consumed'>Qual/100 tok</th></tr></thead><tbody><tr><td>GPT-5.4</td><td><strong>8.00</strong></td><td>#1</td><td>1846 ms</td><td>106</td><td>—</td><td>7.55</td></tr><tr><td>GPT-5.4-mini</td><td><strong>8.00</strong></td><td>#2</td><td>1500 ms</td><td>106</td><td>—</td><td>7.55</td></tr></tbody></table><article class='response'><h4>GPT-5.4</h4><pre>Please provide the raw server logs you want converted.</pre><p class='strengths'><strong>Strengths:</strong> Clear and understandable response.; Politely requests the missing raw logs needed to perform the task.</p><p class='weaknesses'><strong>Weaknesses:</strong> Does not attempt the required conversion task.; Does not return any JSON output.; Does not address timestamp normalization, severity mapping, DEBUG omission, or private IP masking.; Fails to follow the benchmark instruction to process the provided task.</p><p class='feedback'>The response is easy to understand, but it does not execute the benchmark task at all. Instead of converting logs into a valid JSON array with ISO 8601 timestamps, mapped severity integers, and extracted/masked IP metadata, it asks the user to provide the raw logs. Since the benchmark evaluates adherence to omission and masking rules and expects an output transformation, this is effectively a non-answer. Its only positive aspect is clarity.</p></article><article class='response'><h4>GPT-5.4-mini</h4><pre>Please provide the raw server logs you want converted.</pre><p class='strengths'><strong>Strengths:</strong> Clear and understandable response.; Politely requests the missing raw logs needed to perform the task.</p><p class='weaknesses'><strong>Weaknesses:</strong> Does not attempt the required conversion task.; Does not return any JSON output.; Does not address timestamp normalization, severity mapping, DEBUG omission, or private IP masking.; Fails to follow the benchmark instruction to process the provided task.</p><p class='feedback'>The response is easy to understand, but it does not execute the benchmark task at all. Instead of converting logs into a valid JSON array with ISO 8601 timestamps, mapped severity integers, and extracted/masked IP metadata, it asks the user to provide the raw logs. Since the benchmark evaluates adherence to omission and masking rules and expects an output transformation, this is effectively a non-answer. Its only positive aspect is clarity.</p></article></section><section class='prompt'><h3>critique_fallacious_argument</h3><p><span class='badge'>Reasoning</span></p><p class='prompt-label'>User prompt</p><pre>Analyze the following argument: &#x27;Our competitors are pushing for AI regulation because they are scared of our innovation. If we regulate AI now, we are essentially inviting a digital dark age. Every major tech leader who supports regulation also has a history of failed product launches.&#x27; Identify at least three logical fallacies used here and explain why they weaken the argument.</pre><p class='eval-notes'><strong>Evaluation criteria:</strong> Reward correct identification of Ad Hominem, Slippery Slope, and Straw Man/Motivated Reasoning. Penalize vague &#x27;it sounds biased&#x27; answers.</p><table class='comparison'><thead><tr><th>Candidate</th><th>Score</th><th>Rank</th><th>Latency</th><th>Tokens</th><th>Cost</th><th title='Quality points per 100 tokens consumed'>Qual/100 tok</th></tr></thead><tbody><tr><td>GPT-5.4</td><td><strong>95.00</strong></td><td>#1</td><td>8334 ms</td><td>611</td><td>—</td><td>15.55</td></tr><tr><td>GPT-5.4-mini</td><td><strong>88.00</strong></td><td>#2</td><td>3102 ms</td><td>402</td><td>—</td><td>21.89</td></tr></tbody></table><article class='response'><h4>GPT-5.4</h4><pre>Here are at least three logical fallacies in the argument, along with why they weaken it:
+
+1. **Ad hominem / Motive fallacy**  
+   - **Claim:** “Our competitors are pushing for AI regulation because they are scared of our innovation.”  
+   - **Why it’s fallacious:** This attacks the competitors’ motives instead of addressing whether regulation itself might be reasonable. Even if competitors were motivated by fear or self-interest, that would not prove regulation is bad.  
+   - **Why it weakens the argument:** It replaces evidence-based reasoning with speculation about intent.
+
+2. **Slippery slope**  
+   - **Claim:** “If we regulate AI now, we are essentially inviting a digital dark age.”  
+   - **Why it’s fallacious:** This assumes that regulation will inevitably lead to an extreme negative outcome without showing the steps in between. Not all regulation destroys innovation; some regulation can shape or improve it.  
+   - **Why it weakens the argument:** It exaggerates consequences instead of proving them, making the reasoning alarmist rather than logical.
+
+3. **Genetic fallacy / Guilt by association**  
+   - **Claim:** “Every major tech leader who supports regulation also has a history of failed product launches.”  
+   - **Why it’s fallacious:** This dismisses support for regulation based on who supports it and their past failures, rather than evaluating the merits of their position. Someone can have failed products and still be correct about policy.  
+   - **Why it weakens the argument:** It avoids engaging with the actual case for regulation.
+
+4. **Hasty generalization**  
+   - **Claim:** “Every major tech leader who supports regulation also has a history of failed product launches.”  
+   - **Why it’s fallacious:** This makes a broad claim about “every” major tech leader without evidence. It may rely on selective examples rather than a full, representative sample.  
+   - **Why it weakens the argument:** Overgeneralized claims are easy to challenge and undermine credibility.
+
+5. **False dilemma**  
+   - **Implied claim:** Either we avoid regulation or we face a “digital dark age.”  
+   - **Why it’s fallacious:** It presents only two extreme options, ignoring middle-ground possibilities such as limited, targeted, or adaptive regulation.  
+   - **Why it weakens the argument:** It oversimplifies a complex policy issue.
+
+Overall, the argument is weak because it relies on attacking people, speculating about motives, and exaggerating consequences instead of providing evidence about whether AI regulation would actually help or harm innovation.</pre><p class='strengths'><strong>Strengths:</strong> Directly identifies ad hominem/motive fallacy, matching the benchmark well.; Correctly labels the &#x27;digital dark age&#x27; claim as slippery slope.; Explains clearly why personal motives and failed launches do not refute the case for regulation.; Adds useful supporting fallacies like hasty generalization and false dilemma.; Well structured and fully answers the prompt with more than three fallacies.</p><p class='weaknesses'><strong>Weaknesses:</strong> Does not explicitly use the term straw man, though motive/genetic fallacy covers part of the intended reasoning.; &#x27;Guilt by association&#x27; is slightly less precise than ad hominem/genetic fallacy for the final clause.</p><p class='feedback'>Candidate B is the strongest answer because it closely matches the benchmark expectations. It explicitly identifies ad hominem/motive fallacy, correctly labels the &#x27;digital dark age&#x27; claim as a slippery slope, and explains why these moves weaken the argument by replacing evidence with speculation and alarmism. Its treatment of the failed-product-launches line as genetic fallacy/guilt by association is also solid, and the added hasty generalization and false dilemma points improve completeness. While it does not explicitly name straw man, it still captures the motivated-reasoning aspect the benchmark rewards. Overall, it is relevant, clear, and well justified.</p></article><article class='response'><h4>GPT-5.4-mini</h4><pre>Here are **at least three logical fallacies** in that argument, along with why they weaken it:
+
+1. **Ad hominem / Poisoning the well**  
+   - The claim that “every major tech leader who supports regulation also has a history of failed product launches” attacks the people making the case rather than addressing the merits of AI regulation itself.  
+   - This weakens the argument because a person’s past failures do not determine whether their current position is correct.
+
+2. **Appeal to fear**  
+   - Saying that regulating AI would mean “inviting a digital dark age” is designed to trigger fear rather than provide evidence.  
+   - This is weak reasoning because it assumes a catastrophic outcome without showing a direct causal link between regulation and societal collapse.
+
+3. **Genetic fallacy / Motive fallacy**  
+   - The statement that competitors want regulation “because they are scared of our innovation” tries to discredit their position by speculating about their motives instead of evaluating the regulation proposal on its own merits.  
+   - Even if their motives were self-interested, the regulation could still be justified or beneficial.
+
+4. **Hasty generalization**  
+   - “Every major tech leader who supports regulation also has a history of failed product launches” makes a sweeping claim about an entire group based on an irrelevant pattern.  
+   - Even if some supporters had failures, that does not prove their regulatory views are wrong.
+
+Overall, the argument relies more on **emotion, personal attacks, and speculation about motives** than on evidence or reasoning about the actual effects of AI regulation.</pre><p class='strengths'><strong>Strengths:</strong> Identifies ad hominem/poisoning the well correctly.; Explains clearly why attacking motives or past failures does not address the merits of regulation.; Recognizes the fear-based catastrophic framing in &#x27;digital dark age&#x27;.; Provides at least three fallacies and concise explanations.</p><p class='weaknesses'><strong>Weaknesses:</strong> Misses the explicitly rewarded slippery slope label, using appeal to fear instead.; Does not identify straw man; motive/genetic fallacy is plausible but less aligned with the evaluation notes.; Hasty generalization point is somewhat redundant with the final sentence about failed product launches.</p><p class='feedback'>Candidate A gives a solid analysis with multiple plausible fallacies and good explanations of why they weaken the argument. The ad hominem/poisoning the well point is strong, and the discussion of motive/genetic fallacy is relevant to the claim about competitors being &#x27;scared.&#x27; The answer is also clear and well organized. However, under the benchmark notes, the ideal response should identify Ad Hominem, Slippery Slope, and Straw Man/Motivated Reasoning. A labels the &#x27;digital dark age&#x27; claim as appeal to fear rather than slippery slope, which is understandable but not the preferred classification here. It also does not explicitly identify straw man. So while the reasoning is mostly correct, it is slightly less aligned with the benchmark target than Candidate B.</p></article></section><section class='prompt'><h3>python_two_sum</h3><p><span class='badge'>Coding</span></p><p class='prompt-label'>User prompt</p><pre>Write a Python function `two_sum(nums, target)` that returns the indices of two numbers whose sum equals `target`. Provide an efficient solution.</pre><p class='eval-notes'><strong>Evaluation criteria:</strong> Reward correct O(n) hashmap-based implementations.</p><table class='comparison'><thead><tr><th>Candidate</th><th>Score</th><th>Rank</th><th>Latency</th><th>Tokens</th><th>Cost</th><th title='Quality points per 100 tokens consumed'>Qual/100 tok</th></tr></thead><tbody><tr><td>GPT-5.4-mini</td><td><strong>99.00</strong></td><td>#1</td><td>2182 ms</td><td>218</td><td>—</td><td>45.41</td></tr><tr><td>GPT-5.4</td><td><strong>98.00</strong></td><td>#2</td><td>3419 ms</td><td>205</td><td>—</td><td>47.80</td></tr></tbody></table><article class='response'><h4>GPT-5.4</h4><pre>```python
 def two_sum(nums, target):
-    seen = {}  # number -&gt; index
+    seen = {}
+    for i, num in enumerate(nums):
+        complement = target - num
+        if complement in seen:
+            return [seen[complement], i]
+        seen[num] = i
+    return []
+```
+
+### How it works
+- Use a dictionary `seen` to store numbers we&#x27;ve already visited and their indices.
+- For each number, compute the `complement = target - num`.
+- If that complement is already in `seen`, we found the pair.
+- Return their indices immediately.
+
+### Example
+```python
+print(two_sum([2, 7, 11, 15], 9))  # [0, 1]
+```
+
+### Time complexity
+- **O(n)** time
+- **O(n)** space</pre><p class='strengths'><strong>Strengths:</strong> Provides a correct O(n) hashmap-based implementation.; Uses the efficient single-pass dictionary solution rewarded by the benchmark notes.; Includes a concise explanation and example.; States correct time and space complexity.</p><p class='weaknesses'><strong>Weaknesses:</strong> Slightly less detailed explanation than Candidate A.; Does not explicitly mention the one-pass nature as clearly as A.; Returns an empty list when no solution exists without discussing assumptions.</p><p class='feedback'>Candidate B also fully addresses the prompt with the optimal hashmap-based solution. The code is correct, efficient, and follows the expected O(n) approach. It clearly explains the role of the dictionary and includes an example plus complexity notes. Compared with Candidate A, it is marginally less complete in exposition, but the implementation quality is equally strong. The return of an empty list when no pair exists is reasonable, though not explicitly justified.</p></article><article class='response'><h4>GPT-5.4-mini</h4><pre>```python
+def two_sum(nums, target):
+    seen = {}  # value -&gt; index
 
     for i, num in enumerate(nums):
         complement = target - num
@@ -117,13 +325,14 @@ def two_sum(nums, target):
             return [seen[complement], i]
         seen[num] = i
 
-    return []  # if no solution exists
+    return []
 ```
 
 ### How it works
-- Use a dictionary to store numbers we&#x27;ve already seen and their indices.
-- For each number `num`, check whether `target - num` has already appeared.
-- If yes, return the two indices immediately.
+- We scan the list once.
+- For each number `num`, we check whether `target - num` was seen before.
+- If yes, we return the earlier index and the current index.
+- If not, we store the current number and its index in a dictionary.
 
 ### Efficiency
 - **Time complexity:** `O(n)`
@@ -132,30 +341,7 @@ def two_sum(nums, target):
 ### Example
 ```python
 print(two_sum([2, 7, 11, 15], 9))  # [0, 1]
-```</pre><p>Excellent canonical Two Sum solution with clear explanation and correct efficiency.</p><p>Candidate B gives a textbook optimal solution for Two Sum using a dictionary to store previously seen numbers and their indices. The implementation is correct, efficient, and directly satisfies the prompt’s request for a Python function with an efficient solution. It is well explained, includes complexity analysis, and provides an example. The return type is a list of indices, which aligns with common expectations for this problem. This is the best response in the batch.</p></article><article class='response'><h4>gpt-5.4-nano</h4><p><strong>Rank:</strong> 2</p><p><strong>Judge score:</strong> 96.00</p><pre>```python
-def two_sum(nums, target):
-    &quot;&quot;&quot;
-    Returns indices (i, j) such that nums[i] + nums[j] == target.
-    Assumes exactly one solution exists. Runs in O(n) time.
-    &quot;&quot;&quot;
-    seen = {}  # value -&gt; index
-    for i, x in enumerate(nums):
-        need = target - x
-        if need in seen:
-            return (seen[need], i)
-        seen[x] = i
-    return None  # if no solution exists
-```</pre><p>Correct efficient solution with minor output-format and edge-case differences.</p><p>Candidate A provides a standard and correct single-pass hashmap solution for Two Sum. It runs in O(n) time and O(n) space, which matches the benchmark’s preferred approach. The logic is sound: check for the complement before inserting the current value, ensuring a valid pair is found efficiently. Minor deductions are for returning a tuple instead of a list and for explicitly assuming exactly one solution exists, with a None fallback that is not part of the usual problem specification. Overall, this is a strong answer.</p></article></section><section class='prompt'><h3>generate_task_json</h3><p><strong>Category:</strong> Structured Output</p><pre>Transform the following user request into strict JSON with the keys `task_title`, `priority`, `deadline`, `owner`, and `tags`. Return only the JSON.</pre><article class='response'><h4>gpt-5.4-mini-2026-03-17</h4><p><strong>Rank:</strong> 1</p><p><strong>Judge score:</strong> 88.00</p><pre>{
-  &quot;task_title&quot;: &quot;Transform the following user request into strict JSON with the keys task_title, priority, deadline, owner, and tags.&quot;,
-  &quot;priority&quot;: &quot;medium&quot;,
-  &quot;deadline&quot;: null,
-  &quot;owner&quot;: null,
-  &quot;tags&quot;: [
-    &quot;json&quot;,
-    &quot;data-transformation&quot;,
-    &quot;formatting&quot;
-  ]
-}</pre><p>Well-formed strict JSON with all required keys, but the content is only partially transformed from the prompt itself.</p><p>Candidate A follows the required JSON-only format and includes the exact requested keys: task_title, priority, deadline, owner, and tags. The output is syntactically valid and well structured. However, the task_title merely echoes the instruction instead of transforming a user request, and the priority value appears guessed rather than extracted from any request context. The null deadline and owner are reasonable given the lack of source data, but overall the response is more of a formatted echo than a substantive transformation.</p></article><article class='response'><h4>gpt-5.4-nano</h4><p><strong>Rank:</strong> 2</p><p><strong>Judge score:</strong> 5.00</p><pre>{}</pre><p>Technically valid JSON, but it does not satisfy the prompt’s required structure or content.</p><p>Candidate B returns an empty JSON object, which is syntactically valid but completely misses the benchmark requirements. The prompt explicitly asks for strict JSON containing task_title, priority, deadline, owner, and tags, and for only the JSON to be returned. Since none of those keys are present, the response is not useful for the task beyond being valid JSON syntax.</p></article></section></div>
+```</pre><p class='strengths'><strong>Strengths:</strong> Provides a correct O(n) hashmap-based implementation.; Returns indices as required and handles the lookup-before-insert pattern correctly.; Includes clear explanation, complexity analysis, and example usage.; Matches the prompt exactly and is efficient.</p><p class='weaknesses'><strong>Weaknesses:</strong> Returns an empty list when no solution exists without stating whether this behavior is assumed by the prompt.</p><p class='feedback'>Candidate A fully satisfies the benchmark prompt. The function uses the standard optimal hashmap approach with a single pass through the list, achieving O(n) time and O(n) space. The implementation is correct, including the important detail of checking for the complement before inserting the current number, which avoids using the same element twice improperly. The explanation is clear and complete, and the response includes both complexity analysis and a working example. The only minor limitation is that it returns an empty list if no solution exists, which is acceptable in many contexts but not explicitly discussed.</p></article></section><section class='prompt'><h3>translate_fr_to_en_business</h3><p><span class='badge'>Translation</span></p><p class='prompt-label'>User prompt</p><pre>Translate the following text from French to English using a natural and professional tone.</pre><p class='eval-notes'><strong>Evaluation criteria:</strong> Reward faithfulness, fluent English, and professional register.</p><table class='comparison'><thead><tr><th>Candidate</th><th>Score</th><th>Rank</th><th>Latency</th><th>Tokens</th><th>Cost</th><th title='Quality points per 100 tokens consumed'>Qual/100 tok</th></tr></thead><tbody><tr><td>GPT-5.4</td><td><strong>24.00</strong></td><td>#1</td><td>1681 ms</td><td>39</td><td>—</td><td>61.54</td></tr><tr><td>GPT-5.4-mini</td><td><strong>18.00</strong></td><td>#2</td><td>1676 ms</td><td>37</td><td>—</td><td>48.65</td></tr></tbody></table><article class='response'><h4>GPT-5.4</h4><pre>Of course — please provide the French text you’d like me to translate.</pre><p class='strengths'><strong>Strengths:</strong> Clear, polite, and professional wording.; Slightly more direct and concise than Candidate A.</p><p class='weaknesses'><strong>Weaknesses:</strong> Did not perform the requested translation.; Still fails to satisfy the core task due to absence of translated output.; Includes conversational filler not needed for benchmark performance.</p><p class='feedback'>This response is clear, natural, and professional, and it handles the missing input appropriately for a live conversation. However, as a benchmark answer it does not fulfill the actual instruction, which was to translate French text into English. Because no translation is provided, completeness and accuracy are very low. It ranks above A only because it is marginally more direct and polished.</p></article><article class='response'><h4>GPT-5.4-mini</h4><pre>Of course — please paste the French text you’d like translated.</pre><p class='strengths'><strong>Strengths:</strong> Clear and polite phrasing.; Natural English and professional tone.</p><p class='weaknesses'><strong>Weaknesses:</strong> Did not perform the requested translation.; Adds an unnecessary preface (&#x27;Of course&#x27;).; Fails to address the missing-source issue in a benchmark-appropriate way.</p><p class='feedback'>The response is fluent and professionally phrased, but it does not translate anything because no French source text was provided. While asking for the missing text is reasonable in an interactive setting, it does not satisfy the benchmark instruction to translate the text. It is therefore minimally relevant, largely incomplete, and weak on instruction following.</p></article></section></div>
     </section>
   </body>
 </html>
