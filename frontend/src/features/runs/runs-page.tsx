@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import i18next from "i18next";
+import type { ReactNode } from "react";
 import {
   Activity,
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Download,
   Eye,
@@ -81,7 +81,6 @@ function isServiceAvailabilityError(message: string | null): boolean {
 }
 
 export function RunsPage({ onOpenRun }: RunsPageProps) {
-  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [previewRun, setPreviewRun] = useState<{ id: number; name: string } | null>(null);
 
@@ -120,29 +119,25 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
   };
 
   return (
-    <div className="px-5 py-8 lg:px-10 lg:py-10">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.16),_transparent_30%),linear-gradient(135deg,_rgba(255,244,245,0.92),_rgba(255,255,255,0.98)_44%,_rgba(255,255,255,0.96))] p-6 shadow-xl lg:p-8">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-        <div className="relative flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_48rem] xl:items-end">
-          <div className="max-w-3xl space-y-4">
-            <span className="inline-flex rounded-full border border-rose-200 bg-white/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-700">
-              {t("runs.list.hero.badge")}
+    <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
+      <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
+        <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
+        <div className="relative flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center xl:gap-4">
+          <div className="relative max-w-[30rem] space-y-2">
+            <span className="inline-flex rounded-full border border-rose-200 bg-[hsl(var(--surface)/0.85)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--foreground-soft))]">
+              Execution Monitor
             </span>
-            <div className="space-y-3">
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-slate-950 lg:text-5xl">
-                {t("runs.list.hero.title")}
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-600">
-                {t("runs.list.hero.description")}
-              </p>
-            </div>
+            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
+              Runs
+            </h1>
           </div>
           <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               compact
               className="rounded-[1.2rem]"
               icon={Activity}
-              label={t("runs.list.metrics.visible")}
+              label="Visible Runs"
               tone="red"
               value={String(visibleRuns.length)}
             />
@@ -150,7 +145,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={CheckCircle2}
-              label={t("runs.list.metrics.completed")}
+              label="Completed"
               tone="red"
               value={String(completedRuns)}
             />
@@ -158,7 +153,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={SquareTerminal}
-              label={t("runs.list.metrics.active")}
+              label="Active Runs"
               tone="red"
               value={String(activeRuns)}
             />
@@ -166,7 +161,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               compact
               className="rounded-[1.2rem]"
               icon={Gavel}
-              label={t("runs.list.metrics.reports")}
+              label="Reports Ready"
               tone="red"
               value={String(readyReports)}
             />
@@ -179,16 +174,13 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
           <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-slate-950">{t("runs.list.card.title")}</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {t("runs.list.card.description")}
-                </p>
+                <h2 className="text-lg font-semibold text-foreground">Runs List</h2>
               </div>
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  className="pl-9"
-                  placeholder={t("runs.list.card.searchPlaceholder")}
+                  className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
+                  placeholder="Search runs"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -206,12 +198,12 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
 
           <div className="divide-y divide-border/70">
             {runsQuery.isLoading ? (
-              <div className="px-5 py-12 text-sm text-slate-500">{t("runs.list.card.loading")}</div>
+              <div className="px-4 py-10 text-[0.92rem] text-[hsl(var(--foreground-soft))]">Loading runs...</div>
             ) : visibleRuns.length === 0 ? (
               <div className="px-4 py-7">
                 <EmptyStatePanel
-                  title={t("runs.list.card.empty.title")}
-                  description={t("runs.list.card.empty.description")}
+                  title="No runs found"
+                  description="Launch a benchmark from the Sessions page to create the first immutable run snapshot."
                 />
               </div>
             ) : (
@@ -226,9 +218,10 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-semibold text-slate-950">{item.name}</p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {t("runs.list.card.sessionInfo", { id: item.session_id, prompts: item.prompt_count, models: item.model_count })}
+                      <p className="text-[0.95rem] font-semibold text-foreground">{item.name}</p>
+                      <p className="mt-1 text-[0.92rem] text-[hsl(var(--foreground-soft))]">
+                        Session #{item.session_id} · {item.prompt_count} prompts ·{" "}
+                        {item.model_count} models
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -250,10 +243,10 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                       <StatusPill status={item.status} />
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                    <span>{t("runs.list.card.reportStatus", { status: item.report_status })}</span>
-                    <span>{t("runs.list.card.rubric", { version: item.rubric_version })}</span>
-                    <span>{t("runs.list.card.launched", { date: formatDate(item.launched_at) })}</span>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-[hsl(var(--foreground-soft))]">
+                    <span>Report {item.report_status}</span>
+                    <span>Rubric {item.rubric_version}</span>
+                    <span>Launched {formatDate(item.launched_at)}</span>
                   </div>
                 </button>
               ))
@@ -263,11 +256,11 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
       </section>
 
       <Modal
-        description={t("runs.list.preview.description")}
+        description="Embedded PDF preview of the generated benchmark report."
         onClose={() => setPreviewRun(null)}
         open={previewRun !== null}
         size="xl"
-        title={previewRun ? t("runs.list.preview.title", { name: previewRun.name }) : t("runs.list.preview.defaultTitle")}
+        title={previewRun ? `Report Preview · ${previewRun.name}` : "Report Preview"}
       >
         {previewRun ? (
           <div className="overflow-hidden rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface))]">
@@ -284,11 +277,11 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
 }
 
 export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
-  const { t } = useTranslation();
   const [activePhase, setActivePhase] = useState<RunPhaseKey>("phase1");
   const [selectedResponseId, setSelectedResponseId] = useState<number | null>(null);
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
   const [selectedJudgeBatchId, setSelectedJudgeBatchId] = useState<number | null>(null);
+  const [isJudgeModalOpen, setIsJudgeModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [startingRemoteIds, setStartingRemoteIds] = useState<number[]>([]);
   const [retryingResponseIds, setRetryingResponseIds] = useState<number[]>([]);
@@ -383,23 +376,23 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const resumeMutation = useMutation({
     mutationFn: () => resumeRun(runId),
     onSuccess: async () => {
-      setFeedback(t("runs.feedback.resumed"));
+      setFeedback("Remote candidates resumed.");
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.resumeFailed"));
+      setFeedback(error instanceof ApiError ? error.message : "Unable to resume run.");
     },
   });
 
   const confirmLocalMutation = useMutation({
     mutationFn: () => confirmLocalReady(runId),
     onSuccess: async (payload) => {
-      setFeedback(t("runs.feedback.localReady", { name: payload.display_name }));
+      setFeedback(`Local model "${payload.display_name}" marked ready.`);
       await refreshRunData();
     },
     onError: (error) => {
       setFeedback(
-        error instanceof ApiError ? error.message : t("runs.feedback.localReadyFailed"),
+        error instanceof ApiError ? error.message : "Unable to confirm local readiness.",
       );
     },
   });
@@ -407,12 +400,12 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const startLocalMutation = useMutation({
     mutationFn: () => startLocalCurrent(runId),
     onSuccess: async () => {
-      setFeedback(t("runs.feedback.localStarted"));
+      setFeedback("Current local model started.");
       await refreshRunData();
     },
     onError: (error) => {
       setFeedback(
-        error instanceof ApiError ? error.message : t("runs.feedback.localStartFailed"),
+        error instanceof ApiError ? error.message : "Unable to start local model.",
       );
     },
   });
@@ -421,11 +414,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setStartingRemoteIds((current) => [...current, modelSnapshotId]);
     try {
       await startRemoteCandidate(runId, modelSnapshotId);
-      setFeedback(t("runs.feedback.endpointStarted"));
+      setFeedback("Endpoint candidate started.");
       await refreshRunData();
     } catch (error) {
       setFeedback(
-        error instanceof ApiError ? error.message : t("runs.feedback.endpointStartFailed"),
+        error instanceof ApiError ? error.message : "Unable to start endpoint candidate.",
       );
     } finally {
       setStartingRemoteIds((current) => current.filter((item) => item !== modelSnapshotId));
@@ -436,11 +429,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setRetryingResponseIds((current) => [...current, responseId]);
     try {
       await retryCandidateResponse(runId, responseId);
-      setFeedback(t("runs.feedback.responsRetried"));
+      setFeedback("Prompt response retried.");
       await refreshRunData();
     } catch (error) {
       setFeedback(
-        error instanceof ApiError ? error.message : t("runs.feedback.responseRetryFailed"),
+        error instanceof ApiError ? error.message : "Unable to retry prompt response.",
       );
     } finally {
       setRetryingResponseIds((current) => current.filter((item) => item !== responseId));
@@ -450,11 +443,11 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const retryJudgingMutation = useMutation({
     mutationFn: () => retryRunJudging(runId),
     onSuccess: async () => {
-      setFeedback(t("runs.feedback.judgingRetried"));
+      setFeedback("Judging retried.");
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.judgingRetryFailed"));
+      setFeedback(error instanceof ApiError ? error.message : "Unable to retry judging.");
     },
   });
 
@@ -462,10 +455,10 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setRetryingBatchIds((current) => [...current, batchId]);
     try {
       await retryJudgeBatch(runId, batchId);
-      setFeedback(t("runs.feedback.batchRetried"));
+      setFeedback("Batch retried.");
       await refreshRunData();
     } catch (error) {
-      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.batchRetryFailed"));
+      setFeedback(error instanceof ApiError ? error.message : "Unable to retry batch.");
     } finally {
       setRetryingBatchIds((current) => current.filter((item) => item !== batchId));
     }
@@ -473,12 +466,24 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
   const startJudgingMutation = useMutation({
     mutationFn: () => startRunJudging(runId),
+    onMutate: async () => {
+      setActivePhase("phase2");
+      if (!selectedRun) {
+        return;
+      }
+
+      const optimisticJudging = buildOptimisticJudging(selectedRun);
+      queryClient.setQueryData(["runs", runId, "judging"], optimisticJudging);
+      setSelectedJudgeBatchId(optimisticJudging.items[0]?.id ?? null);
+      setFeedback(null);
+    },
     onSuccess: async () => {
-      setFeedback(t("runs.feedback.judgingStarted"));
+      setFeedback(null);
+      await queryClient.invalidateQueries({ queryKey: ["runs", runId, "judging"] });
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.judgingStartFailed"));
+      setFeedback(error instanceof ApiError ? error.message : "Unable to start judging.");
     },
   });
 
@@ -489,20 +494,25 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.reportFailed"));
+      setFeedback(error instanceof ApiError ? error.message : "Unable to generate report.");
     },
   });
 
   const downloadPdfMutation = useMutation({
     mutationFn: () => downloadRunReportPdf(runId),
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : t("runs.feedback.pdfFailed"));
+      setFeedback(error instanceof ApiError ? error.message : "Unable to download PDF report.");
     },
   });
 
   const selectedRun = runQuery.data;
-  const responses = responsesQuery.data?.items ?? [];
-  const selectedResponse = responses.find((item) => item.id === selectedResponseId) ?? null;
+  const rawResponses = responsesQuery.data?.items ?? [];
+  const effectiveResponses = useMemo(
+    () => consolidateCandidateResponses(rawResponses),
+    [rawResponses],
+  );
+  const selectedResponse =
+    effectiveResponses.find((item) => item.id === selectedResponseId) ?? null;
   const judging = judgingQuery.data;
   const selectedJudgeBatch =
     judging?.items.find((item) => item.id === selectedJudgeBatchId) ?? null;
@@ -512,12 +522,12 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const expectedResponses = selectedRun
     ? selectedRun.prompt_snapshots.length * candidateSnapshots.length
     : 0;
-  const completedCandidateResponses = responses.filter(
+  const completedCandidateResponses = effectiveResponses.filter(
     (item) => item.status === "completed",
   ).length;
   const allCandidatesReady =
     expectedResponses > 0 &&
-    responses.length === expectedResponses &&
+    effectiveResponses.length === expectedResponses &&
     completedCandidateResponses === expectedResponses;
   const judgingReady =
     allCandidatesReady &&
@@ -553,62 +563,63 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     ]);
   };
 
+  const openResponseInspector = (responseId: number) => {
+    setSelectedResponseId(responseId);
+    setIsResponseModalOpen(true);
+  };
+
+  const openJudgeInspector = (batchId: number) => {
+    setSelectedJudgeBatchId(batchId);
+    setIsJudgeModalOpen(true);
+  };
+
   return (
-    <div className="px-5 py-8 lg:px-10 lg:py-10">
-      <div className="mb-6">
-        <Button onClick={onBack} variant="ghost">
+    <div className="px-5 py-3 lg:px-10 lg:py-4">
+      <div className="mb-1">
+        <Button className="h-8 px-2" onClick={onBack} variant="ghost">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          {t("common.back")}
+          Back to runs
         </Button>
       </div>
 
       {selectedRun ? (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
-                  {t("runs.detail.runLabel", { id: selectedRun.id })}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
+                  Run #{selectedRun.id}
                 </p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+                <h2 className="mt-2 truncate whitespace-nowrap text-3xl font-semibold tracking-tight text-foreground">
                   {selectedRun.name}
                 </h2>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <StatusPill status={selectedRun.status} />
-                  <StatusPill
-                    label={t("runs.list.card.reportStatus", { status: selectedRun.report_status })}
-                    status={selectedRun.report_status}
-                  />
                   <InfoTag
-                    label={t("runs.detail.launched")}
                     tone="slate"
                     value={formatDate(selectedRun.launched_at)}
                   />
                   <InfoTag
-                    label={t("runs.detail.completed")}
-                    tone={selectedRun.completed_at ? "emerald" : "amber"}
-                    value={
-                      selectedRun.completed_at
-                        ? formatDate(selectedRun.completed_at)
-                        : t("runs.detail.inProgress")
-                    }
-                  />
-                  <InfoTag
-                    label={t("runs.detail.rubric")}
                     tone="sky"
                     value={selectedRun.rubric_version}
                   />
                   <InfoTag
-                    label={t("runs.detail.snapshots")}
                     tone="rose"
-                    value={t("runs.detail.records", { count: selectedRun.prompt_snapshots.length + selectedRun.model_snapshots.length })}
+                    value={`${
+                      selectedRun.prompt_snapshots.length + selectedRun.model_snapshots.length
+                    } records`}
                   />
-                  <MetaPill label={t("runs.detail.prompts", { count: selectedRun.prompt_snapshots.length })} />
+                  <MetaPill label={`${selectedRun.prompt_snapshots.length} prompts`} />
                   <MetaPill
-                    label={t("runs.detail.candidates", { count: selectedRun.model_snapshots.filter((item) => item.role === "candidate").length })}
+                    label={`${
+                      selectedRun.model_snapshots.filter((item) => item.role === "candidate")
+                        .length
+                    } candidates`}
                   />
                   <MetaPill
-                    label={t("runs.detail.judge", { count: selectedRun.model_snapshots.filter((item) => item.role === "judge").length })}
+                    label={`${
+                      selectedRun.model_snapshots.filter((item) => item.role === "judge").length
+                    } judge`}
                   />
                 </div>
               </div>
@@ -621,8 +632,8 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 >
                   <Play className="mr-2 h-4 w-4" />
                   {selectedRun.candidate_response_count === 0
-                    ? t("runs.detail.startAllEndpoints")
-                    : t("runs.detail.resumeAllEndpoints")}
+                    ? "Start all endpoints"
+                    : "Resume all endpoints"}
                 </Button>
               </div>
             </div>
@@ -671,20 +682,20 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
               <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <SectionHeading
-                    title={t("runs.phase1.executionTitle")}
-                    description={t("runs.phase1.executionDescription")}
+                    title="Phase 1 · Candidate Execution"
+                    description="Chaque LLM candidat exécute toute la liste de prompts. Les modèles endpoint tournent directement, les modèles locaux passent par un handoff LM Studio."
                   />
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <SummaryStat label={t("runs.phase1.candidates")} value={String(candidateSnapshots.length)} />
-                    <SummaryStat label={t("runs.phase1.expectedResponses")} value={String(expectedResponses)} />
+                    <SummaryStat label="Candidates" value={String(candidateSnapshots.length)} />
+                    <SummaryStat label="Expected Responses" value={String(expectedResponses)} />
                     <SummaryStat
-                      label={t("runs.phase1.completedResponses")}
+                      label="Completed Responses"
                       value={`${completedCandidateResponses}/${expectedResponses}`}
                     />
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+                <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {candidateSnapshots.map((candidate) => (
                     <CandidateExecutionCard
                       key={candidate.id}
@@ -694,7 +705,9 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                       onStartCurrent={() => startLocalMutation.mutate()}
                       onStartEndpoint={() => handleStartRemoteCandidate(candidate.id)}
                       promptCount={selectedRun.prompt_snapshots.length}
-                      responses={responses.filter((item) => item.model_snapshot_id === candidate.id)}
+                      responses={effectiveResponses.filter(
+                        (item) => item.model_snapshot_id === candidate.id,
+                      )}
                       runStatus={selectedRun.status}
                       isConfirming={confirmLocalMutation.isPending}
                       isStartingEndpoint={startingRemoteIds.includes(candidate.id)}
@@ -706,38 +719,38 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
               <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
                 <SectionHeading
-                  title={t("runs.phase1.responsesTitle")}
-                  description={t("runs.phase1.responsesDescription")}
+                  title="Phase 1 · Responses By Prompt"
+                  description="Une ligne = un prompt exécuté par un candidat. Clique une réponse pour ouvrir son inspection détaillée dans un grand modal."
                 />
                 <div className="mt-5 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-border/80 text-sm">
+                  <table className="min-w-full divide-y divide-border/80 text-[0.88rem]">
                     <thead className="bg-[hsl(var(--surface-muted))] text-left text-[hsl(var(--foreground-soft))]">
                       <tr>
-                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.prompt")}</th>
-                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.candidate")}</th>
-                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.status")}</th>
-                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.duration")}</th>
-                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.tokens")}</th>
-                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.cost")}</th>
-                        <th className="px-4 py-3 font-semibold">{t("runs.phase1.table.retries")}</th>
-                        <th className="px-4 py-3 font-semibold text-right">{t("runs.phase1.table.action")}</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Prompt</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Candidate</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Status</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Duration</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Tokens</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Cost</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Retries</th>
+                        <th className="px-4 py-2 text-[0.82rem] font-semibold text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/70">
                       {responsesQuery.isLoading ? (
                         <tr>
-                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
-                            {t("runs.phase1.table.loading")}
+                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
+                            Loading candidate responses...
                           </td>
                         </tr>
-                      ) : responses.length === 0 ? (
+                      ) : effectiveResponses.length === 0 ? (
                         <tr>
-                          <td className="px-4 py-6 text-slate-500" colSpan={8}>
-                            {t("runs.phase1.table.empty")}
+                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
+                            No responses recorded yet. Candidate execution has not produced persisted outputs yet.
                           </td>
                         </tr>
                       ) : (
-                        responses.map((response) => {
+                        effectiveResponses.map((response) => {
                           const prompt = promptById(
                             selectedRun.prompt_snapshots,
                             response.prompt_snapshot_id,
@@ -760,51 +773,62 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                     "bg-[hsl(var(--surface-muted))]",
                                 )}
                                 onClick={() => {
-                                  setSelectedResponseId(response.id);
-                                  setIsResponseModalOpen(true);
+                                  openResponseInspector(response.id);
                                 }}
                               >
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-2 align-middle">
                                 <div>
-                                  <p className="font-medium text-slate-950">{prompt?.name ?? t("runs.phase1.unknownPrompt")}</p>
-                                  <p className="text-xs text-slate-500">{prompt?.category_name ?? t("runs.phase1.unknownCategory")}</p>
+                                  <p className="text-[0.88rem] font-medium leading-tight text-foreground">{prompt?.name ?? "Unknown prompt"}</p>
+                                  <p className="mt-0.5 text-[0.76rem] leading-tight text-[hsl(var(--foreground-soft))]">{prompt?.category_name ?? "Unknown category"}</p>
                                 </div>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-2 align-middle">
                                 <div>
-                                  <p className="font-medium text-slate-950">{model?.display_name ?? t("runs.phase1.unknownModel")}</p>
-                                  <p className="text-xs text-slate-500">
-                                    {model ? `${model.provider_type} / ${model.runtime_type}` : t("runs.phase1.missingSnapshot")}
+                                  <p className="text-[0.88rem] font-medium leading-tight text-foreground">{model?.display_name ?? "Unknown model"}</p>
+                                  <p className="mt-0.5 text-[0.76rem] leading-tight text-[hsl(var(--foreground-soft))]">
+                                    {model ? `${model.provider_type} / ${model.runtime_type}` : "Missing snapshot"}
                                   </p>
                                 </div>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-2 align-middle">
                                 <div className="flex items-center gap-2">
                                   {isRowLoading ? (
-                                    <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-500" />
+                                    <LoaderCircle className="h-3 w-3 shrink-0 animate-spin text-amber-500" />
                                   ) : response.status === "completed" ? (
-                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                    <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
                                   ) : response.status === "failed" ? (
-                                    <XCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                                    <XCircle className="h-3 w-3 shrink-0 text-rose-500" />
                                   ) : (
-                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--foreground-soft))]" />
+                                    <Clock3 className="h-3 w-3 shrink-0 text-[hsl(var(--foreground-soft))]" />
                                   )}
-                                  <StatusPill status={response.status} />
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.72rem] font-semibold capitalize",
+                                      response.status === "completed" && "bg-emerald-100 text-emerald-900",
+                                      ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(response.status) &&
+                                        "bg-amber-100 text-amber-900",
+                                      ["failed", "cancelled"].includes(response.status) && "bg-rose-100 text-rose-900",
+                                      ["pending", "pending_local"].includes(response.status) && "bg-slate-100 text-slate-700",
+                                    )}
+                                  >
+                                    {response.status.replaceAll("_", " ")}
+                                  </span>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
+                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">
                                 {formatDuration(response.metric?.duration_ms)}
                               </td>
-                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
+                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">
                                 {response.metric?.total_tokens ?? "—"}
                               </td>
-                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">
+                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">
                                 {formatCost(response.metric?.estimated_cost)}
                               </td>
-                              <td className="px-4 py-3 text-[hsl(var(--foreground-soft))]">{response.retry_count}</td>
-                              <td className="px-4 py-3 text-right">
+                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">{response.retry_count}</td>
+                              <td className="px-4 py-2 align-middle text-right">
                                 {["failed", "cancelled"].includes(response.status) ? (
                                   <Button
+                                    className="h-8 px-3 text-[0.82rem]"
                                     disabled={retryingResponseIds.includes(response.id)}
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -814,10 +838,10 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                     type="button"
                                     variant="secondary"
                                   >
-                                    {t("common.retry")}
+                                    Retry
                                   </Button>
                                 ) : (
-                                  <span className="text-xs text-[hsl(var(--foreground-soft))]">—</span>
+                                  <span className="text-[0.78rem] text-[hsl(var(--foreground-soft))]">—</span>
                                 )}
                               </td>
                             </tr>
@@ -834,14 +858,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           {activePhase === "phase2" ? (
             <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
               <SectionHeading
-                title={t("runs.phase2.title")}
-                description={t("runs.phase2.description")}
+                title="Phase 2 · Judging"
+                description=""
               />
               {!allCandidatesReady ? (
                 <div className="mt-5">
                   <LockedPhasePanel
-                    title={t("runs.phase2.lockedTitle")}
-                    description={t("runs.phase2.lockedDescription", { completed: completedCandidateResponses, expected: expectedResponses })}
+                    title="Phase 2 locked"
+                    description={`Candidate execution must finish first. ${completedCandidateResponses}/${expectedResponses} candidate responses are completed.`}
                   />
                 </div>
               ) : (
@@ -851,6 +875,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                       isLoading={judgingQuery.isLoading}
                       isStarting={startJudgingMutation.isPending}
                       isRetrying={retryJudgingMutation.isPending}
+                      onInspectBatch={() => selectedJudgeBatch && openJudgeInspector(selectedJudgeBatch.id)}
                       retryingBatchIds={retryingBatchIds}
                       canStart={allCandidatesReady && (!judging || judging.items.length === 0)}
                       judging={judging}
@@ -865,16 +890,9 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   <div>
                     <JudgeFeedbackPanel
                       batch={selectedJudgeBatch}
-                      prompt={
-                        selectedJudgeBatch
-                          ? promptById(
-                              selectedRun.prompt_snapshots,
-                              selectedJudgeBatch.prompt_snapshot_id,
-                            )
-                          : undefined
-                      }
-                      responses={responses}
+                      responses={rawResponses}
                       run={selectedRun}
+                      onSelectResponse={(responseId) => openResponseInspector(responseId)}
                     />
                   </div>
                 </div>
@@ -885,14 +903,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           {activePhase === "phase3" ? (
             <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
               <SectionHeading
-                title={t("runs.phase3.title")}
-                description={t("runs.phase3.description")}
+                title="Phase 3 · Aggregation And Report"
+                description="Après les jugements, tu peux agréger les scores finaux puis générer les artefacts HTML et PDF."
               />
               {!judgingReady && selectedRun.report_status !== "completed" ? (
                 <div className="mt-5">
                   <LockedPhasePanel
-                    title={t("runs.phase3.lockedTitle")}
-                    description={t("runs.phase3.lockedDescription")}
+                    title="Phase 3 locked"
+                    description="Judging must complete successfully for every batch before report generation is available."
                   />
                 </div>
               ) : (
@@ -903,7 +921,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                       onClick={() => generateReportMutation.mutate()}
                       variant="secondary"
                     >
-                      {t("runs.phase3.generateArtifacts")}
+                      Generate report artifacts
                     </Button>
                     <Button
                       disabled={downloadPdfMutation.isPending}
@@ -911,15 +929,15 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                       variant="secondary"
                     >
                       <Download className="mr-2 h-4 w-4" />
-                      {t("runs.phase3.downloadPdf")}
+                      Download PDF
                     </Button>
-                    <ReportRow label={t("runs.phase3.reportStatus")} value={selectedRun.report_status} />
-                    <ReportRow label={t("runs.phase3.htmlPath")} value={selectedRun.html_report_path ?? t("runs.phase3.pending")} />
-                    <ReportRow label={t("runs.phase3.pdfPath")} value={selectedRun.pdf_report_path ?? t("runs.phase3.pending")} />
+                    <ReportRow label="Report status" value={selectedRun.report_status} />
+                    <ReportRow label="HTML path" value={selectedRun.html_report_path ?? "Pending"} />
+                    <ReportRow label="PDF path" value={selectedRun.pdf_report_path ?? "Pending"} />
                   </div>
                   <PromptRankingMatrix
                     judging={judging}
-                    responses={responses}
+                    responses={rawResponses}
                     run={selectedRun}
                   />
                   <AggregatedSummaryTable run={selectedRun} />
@@ -929,30 +947,31 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           ) : null}
         </div>
       ) : runQuery.isLoading ? (
-        <Card className="border-border/70 bg-white/95 p-6 shadow-sm">
-          <p className="text-sm text-slate-500">{t("common.loading")}</p>
+        <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-6 shadow-sm">
+          <p className="text-sm text-[hsl(var(--foreground-soft))]">Loading run details...</p>
         </Card>
       ) : (
         <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-6 shadow-sm">
           <EmptyStatePanel
-            title={t("runs.list.card.empty.title")}
-            description={t("runs.list.card.empty.description")}
+            title="Run not found"
+            description="The requested run could not be loaded from the API."
           />
         </Card>
       )}
 
       <Modal
-        description={t("runs.response.description")}
+        description="Inspection détaillée de la réponse sélectionnée, avec le payload, le texte normalisé et les métriques d'exécution."
         onClose={() => setIsResponseModalOpen(false)}
         open={isResponseModalOpen && selectedResponse !== null}
         size="xxl"
         tone="sky"
         title={
           selectedResponse
-            ? t("runs.response.title", {
-                prompt: promptById(selectedRun?.prompt_snapshots ?? [], selectedResponse.prompt_snapshot_id)?.name ?? t("runs.phase1.unknownPrompt")
-              })
-            : t("runs.response.defaultTitle")
+            ? `Selected Response · ${
+                promptById(selectedRun?.prompt_snapshots ?? [], selectedResponse.prompt_snapshot_id)?.name ??
+                "Unknown prompt"
+              }`
+            : "Selected Response"
         }
       >
         {selectedResponse && selectedRun ? (
@@ -966,6 +985,30 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
               selectedResponse.prompt_snapshot_id,
             )}
             response={selectedResponse}
+          />
+        ) : null}
+      </Modal>
+
+      <Modal
+        description="Inspection détaillée du batch de juge sélectionné, avec le prompt, le payload, la réponse brute et le JSON parsé."
+        onClose={() => setIsJudgeModalOpen(false)}
+        open={isJudgeModalOpen && selectedJudgeBatch !== null && selectedRun !== undefined}
+        size="xxl"
+        tone="amber"
+        title={
+          selectedJudgeBatch
+            ? `Judge Batch · ${
+                promptById(selectedRun?.prompt_snapshots ?? [], selectedJudgeBatch.prompt_snapshot_id)
+                  ?.name ?? "Unknown prompt"
+              }`
+            : "Judge Batch"
+        }
+      >
+        {selectedJudgeBatch && selectedRun ? (
+          <JudgeInspector
+            batch={selectedJudgeBatch}
+            judgeModel={modelById(selectedRun.model_snapshots, selectedJudgeBatch.judge_model_snapshot_id)}
+            prompt={promptById(selectedRun.prompt_snapshots, selectedJudgeBatch.prompt_snapshot_id)}
           />
         ) : null}
       </Modal>
@@ -983,11 +1026,9 @@ function SectionHeading({ description, title }: { description: string; title: st
 }
 
 function InfoTag({
-  label,
   tone,
   value,
 }: {
-  label: string;
   tone: "slate" | "sky" | "amber" | "emerald" | "rose";
   value: string;
 }) {
@@ -1002,12 +1043,10 @@ function InfoTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold",
+        "inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold",
         toneClasses[tone],
       )}
     >
-      <span className="uppercase tracking-[0.14em]">{label}</span>
-      <span className="h-1 w-1 rounded-full bg-current opacity-60" />
       <span className="normal-case tracking-normal">{value}</span>
     </span>
   );
@@ -1030,12 +1069,11 @@ function RunPhaseSwitcher({
   phase2Unlocked: boolean;
   phase3Unlocked: boolean;
 }) {
-  const { t } = useTranslation();
   const phases = [
     {
       key: "phase1" as const,
-      label: t("runs.phases.phase1.label"),
-      subtitle: t("runs.phases.phase1.subtitle"),
+      label: "Phase 1",
+      subtitle: "Candidates",
       icon: SquareTerminal,
       progress: phase1Progress,
       stageFill: "28%",
@@ -1051,8 +1089,8 @@ function RunPhaseSwitcher({
     },
     {
       key: "phase2" as const,
-      label: t("runs.phases.phase2.label"),
-      subtitle: t("runs.phases.phase2.subtitle"),
+      label: "Phase 2",
+      subtitle: "Judging",
       icon: Gavel,
       progress: phase2Progress,
       stageFill: "56%",
@@ -1068,8 +1106,8 @@ function RunPhaseSwitcher({
     },
     {
       key: "phase3" as const,
-      label: t("runs.phases.phase3.label"),
-      subtitle: t("runs.phases.phase3.subtitle"),
+      label: "Phase 3",
+      subtitle: "Report",
       icon: Sparkles,
       progress: phase3Progress,
       stageFill: "84%",
@@ -1096,7 +1134,7 @@ function RunPhaseSwitcher({
           <button
             key={phase.key}
             className={cn(
-              "group relative overflow-hidden rounded-[1.6rem] border bg-white text-left transition duration-200",
+              "group relative overflow-hidden rounded-[1.45rem] border bg-white text-left transition duration-200",
               isActive
                 ? cn(phase.tint.border, "shadow-[0_22px_48px_-28px_rgba(15,23,42,0.28)]")
                 : "border-border/80 hover:border-slate-300",
@@ -1130,33 +1168,38 @@ function RunPhaseSwitcher({
               />
             </div>
 
-            <div className="relative flex items-start justify-between gap-3 px-4 py-4 pb-7">
-              <div className="space-y-2">
+            <div className="relative flex items-start justify-between gap-3 px-4 py-3 pb-7">
+              <div className="flex min-w-0 items-center gap-3">
                 <span
                   className={cn(
-                    "inline-flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm",
+                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm",
                     phase.tint.icon,
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 w-4" />
                 </span>
-                <div>
-                  <p className={cn("text-base font-semibold", isActive ? phase.tint.text : "text-slate-950")}>
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "text-[0.95rem] font-semibold leading-none",
+                      isActive ? phase.tint.text : "text-slate-950",
+                    )}
+                  >
                     {phase.label}
                   </p>
-                  <p className="text-sm text-slate-500">{phase.subtitle}</p>
+                  <p className="mt-1 text-[0.82rem] leading-none text-slate-500">{phase.subtitle}</p>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex shrink-0 flex-col items-end gap-2">
                 <span
                   className={cn(
-                    "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+                    "inline-flex rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold",
                     isActive
                       ? "bg-white/80 text-slate-700"
                       : "bg-slate-100 text-slate-600",
                   )}
                 >
-                  {!phase.unlocked ? t("runs.phases.locked") : isActive ? t("runs.phases.current") : t("runs.phases.open")}
+                  {!phase.unlocked ? "Locked" : isActive ? "Current" : "Open"}
                 </span>
               </div>
             </div>
@@ -1207,7 +1250,6 @@ function CandidateExecutionCard({
   responses: CandidateResponse[];
   runStatus: string;
 }) {
-  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [detailSide, setDetailSide] = useState<"left" | "right">("right");
   const completedCount = responses.filter((item) => item.status === "completed").length;
@@ -1215,12 +1257,15 @@ function CandidateExecutionCard({
   const failedCount = responses.filter((item) =>
     ["failed", "cancelled"].includes(item.status),
   ).length;
-  const pendingCount = Math.max(promptCount - completedCount - failedCount, 0);
+  const pendingCount = responses.filter((item) =>
+    ["pending", "pending_local"].includes(item.status),
+  ).length;
   const isLocal = candidate.runtime_type === "local";
+  const remainingCount = isLocal ? pendingCount + failedCount : pendingCount;
   const isCurrentLocal = localState?.model_snapshot_id === candidate.id;
   const completionRatio = promptCount > 0 ? completedCount / promptCount : 0;
   const localInstructions =
-    localState?.local_load_instructions || t("runs.phase1.noLocalInstructions");
+    localState?.local_load_instructions || "No local load instructions were provided.";
   const startedCount = responses.filter(
     (item) => item.retry_count > 0 || item.status !== "pending",
   ).length;
@@ -1234,31 +1279,31 @@ function CandidateExecutionCard({
   };
   const candidateStatus = (() => {
     if (completedCount === promptCount && promptCount > 0) {
-      return { status: "completed", label: t("runs.candidate.status.candidateReady") };
+      return { status: "completed", label: "candidate ready" };
     }
     if (runningCount > 0) {
       return {
         status: "running",
-        label: isLocal ? t("runs.candidate.status.runningLocal") : t("runs.candidate.status.runningEndpoint"),
+        label: isLocal ? "running local prompts" : "running endpoint prompts",
       };
     }
     if (isLocal && isCurrentLocal && localState && !localState.confirmed_ready) {
-      return { status: "pending_local", label: t("runs.candidate.status.awaitingLocalLoad") };
+      return { status: "pending_local", label: "awaiting local load" };
     }
-    if (isLocal && pendingCount > 0) {
-      return { status: "pending", label: isCurrentLocal ? t("runs.candidate.status.readyToStart") : t("runs.candidate.status.queuedLocalHandoff") };
+    if (isLocal && remainingCount > 0) {
+      return { status: "pending", label: isCurrentLocal ? "ready to start" : "queued local handoff" };
     }
     if (!isLocal && failedCount > 0 && pendingCount === 0) {
-      return { status: "failed", label: t("runs.candidate.status.endpointFailed") };
+      return { status: "failed", label: "endpoint failed" };
     }
     if (!isLocal && startedCount > 0 && pendingCount > 0) {
-      return { status: "running", label: t("runs.candidate.status.endpointInProgress") };
+      return { status: "running", label: "endpoint in progress" };
     }
     if (!isLocal) {
       if (failedCount > 0) {
-        return { status: "failed", label: t("runs.candidate.status.endpointFailed") };
+        return { status: "failed", label: "endpoint failed" };
       }
-      return { status: "pending", label: t("runs.candidate.status.readyToLaunch") };
+      return { status: "pending", label: "ready to launch" };
     }
     return { status: runStatus, label: undefined };
   })();
@@ -1299,14 +1344,14 @@ function CandidateExecutionCard({
             <p className="text-lg font-semibold text-slate-950">
               {completedCount}/{promptCount}
             </p>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">{t("runs.phase1.done")}</p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">done</p>
           </div>
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
           <CompactMetric label="P" value={String(promptCount)} />
           <CompactMetric label="Run" value={String(runningCount)} />
-          <CompactMetric label="Left" value={String(pendingCount)} />
+          <CompactMetric label="Left" value={String(remainingCount)} />
         </div>
 
         {isLocal && isCurrentLocal ? (
@@ -1318,7 +1363,7 @@ function CandidateExecutionCard({
               size="sm"
               variant="secondary"
             >
-              {t("runs.phase1.ready")}
+              Ready
             </Button>
             <Button
               className="flex-1"
@@ -1326,7 +1371,7 @@ function CandidateExecutionCard({
               onClick={onStartCurrent}
               size="sm"
             >
-              {t("common.start")}
+              {isStarting ? "Starting..." : "Start"}
             </Button>
           </div>
         ) : !isLocal ? (
@@ -1338,14 +1383,20 @@ function CandidateExecutionCard({
               size="sm"
               variant="secondary"
             >
-              {completedCount === promptCount ? t("runs.phase1.completed_label") : isStartingEndpoint ? t("runs.phase1.startingEndpoint") : t("common.start")}
+              {completedCount === promptCount ? "Completed" : isStartingEndpoint ? "Starting..." : "Start"}
             </Button>
           </div>
         ) : null}
 
         <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-slate-400">
-          <span>{isLocal ? t("runs.phase1.hoverHandoff") : t("runs.phase1.hoverEndpoint")}</span>
-          <span>{failedCount > 0 ? t("runs.phase1.failed", { count: failedCount }) : t("runs.phase1.details")}</span>
+          <span>{isLocal ? "Hover for handoff" : "Hover for endpoint"}</span>
+          <span>
+            {isLocal && failedCount > 0
+              ? `${failedCount} to retry`
+              : failedCount > 0
+                ? `${failedCount} failed`
+                : "details"}
+          </span>
         </div>
       </div>
 
@@ -1367,8 +1418,8 @@ function CandidateExecutionCard({
               </p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
                 {isLocal
-                  ? t("runs.phase1.localCandidateDesc")
-                  : t("runs.phase1.remoteCandidateDesc")}
+                  ? "Local candidate. Load it in LM Studio, confirm readiness, then start the current handoff."
+                  : "Remote candidate. Endpoint execution can run in parallel with every other remote candidate."}
               </p>
             </div>
             <StatusPill status={candidateStatus.status} label={candidateStatus.label} />
@@ -1377,41 +1428,33 @@ function CandidateExecutionCard({
           <div className="mt-4 grid gap-3 md:grid-cols-[0.82fr_1.18fr]">
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <CompactDetail label={t("runs.phase1.prompts")} value={String(promptCount)} />
-                <CompactDetail label={t("runs.phase1.completed_label")} value={String(completedCount)} />
-                <CompactDetail label={t("runs.phase1.running")} value={String(runningCount)} />
-                <CompactDetail label={t("runs.phase1.remaining")} value={String(pendingCount)} />
+                <CompactDetail label="Prompts" value={String(promptCount)} />
+                <CompactDetail label="Completed" value={String(completedCount)} />
+                <CompactDetail label="Running" value={String(runningCount)} />
+                <CompactDetail label="Remaining" value={String(remainingCount)} />
               </div>
               <CompactDetail
-                label={t("runs.phase1.machine")}
+                label="Machine"
                 value={
                   isLocal && isCurrentLocal && localState
-                    ? localState.machine_label ?? t("runs.phase1.currentMachine")
-                    : candidate.machine_label ?? t("runs.phase1.managedEndpoint")
+                    ? localState.machine_label ?? "Current machine"
+                    : candidate.machine_label ?? "Managed endpoint"
                 }
               />
             </div>
 
             <div className="space-y-3">
-              <CompactDetail
-                label={t("runs.phase1.endpoint")}
-                value={
-                  isLocal && isCurrentLocal && localState
-                    ? localState.endpoint_url
-                    : candidate.endpoint_url
-                }
-              />
-              <CompactDetail label={t("runs.phase1.modelId")} value={candidate.model_identifier} />
+              <CompactDetail label="Model ID" value={candidate.model_identifier} />
 
               {isLocal ? (
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
-                    {t("runs.phase1.lmStudioInstructions")}
+                    LM Studio Instructions
                   </p>
                   <p className="mt-2 text-sm leading-6 text-emerald-950">
                     {isCurrentLocal && localState
                       ? localInstructions
-                      : t("runs.phase1.queuedLocal")}
+                      : "This local candidate is queued and will expose its handoff details when it becomes the active local model."}
                   </p>
                 </div>
               ) : null}
@@ -1427,7 +1470,7 @@ function CandidateExecutionCard({
                 size="sm"
                 variant="secondary"
               >
-                {t("runs.phase1.confirmReady")}
+                Confirm ready
               </Button>
               <Button
                 className="flex-1"
@@ -1435,7 +1478,7 @@ function CandidateExecutionCard({
                 onClick={onStartCurrent}
                 size="sm"
               >
-                {t("runs.phase1.startCurrentModel")}
+                {isStarting ? "Starting current model..." : "Start current model"}
               </Button>
             </div>
           ) : !isLocal ? (
@@ -1447,7 +1490,7 @@ function CandidateExecutionCard({
                 size="sm"
                 variant="secondary"
               >
-                {completedCount === promptCount ? t("runs.phase1.completed_label") : isStartingEndpoint ? t("runs.phase1.startingEndpoint") : t("runs.phase1.startEndpoint")}
+                {completedCount === promptCount ? "Completed" : isStartingEndpoint ? "Starting endpoint" : "Start endpoint"}
               </Button>
             </div>
           ) : null}
@@ -1490,7 +1533,7 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 
 function MetaPill({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+    <span className="inline-flex items-center whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
       {label}
     </span>
   );
@@ -1500,7 +1543,7 @@ function StatusPill({ label, status }: { label?: string; status: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize",
+        "inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold capitalize",
         status === "completed" && "bg-emerald-100 text-emerald-900",
         ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(status) &&
           "bg-amber-100 text-amber-900",
@@ -1522,44 +1565,450 @@ function ResponseInspector({
   prompt: RunPromptSnapshot | undefined;
   response: CandidateResponse;
 }) {
-  const { t } = useTranslation();
-  return (
-    <div className="mt-5 space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <SummaryStat label={t("runs.response.promptLabel")} value={prompt?.name ?? t("runs.response.unknownPrompt")} />
-        <SummaryStat label={t("runs.response.candidateLabel")} value={model?.display_name ?? t("runs.response.unknownModel")} />
-      </div>
+  const normalizedResponse = formatInspectorContent(response.normalized_response_text);
+  const rawResponse =
+    formatInspectorContent(response.raw_response_jsonb) ??
+    formatInspectorContent(response.raw_response_text);
+  const requestPayload = formatInspectorContent(response.request_payload_jsonb);
+  const hasExecutionMetrics = Boolean(
+    response.metric?.duration_ms !== null ||
+      response.metric?.total_tokens !== null ||
+      response.metric?.tokens_per_second ||
+      response.metric?.estimated_cost,
+  );
 
-      <div className="rounded-[1.25rem] border border-border/80 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-          {t("runs.response.normalizedResponse")}
-        </p>
-        <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">
-          {response.normalized_response_text || t("runs.response.noNormalizedResponse")}
-        </pre>
+  return (
+    <div className="mt-2 space-y-5 text-sm text-slate-900">
+      <div className="grid gap-3 lg:grid-cols-4">
+        <SummaryStat label="Prompt" value={prompt?.name ?? "Unknown prompt"} />
+        <SummaryStat label="Candidate" value={model?.display_name ?? "Unknown model"} />
+        <SummaryStat label="Status" value={response.status.replaceAll("_", " ")} />
+        <SummaryStat
+          label="Completed"
+          value={formatDateTime(response.completed_at) ?? "In progress"}
+        />
       </div>
 
       {response.error_message ? (
-        <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">
-            {t("runs.response.error")}
-          </p>
-          <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-rose-900">
-            {response.error_message}
-          </pre>
-        </div>
+        <InspectorPanel accent="rose" title="Execution Error">
+          <CodeBlock content={response.error_message} tone="rose" />
+        </InspectorPanel>
       ) : null}
 
-      <div className="rounded-[1.25rem] border border-border/80 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-          {t("runs.response.requestPayload")}
-        </p>
-        <pre className="mt-3 overflow-x-auto text-sm leading-6 text-slate-700">
-          {response.request_payload_jsonb || t("runs.response.noPayload")}
-        </pre>
+      <div className="space-y-5">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
+          <div className="space-y-5">
+            <InspectorPanel
+              accent="sky"
+              eyebrow="Prompt"
+              title={prompt?.name ?? "Unknown prompt"}
+              subtitle="Le prompt snapshot utilisé pour cette réponse."
+            >
+              {prompt?.system_prompt_text ? (
+                <PromptBlock label="System Prompt" text={prompt.system_prompt_text} />
+              ) : null}
+              <PromptBlock
+                label="User Prompt"
+                text={prompt?.user_prompt_text ?? "No prompt text recorded."}
+              />
+              {prompt?.evaluation_notes ? (
+                <PromptBlock label="Evaluation Notes" text={prompt.evaluation_notes} />
+              ) : null}
+            </InspectorPanel>
+
+            <InspectorPanel
+              accent="slate"
+              eyebrow="Request"
+              title="Request Payload"
+              subtitle="Payload envoyé au provider pour cette exécution."
+            >
+              <CodeBlock
+                content={requestPayload?.content ?? "No payload persisted yet."}
+                isJson={requestPayload?.isJson}
+              />
+            </InspectorPanel>
+          </div>
+
+          <div className="space-y-5">
+            <InspectorPanel
+              accent="amber"
+              eyebrow="Answer"
+              title="Normalized Response"
+              subtitle="Version directe et exploitable de la réponse du modèle."
+            >
+              <CodeBlock
+                content={normalizedResponse?.content ?? "No normalized response recorded yet."}
+                isJson={normalizedResponse?.isJson}
+                tone="amber"
+              />
+            </InspectorPanel>
+
+            <InspectorPanel
+              accent="slate"
+              eyebrow="Raw Output"
+              title="Raw Response"
+              subtitle="Réponse complète brute, formatée automatiquement si du JSON est disponible."
+            >
+              <CodeBlock
+                content={rawResponse?.content ?? "No raw response persisted yet."}
+                isJson={rawResponse?.isJson}
+              />
+            </InspectorPanel>
+          </div>
+        </div>
+
+        {hasExecutionMetrics ? (
+          <InspectorPanel
+            accent="emerald"
+            eyebrow="Metrics"
+            title="Execution Metrics"
+            subtitle="Mesures enregistrées pendant l'appel modèle."
+          >
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <MetricTile
+                label="Duration"
+                value={formatInspectorDuration(response.metric?.duration_ms)}
+              />
+              <MetricTile
+                label="Tokens"
+                value={formatInteger(response.metric?.total_tokens)}
+              />
+              <MetricTile
+                label="Input Tokens"
+                value={formatInteger(response.metric?.input_tokens)}
+              />
+              <MetricTile
+                label="Output Tokens"
+                value={formatInteger(response.metric?.output_tokens)}
+              />
+              <MetricTile
+                label="Tokens / Second"
+                value={formatTokensPerSecond(response.metric?.tokens_per_second)}
+              />
+              <MetricTile
+                label="Estimated Cost"
+                value={response.metric?.estimated_cost ?? "—"}
+              />
+            </div>
+          </InspectorPanel>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function JudgeInspector({
+  batch,
+  judgeModel,
+  prompt,
+}: {
+  batch: JudgeBatch;
+  judgeModel: RunModelSnapshot | undefined;
+  prompt: RunPromptSnapshot | undefined;
+}) {
+  const requestPayload = formatInspectorContent(batch.request_payload_jsonb);
+  const rawResponse =
+    formatInspectorContent(batch.raw_response_jsonb) ??
+    formatInspectorContent(batch.raw_response_text);
+  const parsedEvaluation = formatInspectorContent(batch.evaluation?.parsed_output_jsonb);
+
+  return (
+    <div className="mt-2 space-y-5 text-sm text-slate-900">
+      <div className="grid gap-3 lg:grid-cols-4">
+        <SummaryStat label="Prompt" value={prompt?.name ?? "Unknown prompt"} />
+        <SummaryStat label="Judge Model" value={judgeModel?.display_name ?? "Unknown model"} />
+        <SummaryStat label="Status" value={batch.status.replaceAll("_", " ")} />
+        <SummaryStat label="Completed" value={formatDateTime(batch.completed_at) ?? "Pending"} />
+      </div>
+
+      {batch.error_message ? (
+        <InspectorPanel accent="rose" title="Judge Error">
+          <CodeBlock content={batch.error_message} tone="rose" />
+        </InspectorPanel>
+      ) : null}
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
+        <div className="space-y-5">
+          <InspectorPanel
+            accent="sky"
+            eyebrow="Prompt"
+            title={prompt?.name ?? "Unknown prompt"}
+            subtitle="Snapshot évalué par le juge pour ce batch."
+          >
+            {prompt?.system_prompt_text ? (
+              <PromptBlock label="System Prompt" text={prompt.system_prompt_text} />
+            ) : null}
+            <PromptBlock
+              label="User Prompt"
+              text={prompt?.user_prompt_text ?? "No prompt text recorded."}
+            />
+            {prompt?.evaluation_notes ? (
+              <PromptBlock label="Evaluation Notes" text={prompt.evaluation_notes} />
+            ) : null}
+          </InspectorPanel>
+
+          <InspectorPanel
+            accent="slate"
+            eyebrow="Request"
+            title="Judge Request Payload"
+            subtitle="Payload envoyé au modèle juge."
+          >
+            <CodeBlock
+              content={requestPayload?.content ?? "No request payload persisted yet."}
+              isJson={requestPayload?.isJson}
+            />
+          </InspectorPanel>
+        </div>
+
+        <div className="space-y-5">
+          <InspectorPanel
+            accent="amber"
+            eyebrow="Output"
+            title="Parsed Judge Evaluation"
+            subtitle="JSON évalué et persisté après parsing."
+          >
+            <CodeBlock
+              content={parsedEvaluation?.content ?? "No parsed evaluation persisted yet."}
+              isJson={parsedEvaluation?.isJson}
+              tone="amber"
+            />
+          </InspectorPanel>
+
+          <InspectorPanel
+            accent="slate"
+            eyebrow="Raw Output"
+            title="Raw Judge Response"
+            subtitle="Réponse brute complète du modèle juge."
+          >
+            <CodeBlock
+              content={rawResponse?.content ?? "No raw response persisted yet."}
+              isJson={rawResponse?.isJson}
+            />
+          </InspectorPanel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InspectorPanel({
+  accent = "slate",
+  children,
+  eyebrow,
+  subtitle,
+  title,
+}: {
+  accent?: "amber" | "emerald" | "rose" | "sky" | "slate";
+  children: ReactNode;
+  eyebrow?: string;
+  subtitle?: string;
+  title: string;
+}) {
+  const accentClasses = {
+    amber: "border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))]",
+    emerald:
+      "border-emerald-200 bg-[linear-gradient(180deg,rgba(236,253,245,0.96),rgba(255,255,255,0.98))]",
+    rose: "border-rose-200 bg-[linear-gradient(180deg,rgba(255,241,242,0.96),rgba(255,255,255,0.98))]",
+    sky: "border-sky-200 bg-[linear-gradient(180deg,rgba(240,249,255,0.96),rgba(255,255,255,0.98))]",
+    slate:
+      "border-border/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.98))]",
+  } as const;
+
+  const eyebrowClasses = {
+    amber: "bg-amber-100 text-amber-900",
+    emerald: "bg-emerald-100 text-emerald-900",
+    rose: "bg-rose-100 text-rose-900",
+    sky: "bg-sky-100 text-sky-900",
+    slate: "bg-slate-100 text-slate-700",
+  } as const;
+
+  return (
+    <section className={cn("rounded-[1.4rem] border p-4 shadow-sm", accentClasses[accent])}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          {eyebrow ? (
+            <p
+              className={cn(
+                "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
+                eyebrowClasses[accent],
+              )}
+            >
+              {eyebrow}
+            </p>
+          ) : null}
+          <h3 className="mt-2 text-base font-semibold tracking-tight text-slate-950">{title}</h3>
+          {subtitle ? (
+            <p className="mt-1 text-[12px] leading-5 text-slate-600">{subtitle}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-4 space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function PromptBlock({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="rounded-[1.1rem] border border-slate-200/90 bg-white/90 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <pre className="mt-2 max-h-[18rem] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-950/[0.03] px-3 py-3 text-[12px] leading-5 text-slate-800">
+        {text}
+      </pre>
+    </div>
+  );
+}
+
+function CodeBlock({
+  content,
+  isJson = false,
+  tone = "slate",
+}: {
+  content: string;
+  isJson?: boolean;
+  tone?: "amber" | "rose" | "slate";
+}) {
+  const toneClasses = {
+    amber: "border-amber-200/80 bg-amber-950/[0.03] text-slate-900",
+    rose: "border-rose-200/80 bg-rose-950/[0.03] text-rose-950",
+    slate: "border-slate-200/90 bg-slate-950/[0.03] text-slate-900",
+  } as const;
+
+  return (
+    <div className={cn("rounded-[1.1rem] border", toneClasses[tone])}>
+      <div className="flex items-center justify-between border-b border-inherit px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          {isJson ? "Pretty JSON" : "Text"}
+        </p>
+      </div>
+      <pre className="max-h-[32rem] overflow-auto px-3 py-3 font-mono text-[12px] leading-5 whitespace-pre-wrap break-words">
+        {content}
+      </pre>
+    </div>
+  );
+}
+
+function MetricTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1rem] border border-emerald-200/80 bg-white/85 px-3 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
+        {label}
+      </p>
+      <p className="mt-1 text-[13px] font-medium text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function formatInspectorContent(
+  value: string | null | undefined,
+): { content: string; isJson: boolean } | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmedValue);
+    return {
+      content: JSON.stringify(parsed, null, 2),
+      isJson: true,
+    };
+  } catch {
+    return {
+      content: value,
+      isJson: false,
+    };
+  }
+}
+
+function formatInspectorDuration(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+
+  if (value < 1000) {
+    return `${value} ms`;
+  }
+
+  return `${(value / 1000).toFixed(2)} s`;
+}
+
+function formatInteger(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("fr-FR").format(value);
+}
+
+function formatTokensPerSecond(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return value;
+  }
+
+  return new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(parsed);
+}
+
+function formatDateTime(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function buildOptimisticJudging(run: Run): RunJudging {
+  const items = [...run.prompt_snapshots]
+    .sort((left, right) => left.snapshot_order - right.snapshot_order)
+    .map((prompt, index) => ({
+      id: -(index + 1),
+      run_id: run.id,
+      prompt_snapshot_id: prompt.id,
+      judge_model_snapshot_id:
+        run.model_snapshots.find((item) => item.role === "judge")?.id ?? 0,
+      batch_index: 1,
+      randomized_candidate_ids_jsonb: "[]",
+      request_payload_jsonb: null,
+      raw_response_text: null,
+      raw_response_jsonb: null,
+      status: "pending",
+      started_at: null,
+      completed_at: null,
+      error_message: null,
+      evaluation: null,
+    }));
+
+  return {
+    run_id: run.id,
+    run_status: "judging",
+    total_batches: items.length,
+    completed_batches: 0,
+    failed_batches: 0,
+    running_batches: 0,
+    pending_batches: items.length,
+    items,
+  };
 }
 
 function PromptRankingMatrix({
@@ -1571,7 +2020,6 @@ function PromptRankingMatrix({
   responses: CandidateResponse[];
   run: Run;
 }) {
-  const { t } = useTranslation();
   const completedBatches =
     judging?.items.filter((batch) => batch.status === "completed" && batch.evaluation) ?? [];
   const candidates = run.model_snapshots.filter((item) => item.role === "candidate");
@@ -1579,8 +2027,8 @@ function PromptRankingMatrix({
   if (completedBatches.length === 0 || candidates.length === 0) {
     return (
       <EmptyStatePanel
-        title={t("runs.ranking.noRankingTitle")}
-        description={t("runs.ranking.noRankingDesc")}
+        title="No prompt ranking yet"
+        description="Prompt-by-prompt ranking becomes available after judge batches complete."
       />
     );
   }
@@ -1588,15 +2036,15 @@ function PromptRankingMatrix({
   return (
     <div className="space-y-4">
       <SectionHeading
-        title={t("runs.ranking.title")}
-        description={t("runs.ranking.description")}
+        title="Prompt Ranking Matrix"
+        description="Une colonne par prompt. Le meilleur score de chaque prompt ressort visuellement dans la matrice."
       />
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border/80 text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3 font-semibold">
-                {t("runs.ranking.candidate")}
+                Candidate
               </th>
               {completedBatches.map((batch) => {
                 const prompt = promptById(run.prompt_snapshots, batch.prompt_snapshot_id);
@@ -1611,7 +2059,7 @@ function PromptRankingMatrix({
                         {prompt?.name ?? `Prompt #${batch.prompt_snapshot_id}`}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
-                        {t("runs.ranking.bestScore")} {formatScore(String(topScore))}
+                        Best score {formatScore(String(topScore))}
                       </p>
                     </div>
                   </th>
@@ -1641,7 +2089,7 @@ function PromptRankingMatrix({
                   if (!evaluationCandidate) {
                     return (
                       <td key={`${candidate.id}-${batch.id}`} className="px-4 py-4">
-                        <span className="text-xs text-slate-400">{t("runs.ranking.noScore")}</span>
+                        <span className="text-xs text-slate-400">No score</span>
                       </td>
                     );
                   }
@@ -1666,7 +2114,7 @@ function PromptRankingMatrix({
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                              {t("runs.ranking.score")}
+                              Score
                             </p>
                             <p
                               className={cn(
@@ -1694,10 +2142,10 @@ function PromptRankingMatrix({
                             isBest ? "text-emerald-700" : "text-slate-400",
                           )}
                         >
-                          {isBest ? t("runs.ranking.bestScore") : t("runs.ranking.ranked")}
+                          {isBest ? "Best score" : "Ranked"}
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-600">
-                          {evaluationCandidate.short_feedback ?? t("runs.ranking.noShortFeedback")}
+                          {evaluationCandidate.short_feedback ?? "No short feedback."}
                         </p>
                       </div>
                     </td>
@@ -1713,9 +2161,8 @@ function PromptRankingMatrix({
 }
 
 function AggregatedSummaryTable({ run }: { run: Run }) {
-  const { t } = useTranslation();
   if (run.global_summaries.length === 0) {
-    return <EmptyStatePanel title={t("runs.summary.noSummaryTitle")} description={t("runs.summary.noSummaryDesc")} />;
+    return <EmptyStatePanel title="No aggregated summaries yet" description="Aggregation runs after judging completes successfully." />;
   }
 
   return (
@@ -1724,12 +2171,12 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
         <table className="min-w-full divide-y divide-border/80 text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
-              <th className="px-4 py-3 font-semibold">{t("runs.summary.candidate")}</th>
-              <th className="px-4 py-3 font-semibold">{t("runs.summary.judge")}</th>
-              <th className="px-4 py-3 font-semibold">{t("runs.summary.latency")}</th>
-              <th className="px-4 py-3 font-semibold">{t("runs.summary.tokens")}</th>
-              <th className="px-4 py-3 font-semibold">{t("runs.summary.cost")}</th>
-              <th className="px-4 py-3 font-semibold">{t("runs.summary.global")}</th>
+              <th className="px-4 py-3 font-semibold">Candidate</th>
+              <th className="px-4 py-3 font-semibold">Judge</th>
+              <th className="px-4 py-3 font-semibold">Latency</th>
+              <th className="px-4 py-3 font-semibold">Tokens</th>
+              <th className="px-4 py-3 font-semibold">Cost</th>
+              <th className="px-4 py-3 font-semibold">Global</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/70">
@@ -1740,12 +2187,12 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
                   <td className="px-4 py-3">
                     <div>
                       <p className="font-medium text-slate-950">
-                        {model?.display_name ?? t("runs.summary.unknownModel")}
+                        {model?.display_name ?? "Unknown model"}
                       </p>
                       <p className="text-xs text-slate-500">
                         {model
                           ? `${model.provider_type} / ${model.runtime_type}`
-                          : t("runs.summary.missingSnapshot")}
+                          : "Missing snapshot"}
                       </p>
                     </div>
                   </td>
@@ -1780,21 +2227,21 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
               className="rounded-xl border border-border/80 bg-slate-50 p-3"
             >
               <p className="text-xs font-semibold text-slate-950">
-                {model?.display_name ?? t("runs.summary.unknownModel")}
+                {model?.display_name ?? "Unknown model"}
               </p>
               <p className="mt-1.5 text-xs leading-5 text-slate-600">
-                {summary.global_summary_text ?? t("runs.summary.noGlobalSummary")}
+                {summary.global_summary_text ?? "No global summary generated."}
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <FeedbackBlock
                   icon={Sparkles}
-                  label={t("runs.summary.bestPatterns")}
-                  value={summary.best_patterns_text ?? t("runs.summary.noStrengths")}
+                  label="Best patterns"
+                  value={summary.best_patterns_text ?? "No repeated strengths captured."}
                 />
                 <FeedbackBlock
                   icon={Clock3}
-                  label={t("runs.summary.weakPatterns")}
-                  value={summary.weak_patterns_text ?? t("runs.summary.noWeaknesses")}
+                  label="Weak patterns"
+                  value={summary.weak_patterns_text ?? "No repeated weaknesses captured."}
                 />
               </div>
             </div>
@@ -1809,6 +2256,7 @@ function JudgeBatchPanel({
   isLoading,
   isStarting,
   isRetrying,
+  onInspectBatch,
   retryingBatchIds,
   canStart,
   judging,
@@ -1822,6 +2270,7 @@ function JudgeBatchPanel({
   isLoading: boolean;
   isStarting: boolean;
   isRetrying: boolean;
+  onInspectBatch: () => void;
   retryingBatchIds: number[];
   canStart: boolean;
   judging: RunJudging | undefined;
@@ -1832,29 +2281,32 @@ function JudgeBatchPanel({
   onSelectBatch: (batchId: number) => void;
   selectedBatchId: number | null;
 }) {
-  const { t } = useTranslation();
   const isJudgingActive = isStarting || isRetrying || retryingBatchIds.length > 0;
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">{t("runs.judging.loading")}</p>;
+    return <p className="text-sm text-slate-500">Loading judge batches...</p>;
   }
 
   if (!judging || judging.items.length === 0) {
     return (
-      <div className="space-y-4">
-        <EmptyStatePanel
-          title={t("runs.judging.noBatchesTitle")}
-          description={t("runs.judging.noBatchesDesc")}
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <Button disabled={!canStart || isStarting} onClick={onStart} variant="secondary">
+      <div className="flex h-full w-full flex-col justify-between gap-5">
+        <div className="min-h-[7rem] rounded-[1.35rem] border border-border/70 bg-slate-50/60 p-4 shadow-[0_8px_18px_-26px_rgba(15,23,42,0.18)]">
+          <p className="text-[0.9rem] font-semibold tracking-tight text-slate-950">
+            No judge batches yet
+          </p>
+          <p className="mt-2 max-w-[28rem] text-[0.92rem] leading-6 text-slate-600">
+            Phase 1 is complete. Start judging manually to create one judge batch per prompt.
+          </p>
+        </div>
+        <div className="flex w-full justify-center">
+          <Button className="h-10 px-5" disabled={!canStart || isStarting} onClick={onStart} variant="secondary">
             {isStarting ? (
               <>
                 <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                {t("runs.judging.judgingInProgress")}
+                Judging in progress…
               </>
             ) : (
-              t("runs.judging.startJudging")
+              "Start judging"
             )}
           </Button>
         </div>
@@ -1868,15 +2320,25 @@ function JudgeBatchPanel({
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-amber-600" />
           <p className="text-sm font-medium text-amber-900">
-            {isStarting || isRetrying ? t("runs.judging.runningAllBatches") : t("runs.judging.retryingBatch")}
+            {isStarting || isRetrying ? "Running all judge batches…" : "Retrying batch…"}
           </p>
         </div>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryStat label={t("runs.judging.completed")} value={String(judging.completed_batches)} />
-        <SummaryStat label={t("runs.judging.failed")} value={String(judging.failed_batches)} />
-        <SummaryStat label={t("runs.judging.pending")} value={String(judging.pending_batches)} />
-      </div>
+      <button
+        className="group flex w-full items-center justify-between gap-3 rounded-[1.15rem] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-[linear-gradient(180deg,rgba(255,247,237,0.98),rgba(255,255,255,1))] hover:shadow-[0_18px_34px_-26px_rgba(245,158,11,0.3)]"
+        onClick={onInspectBatch}
+        type="button"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-950 transition-colors duration-150 group-hover:text-amber-950">
+            Full judge response
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Inspect the complete judge payload, raw response and parsed evaluation for the selected prompt.
+          </p>
+        </div>
+        <Eye className="h-4 w-4 shrink-0 text-amber-800 transition-all duration-200 group-hover:scale-110 group-hover:text-amber-900" />
+      </button>
       <div className="space-y-2">
         {judging.items.map((batch) => {
           const prompt = promptById(promptSnapshots, batch.prompt_snapshot_id);
@@ -1886,25 +2348,26 @@ function JudgeBatchPanel({
             <div
               key={batch.id}
               className={cn(
-                "flex w-full items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 transition",
+                "group flex w-full cursor-pointer items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 transition-all duration-200",
                 selectedBatchId === batch.id
-                  ? "border-slate-200 bg-slate-50"
-                  : "border-border/80 bg-slate-50",
+                  ? "border-sky-300 bg-[linear-gradient(180deg,rgba(240,249,255,0.96),rgba(255,255,255,0.98))] shadow-[0_16px_36px_-28px_rgba(14,165,233,0.3)]"
+                  : "border-sky-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.98))] hover:-translate-y-0.5 hover:border-sky-300 hover:bg-[linear-gradient(180deg,rgba(240,249,255,0.98),rgba(255,255,255,1))] hover:shadow-[0_16px_32px_-26px_rgba(14,165,233,0.24)]",
               )}
             >
               <button
-                className="min-w-0 flex-1 text-left"
+                className="min-w-0 flex-1 rounded-[0.85rem] text-left outline-none transition-transform duration-150 active:scale-[0.995]"
                 onClick={() => onSelectBatch(batch.id)}
                 type="button"
               >
-                <p className="text-sm font-medium text-slate-950">
+                <p className="text-sm font-medium text-slate-950 transition-colors duration-150 group-hover:text-sky-900">
                   {prompt?.name ?? `Prompt snapshot #${batch.prompt_snapshot_id}`}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {t("runs.judging.batchInfo", { index: batch.batch_index, count: batch.evaluation?.candidates.length ?? 0 })}
+                  Batch {batch.batch_index} · {batch.evaluation?.candidates.length ?? 0} candidates
                 </p>
               </button>
               <div className="flex shrink-0 items-center gap-2">
+                <Eye className="h-4 w-4 text-sky-700/70 transition-all duration-200 group-hover:scale-110 group-hover:text-sky-800" />
                 {isBatchRetrying ? (
                   <LoaderCircle className="h-3.5 w-3.5 animate-spin text-amber-500" />
                 ) : null}
@@ -1920,7 +2383,7 @@ function JudgeBatchPanel({
                     type="button"
                     variant="secondary"
                   >
-                    {t("common.retry")}
+                    Retry
                   </Button>
                 ) : null}
               </div>
@@ -1929,7 +2392,7 @@ function JudgeBatchPanel({
         })}
       </div>
       <Button disabled={isJudgingActive} onClick={onRetry} variant="secondary">
-        {t("runs.judging.retryAllFailed")}
+        Retry all failed
       </Button>
     </div>
   );
@@ -1937,146 +2400,98 @@ function JudgeBatchPanel({
 
 function JudgeFeedbackPanel({
   batch,
-  prompt,
+  onSelectResponse,
   responses,
   run,
 }: {
   batch: JudgeBatch | null;
-  prompt: RunPromptSnapshot | undefined;
+  onSelectResponse: (responseId: number) => void;
   responses: CandidateResponse[];
   run: Run;
 }) {
-  const { t } = useTranslation();
   if (!batch) {
     return (
-      <EmptyStatePanel
-        title={t("runs.feedback.selectBatchTitle")}
-        description={t("runs.feedback.selectBatchDesc")}
-      />
+      <div className="min-h-[7rem] rounded-[1.35rem] border border-border/70 bg-slate-50/60 p-4 shadow-[0_8px_18px_-26px_rgba(15,23,42,0.18)]">
+        <p className="text-[0.9rem] font-semibold tracking-tight text-slate-950">
+          Select a judge batch
+        </p>
+        <p className="mt-2 max-w-[29rem] text-[0.92rem] leading-6 text-slate-600">
+          Choose one batch to inspect rankings, criterion scores, and written feedback.
+        </p>
+      </div>
     );
   }
 
   if (!batch.evaluation) {
     return (
       <EmptyStatePanel
-        title={t("runs.feedback.noEvaluationTitle")}
-        description={batch.error_message ?? t("runs.feedback.noEvaluationDesc")}
+        title={
+          batch.status === "running"
+            ? "Judge is evaluating this prompt"
+            : batch.status === "pending"
+              ? "Judge batch is queued"
+              : "No parsed judge evaluation yet"
+        }
+        description={
+          batch.error_message ??
+          (batch.status === "running"
+            ? "Results will appear here as soon as this prompt is completed."
+            : batch.status === "pending"
+              ? "This prompt is waiting for its turn. Completed prompts can already be inspected while this one is queued."
+              : "The selected batch has not completed.")
+        }
       />
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-[1.4rem] border border-border/80 bg-slate-50 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">
-              {prompt?.name ?? t("runs.feedback.unknownPrompt")}
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {prompt?.category_name ?? t("runs.feedback.unknownCategory")} · {t("runs.feedback.schema")}{" "}
-              {batch.evaluation.schema_version}
-            </p>
-          </div>
-          <StatusPill status={batch.status} />
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {batch.evaluation.candidates.map((candidate) => (
-          <JudgeCandidateCard
-            key={candidate.id}
-            candidate={candidate}
-            response={responses.find((item) => item.id === candidate.candidate_response_id)}
-            run={run}
-          />
-        ))}
-      </div>
+    <div className="space-y-3">
+      {batch.evaluation.candidates.map((candidate) => (
+        <JudgeCandidateCard
+          key={candidate.id}
+          candidate={candidate}
+          onSelectResponse={onSelectResponse}
+          response={responses.find((item) => item.id === candidate.candidate_response_id)}
+          run={run}
+        />
+      ))}
     </div>
   );
 }
 
 function JudgeCandidateCard({
   candidate,
+  onSelectResponse,
   response,
   run,
 }: {
   candidate: JudgeEvaluationCandidate;
+  onSelectResponse: (responseId: number) => void;
   response: CandidateResponse | undefined;
   run: Run;
 }) {
-  const { t } = useTranslation();
   const model = response ? modelById(run.model_snapshots, response.model_snapshot_id) : undefined;
 
   return (
-    <div className="rounded-xl border border-border/80 bg-white p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
-            {candidate.anonymized_candidate_label}
-          </span>
-          <p className="text-sm font-semibold text-slate-950">
-            {model?.display_name ?? t("runs.judgeCard.candidateModel")}
-          </p>
-          <MetaPill label={`Rank ${candidate.ranking_in_batch}`} />
-          <span className="text-xs text-slate-400">
-            {model ? `${model.provider_type} / ${model.runtime_type}` : ""}
-          </span>
-        </div>
-        <div
-          className={cn(
-            "rounded-lg border px-3 py-1.5 text-center",
-            scoreToneClasses(candidate.overall_score, "soft"),
-          )}
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{t("runs.judgeCard.overall")}</p>
-          <p className="text-xl font-semibold leading-none mt-0.5">
-            {formatScore(candidate.overall_score)}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-2.5 grid gap-2 grid-cols-3 sm:grid-cols-6">
-        <ScoreStat label={t("runs.judgeCard.relevance")} value={candidate.relevance_score} />
-        <ScoreStat label={t("runs.judgeCard.accuracy")} value={candidate.accuracy_score} />
-        <ScoreStat label={t("runs.judgeCard.completeness")} value={candidate.completeness_score} />
-        <ScoreStat label={t("runs.judgeCard.clarity")} value={candidate.clarity_score} />
-        <ScoreStat label={t("runs.judgeCard.instruction")} value={candidate.instruction_following_score} />
-        <ScoreStat label={t("runs.judgeCard.confidence")} value={candidate.judge_confidence_score ?? "—"} />
-      </div>
-
-      <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
-        <FeedbackBlock
-          icon={Sparkles}
-          label={t("runs.judgeCard.strengths")}
-          value={candidate.strengths_text ?? t("runs.judgeCard.noStrengths")}
-        />
-        <FeedbackBlock
-          icon={Clock3}
-          label={t("runs.judgeCard.weaknesses")}
-          value={candidate.weaknesses_text ?? t("runs.judgeCard.noWeaknesses")}
-        />
-      </div>
-
-      <div className="mt-2.5 space-y-2">
-        <FeedbackBlock
-          label={t("runs.judgeCard.shortFeedback")}
-          value={candidate.short_feedback ?? t("runs.judgeCard.noShortFeedback")}
-        />
-        <FeedbackBlock
-          label={t("runs.judgeCard.detailedFeedback")}
-          value={candidate.detailed_feedback ?? t("runs.judgeCard.noDetailedFeedback")}
-        />
-      </div>
-    </div>
+    <CandidateFeedbackAccordion
+      candidate={candidate}
+      model={model}
+      onOpenResponse={response ? () => onSelectResponse(response.id) : undefined}
+    />
   );
 }
 
-function ScoreStat({ label, value }: { label: string; value: string }) {
+function ScoreStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div
       className={cn(
-        "rounded-lg border px-2 py-2 text-center",
+        "rounded-lg border px-2 py-2 text-center transition-all duration-200",
         scoreToneClasses(value, "soft"),
       )}
     >
@@ -2111,7 +2526,7 @@ function FeedbackBlock({
   value: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/80 bg-slate-50 p-2.5">
+    <div className="rounded-lg border border-border/80 bg-slate-50 p-2.5 transition-colors duration-200 hover:bg-white">
       <div className="flex items-center gap-1.5">
         {Icon ? <Icon className="h-3 w-3 text-slate-400" /> : null}
         <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -2119,6 +2534,127 @@ function FeedbackBlock({
         </p>
       </div>
       <p className="mt-1.5 text-xs leading-5 text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function CandidateFeedbackAccordion({
+  candidate,
+  model,
+  onOpenResponse,
+}: {
+  candidate: JudgeEvaluationCandidate;
+  model: RunModelSnapshot | undefined;
+  onOpenResponse?: () => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        "group rounded-xl border border-border/80 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-[0_20px_40px_-32px_rgba(15,23,42,0.22)]",
+        isExpanded && "shadow-[0_20px_44px_-34px_rgba(15,23,42,0.26)]",
+      )}
+    >
+      <div
+        className={cn(
+          "p-3 outline-none transition-colors duration-200",
+          onOpenResponse &&
+            "cursor-pointer active:scale-[0.997]",
+        )}
+        onClick={() => onOpenResponse?.()}
+        onKeyDown={(event) => {
+          if (!onOpenResponse) {
+            return;
+          }
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpenResponse();
+          }
+        }}
+        role={onOpenResponse ? "button" : undefined}
+        tabIndex={onOpenResponse ? 0 : undefined}
+      >
+        <div className="grid items-start gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
+              {candidate.anonymized_candidate_label}
+            </span>
+            <p className="min-w-0 truncate text-sm font-semibold text-slate-950 transition-colors duration-150 group-hover:text-slate-700">
+              {model?.display_name ?? "Candidate model"}
+            </p>
+            <MetaPill label={`Rank ${candidate.ranking_in_batch}`} />
+            <span className="truncate text-xs text-slate-400">
+              {model ? `${model.provider_type} / ${model.runtime_type}` : ""}
+            </span>
+          </div>
+          <div
+            className={cn(
+              "justify-self-start rounded-lg border px-3 py-1.5 text-center md:justify-self-end",
+              scoreToneClasses(candidate.overall_score, "soft"),
+            )}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Overall
+            </p>
+            <p className="mt-0.5 text-xl font-semibold leading-none">
+              {formatScore(candidate.overall_score)}
+            </p>
+          </div>
+        </div>
+        <div className="mt-2.5 grid grid-cols-[2.5rem_repeat(3,minmax(0,1fr))] gap-2 sm:grid-cols-[2.5rem_repeat(6,minmax(0,1fr))]">
+          <button
+            className={cn(
+              "flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 transition-all duration-200 hover:border-slate-300 hover:bg-white active:scale-[0.97]",
+              isExpanded && "bg-slate-100",
+            )}
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsExpanded((current) => !current);
+            }}
+            type="button"
+          >
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-slate-400 transition-all duration-200 group-hover:text-slate-500",
+                isExpanded && "rotate-180 text-slate-600",
+              )}
+            />
+          </button>
+          <ScoreStat label="Relevance" value={candidate.relevance_score} />
+          <ScoreStat label="Accuracy" value={candidate.accuracy_score} />
+          <ScoreStat label="Completeness" value={candidate.completeness_score} />
+          <ScoreStat label="Clarity" value={candidate.clarity_score} />
+          <ScoreStat label="Instruction" value={candidate.instruction_following_score} />
+          <ScoreStat label="Confidence" value={candidate.judge_confidence_score ?? "—"} />
+        </div>
+      </div>
+      {isExpanded ? (
+        <div className="border-t border-border/70 bg-slate-50 p-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <FeedbackBlock
+              icon={Sparkles}
+              label="Strengths"
+              value={candidate.strengths_text ?? "No strengths summary provided."}
+            />
+            <FeedbackBlock
+              icon={Clock3}
+              label="Weaknesses"
+              value={candidate.weaknesses_text ?? "No weaknesses summary provided."}
+            />
+          </div>
+          <div className="mt-2 space-y-2">
+            <FeedbackBlock
+              label="Short feedback"
+              value={candidate.short_feedback ?? "No short feedback provided."}
+            />
+            <FeedbackBlock
+              label="Detailed feedback"
+              value={candidate.detailed_feedback ?? "No detailed feedback provided."}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2179,10 +2715,57 @@ function modelById(items: RunModelSnapshot[], id: number) {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(i18next.language, {
+  return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function consolidateCandidateResponses(responses: CandidateResponse[]): CandidateResponse[] {
+  const byPair = new Map<string, CandidateResponse>();
+
+  for (const response of responses) {
+    const key = `${response.prompt_snapshot_id}:${response.model_snapshot_id}`;
+    const current = byPair.get(key);
+
+    if (!current || isMoreRecentCandidateResponse(response, current)) {
+      byPair.set(key, response);
+    }
+  }
+
+  return Array.from(byPair.values()).sort((left, right) => {
+    if (left.prompt_snapshot_id !== right.prompt_snapshot_id) {
+      return left.prompt_snapshot_id - right.prompt_snapshot_id;
+    }
+    return left.model_snapshot_id - right.model_snapshot_id;
+  });
+}
+
+function isMoreRecentCandidateResponse(
+  next: CandidateResponse,
+  current: CandidateResponse,
+): boolean {
+  if (next.retry_count !== current.retry_count) {
+    return next.retry_count > current.retry_count;
+  }
+
+  const nextTimestamp = candidateResponseTimestamp(next);
+  const currentTimestamp = candidateResponseTimestamp(current);
+  if (nextTimestamp !== currentTimestamp) {
+    return nextTimestamp > currentTimestamp;
+  }
+
+  return next.id > current.id;
+}
+
+function candidateResponseTimestamp(response: CandidateResponse): number {
+  const value = response.completed_at ?? response.started_at;
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 function formatDuration(value: number | null | undefined): string {

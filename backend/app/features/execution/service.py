@@ -54,6 +54,7 @@ class PreparedExecutionTask:
     secret: str | None
     adapter: BaseInferenceAdapter
     local_confirmed_at: datetime | None = None
+    started_at: datetime | None = None
 
 
 @dataclass
@@ -406,6 +407,8 @@ class ExecutionService:
         if not tasks:
             return
 
+        await self._mark_tasks_running(tasks)
+
         results = await asyncio.gather(
             *(self._run_prepared_task(task) for task in tasks),
         )
@@ -464,6 +467,17 @@ class ExecutionService:
                     extra_metrics_jsonb=None,
                 )
 
+    async def _mark_tasks_running(self, tasks: list[PreparedExecutionTask]) -> None:
+        for task in tasks:
+            started_at = datetime.now(UTC)
+            task.started_at = started_at
+            task.response.status = "running"
+            task.response.started_at = started_at
+            task.response.completed_at = None
+            task.response.error_message = None
+
+        await self.repository.commit()
+
     async def _advance_run_after_candidate_execution(self, run: SessionRun) -> None:
         if self._find_next_local_model(run) is not None:
             run.status = "waiting_local"
@@ -503,10 +517,7 @@ class ExecutionService:
                 error_message="Source model profile not found.",
             )
 
-        started_at = datetime.now(UTC)
-        response.status = "running"
-        response.started_at = started_at
-        response.error_message = None
+        started_at = task.started_at or datetime.now(UTC)
         try:
             result = await task.adapter.generate(
                 endpoint_url=task.endpoint_url,

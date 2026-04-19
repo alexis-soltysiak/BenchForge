@@ -186,6 +186,7 @@ export type RunJudging = {
   total_batches: number;
   completed_batches: number;
   failed_batches: number;
+  running_batches: number;
   pending_batches: number;
   items: JudgeBatch[];
 };
