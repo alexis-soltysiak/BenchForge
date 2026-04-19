@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -34,6 +35,7 @@ import type {
   ApiKeyPreset,
   ApiKeyPresetPayload,
 } from "@/features/settings/api-keys-types";
+import { persistLanguage, getStoredAppLanguage, type AppLanguage } from "@/i18n";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -43,106 +45,6 @@ type SettingsPageProps = {
   onThemeChange: (theme: AppTheme) => void;
   onNavigateToSection: (section: SettingsSection) => void;
 };
-
-const settingsSections: Array<{
-  id: SettingsSection;
-  title: string;
-  description: string;
-  icon: typeof Palette;
-}> = [
-  {
-    id: "theme",
-    title: "Theme",
-    description: "Choisir l’ambiance visuelle du workspace",
-    icon: Palette,
-  },
-  {
-    id: "api-keys",
-    title: "API Keys",
-    description: "Renseigner des clés locales pour les providers",
-    icon: KeyRound,
-  },
-  {
-    id: "language",
-    title: "Language",
-    description: "Préparer la langue de l’interface",
-    icon: Languages,
-  },
-];
-
-const themeOptions: Array<{
-  id: AppTheme;
-  name: string;
-  description: string;
-  icon: typeof SunMedium;
-  previewClassName: string;
-}> = [
-  {
-    id: "light",
-    name: "Paper White",
-    description: "La base claire et nette, proche de l’interface actuelle.",
-    icon: SunMedium,
-    previewClassName:
-      "bg-[linear-gradient(135deg,_rgba(255,255,255,1),_rgba(239,246,255,1))]",
-  },
-  {
-    id: "night",
-    name: "Night Slate",
-    description: "Bleu nuit dense pour les longues sessions et les écrans sombres.",
-    icon: MoonStar,
-    previewClassName:
-      "bg-[linear-gradient(135deg,_rgba(15,23,42,1),_rgba(30,41,59,1))]",
-  },
-  {
-    id: "noir",
-    name: "Carbon Noir",
-    description: "Un sombre plus chaud, plus contrasté, presque editorial.",
-    icon: MoonStar,
-    previewClassName:
-      "bg-[linear-gradient(135deg,_rgba(18,18,20,1),_rgba(34,28,26,1))]",
-  },
-  {
-    id: "sand",
-    name: "Dune Sand",
-    description: "Palette sable, solaire et mate, moins clinique que le blanc pur.",
-    icon: Palette,
-    previewClassName:
-      "bg-[linear-gradient(135deg,_rgba(250,246,236,1),_rgba(244,232,209,1))]",
-  },
-  {
-    id: "forest",
-    name: "Canopy Forest",
-    description: "Verts doux et profonds, plus organiques sans virer fantasy.",
-    icon: Palette,
-    previewClassName:
-      "bg-[linear-gradient(135deg,_rgba(239,248,242,1),_rgba(220,239,228,1))]",
-  },
-  {
-    id: "ocean",
-    name: "Tidal Ocean",
-    description: "Bleus aqua et surfaces fraîches, plus calmes et plus fluides.",
-    icon: Globe,
-    previewClassName:
-      "bg-[linear-gradient(135deg,_rgba(239,252,255,1),_rgba(218,243,249,1))]",
-  },
-];
-
-const languageOptions = [
-  {
-    id: "fr",
-    label: "Francais",
-    nativeLabel: "Français",
-    description: "Interface orientee FR pour le studio et les pages internes.",
-    badge: "Default draft",
-  },
-  {
-    id: "en",
-    label: "English",
-    nativeLabel: "English",
-    description: "Interface orientee EN pour un usage plus international.",
-    badge: "Ready for later",
-  },
-] as const;
 
 const apiKeyProviderSuggestions = [
   "openai",
@@ -175,10 +77,119 @@ export function SettingsPage({
   onThemeChange,
   onNavigateToSection,
 }: SettingsPageProps) {
-  const [selectedLanguage, setSelectedLanguage] = useState<"fr" | "en">("fr");
+  const { t, i18n } = useTranslation();
+  const [selectedLanguage, setSelectedLanguage] = useState<AppLanguage>(
+    () => getStoredAppLanguage(),
+  );
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [newPreset, setNewPreset] = useState<ApiKeyPresetDraft>(emptyApiKeyPresetDraft);
   const [presetDrafts, setPresetDrafts] = useState<Record<number, ApiKeyPresetDraft>>({});
+
+  const settingsSections: Array<{
+    id: SettingsSection;
+    title: string;
+    description: string;
+    icon: typeof Palette;
+  }> = [
+    {
+      id: "theme",
+      title: t("settings.theme.sidebarTitle"),
+      description: t("settings.theme.sidebarDesc"),
+      icon: Palette,
+    },
+    {
+      id: "api-keys",
+      title: t("settings.apiKeys.sidebarTitle"),
+      description: t("settings.apiKeys.sidebarDesc"),
+      icon: KeyRound,
+    },
+    {
+      id: "language",
+      title: t("settings.language.sidebarTitle"),
+      description: t("settings.language.sidebarDesc"),
+      icon: Languages,
+    },
+  ];
+
+  const themeOptions: Array<{
+    id: AppTheme;
+    name: string;
+    description: string;
+    icon: typeof SunMedium;
+    previewClassName: string;
+  }> = [
+    {
+      id: "light",
+      name: t("theme.paperWhite.name"),
+      description: t("theme.paperWhite.description"),
+      icon: SunMedium,
+      previewClassName:
+        "bg-[linear-gradient(135deg,_rgba(255,255,255,1),_rgba(239,246,255,1))]",
+    },
+    {
+      id: "night",
+      name: t("theme.nightSlate.name"),
+      description: t("theme.nightSlate.description"),
+      icon: MoonStar,
+      previewClassName:
+        "bg-[linear-gradient(135deg,_rgba(15,23,42,1),_rgba(30,41,59,1))]",
+    },
+    {
+      id: "noir",
+      name: t("theme.carbonNoir.name"),
+      description: t("theme.carbonNoir.description"),
+      icon: MoonStar,
+      previewClassName:
+        "bg-[linear-gradient(135deg,_rgba(18,18,20,1),_rgba(34,28,26,1))]",
+    },
+    {
+      id: "sand",
+      name: t("theme.duneSand.name"),
+      description: t("theme.duneSand.description"),
+      icon: Palette,
+      previewClassName:
+        "bg-[linear-gradient(135deg,_rgba(250,246,236,1),_rgba(244,232,209,1))]",
+    },
+    {
+      id: "forest",
+      name: t("theme.canopyForest.name"),
+      description: t("theme.canopyForest.description"),
+      icon: Palette,
+      previewClassName:
+        "bg-[linear-gradient(135deg,_rgba(239,248,242,1),_rgba(220,239,228,1))]",
+    },
+    {
+      id: "ocean",
+      name: t("theme.tidalOcean.name"),
+      description: t("theme.tidalOcean.description"),
+      icon: Globe,
+      previewClassName:
+        "bg-[linear-gradient(135deg,_rgba(239,252,255,1),_rgba(218,243,249,1))]",
+    },
+  ];
+
+  const languageOptions: Array<{
+    id: AppLanguage;
+    nativeLabel: string;
+    label: string;
+    description: string;
+    badge: string;
+  }> = [
+    {
+      id: "fr",
+      nativeLabel: t("language.fr.native"),
+      label: t("language.fr.label"),
+      description: t("language.fr.description"),
+      badge: t("language.fr.badge"),
+    },
+    {
+      id: "en",
+      nativeLabel: t("language.en.native"),
+      label: t("language.en.label"),
+      description: t("language.en.description"),
+      badge: t("language.en.badge"),
+    },
+  ];
 
   const apiKeyPresetsQuery = useQuery({
     queryKey: ["api-key-presets"],
@@ -187,13 +198,19 @@ export function SettingsPage({
 
   const activeSectionMeta = useMemo(
     () => settingsSections.find((section) => section.id === activeSection),
-    [activeSection],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeSection, i18n.language],
   );
 
   const handleThemeSelect = (theme: AppTheme) => {
     persistTheme(theme);
     applyTheme(theme);
     onThemeChange(theme);
+  };
+
+  const handleLanguageSelect = (lang: AppLanguage) => {
+    setSelectedLanguage(lang);
+    persistLanguage(lang);
   };
 
   useEffect(() => {
@@ -217,11 +234,11 @@ export function SettingsPage({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["api-key-presets"] });
       setNewPreset(emptyApiKeyPresetDraft);
-      setSaveMessage("API key preset created.");
+      setSaveMessage(t("apiKeys.created"));
     },
     onError: (error) => {
       setSaveMessage(
-        error instanceof ApiError ? error.message : "Unable to create API key preset.",
+        error instanceof ApiError ? error.message : t("apiKeys.errorCreate"),
       );
     },
   });
@@ -231,11 +248,11 @@ export function SettingsPage({
       updateApiKeyPreset(presetId, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["api-key-presets"] });
-      setSaveMessage("API key preset updated.");
+      setSaveMessage(t("apiKeys.updated"));
     },
     onError: (error) => {
       setSaveMessage(
-        error instanceof ApiError ? error.message : "Unable to update API key preset.",
+        error instanceof ApiError ? error.message : t("apiKeys.errorUpdate"),
       );
     },
   });
@@ -244,11 +261,11 @@ export function SettingsPage({
     mutationFn: deleteApiKeyPreset,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["api-key-presets"] });
-      setSaveMessage("API key preset deleted.");
+      setSaveMessage(t("apiKeys.deleted"));
     },
     onError: (error) => {
       setSaveMessage(
-        error instanceof ApiError ? error.message : "Unable to delete API key preset.",
+        error instanceof ApiError ? error.message : t("apiKeys.errorDelete"),
       );
     },
   });
@@ -291,10 +308,10 @@ export function SettingsPage({
       <div className="grid gap-4 xl:grid-cols-[15.5rem_minmax(0,1fr)]">
         <Card className="h-fit border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-3 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.18)] sm:p-3.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
-            Settings
+            {t("settings.title")}
           </p>
           <h1 className="mt-1.5 font-display text-[1.65rem] font-semibold tracking-tight text-foreground">
-            Workspace preferences
+            {t("settings.workspacePreferences")}
           </h1>
           <div className="mt-3 space-y-2">
             {settingsSections.map((section) => {
@@ -345,21 +362,21 @@ export function SettingsPage({
             <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.14),_transparent_60%)]" />
             <div className="relative">
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--foreground-soft))]">
-                {activeSectionMeta?.title ?? "Settings"}
+                {activeSectionMeta?.title ?? t("settings.title")}
               </p>
               <h2 className="mt-2 font-display text-[2rem] font-semibold tracking-tight text-foreground">
                 {activeSection === "theme"
-                  ? "Theme page"
+                  ? t("settings.theme.pageHeading")
                   : activeSection === "api-keys"
-                    ? "API Key page"
-                    : "Language page"}
+                    ? t("settings.apiKeys.pageHeading")
+                    : t("settings.language.pageHeading")}
               </h2>
               <p className="mt-2 max-w-2xl text-[0.92rem] leading-6 text-[hsl(var(--foreground-soft))]">
                 {activeSection === "theme"
-                  ? "Chaque sélection applique immédiatement une ambiance globale à BenchForge."
+                  ? t("settings.theme.pageDesc")
                   : activeSection === "api-keys"
-                    ? "Crée des presets réutilisables par provider, puis sélectionne-les dans la création ou l’édition de modèles."
-                    : "UI only pour l’instant. Cette page prépare le futur choix de langue sans brancher encore la traduction réelle."}
+                    ? t("settings.apiKeys.pageDesc")
+                    : t("settings.language.pageDesc")}
               </p>
             </div>
           </Card>
@@ -415,7 +432,7 @@ export function SettingsPage({
                       onClick={() => handleThemeSelect(option.id)}
                       variant={isActive ? "secondary" : "primary"}
                     >
-                      {isActive ? "Active" : "Apply"}
+                      {isActive ? t("theme.active") : t("theme.apply")}
                     </Button>
                   </Card>
                 );
@@ -428,18 +445,17 @@ export function SettingsPage({
               <Card className="border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-4 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.18)]">
                 <div className="flex items-center gap-2 text-foreground">
                   <Plus className="h-4 w-4" />
-                  <p className="text-[0.92rem] font-semibold">Add API key preset</p>
+                  <p className="text-[0.92rem] font-semibold">{t("apiKeys.addPreset")}</p>
                 </div>
                 <p className="mt-2 text-[0.86rem] leading-5 text-[hsl(var(--foreground-soft))]">
-                  Donne un nom, choisis un provider, puis colle la clé. Ce preset
-                  pourra ensuite être réutilisé depuis la page Models.
+                  {t("apiKeys.addPresetDesc")}
                 </p>
 
                 <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_auto]">
                   <Input
                     autoComplete="off"
                     className="h-10 text-[0.92rem]"
-                    placeholder="Ex: OpenAI prod"
+                    placeholder={t("apiKeys.namePlaceholder")}
                     value={newPreset.name}
                     onChange={(event) =>
                       setNewPreset((current) => ({
@@ -485,7 +501,7 @@ export function SettingsPage({
                     onClick={() => void handleCreatePreset()}
                     type="button"
                   >
-                    Add line
+                    {t("apiKeys.addLine")}
                   </Button>
                 </div>
               </Card>
@@ -494,16 +510,16 @@ export function SettingsPage({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[0.92rem] font-semibold text-foreground">
-                      Registered presets
+                      {t("apiKeys.registeredPresets")}
                     </p>
                     <p className="mt-1 text-[0.86rem] text-[hsl(var(--foreground-soft))]">
-                      Chaque modèle pourra soit utiliser une clé manuelle, soit un preset.
+                      {t("apiKeys.registeredPresetsDesc")}
                     </p>
                   </div>
                   <div className="rounded-[1.2rem] border border-border bg-[hsl(var(--surface-muted))] p-3">
                     <div className="flex items-center gap-2 text-foreground">
                       <LockKeyhole className="h-4 w-4" />
-                      <p className="text-[0.88rem] font-semibold">Encrypted in backend</p>
+                      <p className="text-[0.88rem] font-semibold">{t("apiKeys.encryptedInBackend")}</p>
                     </div>
                   </div>
                 </div>
@@ -564,8 +580,8 @@ export function SettingsPage({
                             disabled={preset.has_secret}
                             placeholder={
                               preset.has_secret
-                                ? `Stored key: ${preset.secret_preview ?? "******"}`
-                                : "Paste a new API key"
+                                ? `${t("apiKeys.storedKeyPrefix")} ${preset.secret_preview ?? "******"}`
+                                : t("apiKeys.pasteNewKey")
                             }
                             type="password"
                             value={draft.secret}
@@ -590,15 +606,15 @@ export function SettingsPage({
                             type="button"
                             variant="secondary"
                           >
-                            Save
+                            {t("apiKeys.save")}
                           </Button>
                           <Button
-                            aria-label={`Delete ${preset.name}`}
+                            aria-label={`${t("apiKeys.delete")} ${preset.name}`}
                             className="h-10 w-10"
                             disabled={deletePresetMutation.isPending}
                             onClick={() => void deletePresetMutation.mutateAsync(preset.id)}
                             size="icon"
-                            title={`Delete ${preset.name}`}
+                            title={`${t("apiKeys.delete")} ${preset.name}`}
                             type="button"
                             variant="dangerSoft"
                           >
@@ -610,7 +626,7 @@ export function SettingsPage({
                   </div>
                 ) : (
                   <div className="mt-4 rounded-[1.2rem] border border-dashed border-[hsl(var(--border))] bg-[hsl(var(--surface-muted))] px-4 py-6 text-sm text-[hsl(var(--foreground-soft))]">
-                    No API key preset yet. Add the first line above.
+                    {t("apiKeys.noPresetYet")}
                   </div>
                 )}
 
@@ -694,10 +710,10 @@ export function SettingsPage({
 
                       <Button
                         className="mt-4 h-10 w-full text-[0.92rem]"
-                        onClick={() => setSelectedLanguage(option.id)}
+                        onClick={() => handleLanguageSelect(option.id)}
                         variant={isActive ? "secondary" : "primary"}
                       >
-                        {isActive ? "Selected in UI" : "Select"}
+                        {isActive ? t("language.selected") : t("language.select")}
                       </Button>
                     </Card>
                   );
@@ -707,23 +723,15 @@ export function SettingsPage({
               <Card className="border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-4 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.18)]">
                 <div className="flex items-center gap-2 text-foreground">
                   <Languages className="h-4 w-4" />
-                  <p className="text-[0.92rem] font-semibold">Preview state</p>
+                  <p className="text-[0.92rem] font-semibold">{t("language.previewState")}</p>
                 </div>
-                <p className="mt-2.5 text-[0.86rem] leading-5 text-[hsl(var(--foreground-soft))]">
-                  Cette version ne change pas encore les textes de l’application.
-                  Elle sert uniquement a poser l’UI et le futur emplacement du
-                  parametre de langue.
-                </p>
 
                 <div className="mt-4 rounded-[1.2rem] border border-border bg-[hsl(var(--surface-muted))] p-3.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[hsl(var(--foreground-soft))]">
-                    Current mock selection
+                    {t("language.currentSelection")}
                   </p>
                   <p className="mt-2 text-[1.5rem] font-semibold text-foreground">
                     {selectedLanguage === "fr" ? "Français" : "English"}
-                  </p>
-                  <p className="mt-1.5 text-[0.86rem] text-[hsl(var(--foreground-soft))]">
-                    Aucun wiring i18n n’est branche pour le moment.
                   </p>
                 </div>
               </Card>

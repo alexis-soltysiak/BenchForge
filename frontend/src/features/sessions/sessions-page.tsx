@@ -1,5 +1,6 @@
 import type { ComponentProps, FormEvent, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import {
   BadgeInfo,
@@ -117,6 +118,7 @@ function matchesArchiveState(session: Session, showArchived: boolean): boolean {
 type SessionSelectionStep = "prompts" | "candidates" | "judges";
 
 export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => void }) {
+  const { t } = useTranslation();
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -211,8 +213,8 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       await refreshSessions();
       setFeedback(
         selectedSession
-          ? `Session "${session.name}" updated.`
-          : `Session "${session.name}" created.`,
+          ? t("sessions.feedback.updated", { name: session.name })
+          : t("sessions.feedback.created", { name: session.name }),
       );
       setIsEditorOpen(false);
       startTransition(() => {
@@ -221,7 +223,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       });
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to save session.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorSave"));
     },
   });
 
@@ -229,19 +231,19 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     mutationFn: (sessionId: number) => archiveSession(sessionId),
     onSuccess: async (session) => {
       await refreshSessions();
-      setFeedback(`Session "${session.name}" archived.`);
+      setFeedback(t("sessions.feedback.archived", { name: session.name }));
       setIsEditorOpen(false);
       startTransition(() => setSelectedSession(showArchived ? session : null));
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
   const duplicateMutation = useMutation({
     mutationFn: (sessionId: number) => duplicateSession(sessionId),
     onSuccess: async (session) => {
       await refreshSessions();
-      setFeedback(`Session duplicated as "${session.name}".`);
+      setFeedback(t("sessions.feedback.duplicated", { name: session.name }));
       startTransition(() => setSelectedSession(session));
     },
     onError: (error) => {
@@ -253,11 +255,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       addSessionPrompt(sessionId, promptId),
     onSuccess: (session) => {
       syncSessionState(session);
-      setFeedback("Prompt added to session.");
+      setFeedback(t("sessions.feedback.promptAdded"));
       void refreshSessions();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
   const removePromptMutation = useMutation({
@@ -265,11 +267,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       removeSessionPrompt(sessionId, itemId),
     onSuccess: (session) => {
       syncSessionState(session);
-      setFeedback("Prompt removed from session.");
+      setFeedback(t("sessions.feedback.promptRemoved"));
       void refreshSessions();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
   const addCandidateMutation = useMutation({
@@ -277,11 +279,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       addSessionCandidate(sessionId, modelId),
     onSuccess: (session) => {
       syncSessionState(session);
-      setFeedback("Candidate added to session.");
+      setFeedback(t("sessions.feedback.candidateAdded"));
       void refreshSessions();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
   const removeCandidateMutation = useMutation({
@@ -289,11 +291,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       removeSessionCandidate(sessionId, itemId),
     onSuccess: (session) => {
       syncSessionState(session);
-      setFeedback("Candidate removed from session.");
+      setFeedback(t("sessions.feedback.candidateRemoved"));
       void refreshSessions();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
   const addJudgeMutation = useMutation({
@@ -301,7 +303,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       addSessionJudge(sessionId, modelId),
     onSuccess: (session) => {
       syncSessionState(session);
-      setFeedback("Judge added to session.");
+      setFeedback(t("sessions.feedback.judgeAdded"));
       void refreshSessions();
     },
     onError: (error) => {
@@ -312,11 +314,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     mutationFn: (sessionId: number) => launchSessionRun(sessionId),
     onSuccess: async (run) => {
       await queryClient.invalidateQueries({ queryKey: ["runs"] });
-      setFeedback(`Run "${run.name}" launched.`);
+      setFeedback(t("sessions.feedback.runLaunched", { name: run.name }));
       onOpenRun?.(run.id);
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to launch run.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorLaunch"));
     },
   });
   const removeJudgeMutation = useMutation({
@@ -324,11 +326,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       removeSessionJudge(sessionId, itemId),
     onSuccess: (session) => {
       syncSessionState(session);
-      setFeedback("Judge removed from session.");
+      setFeedback(t("sessions.feedback.judgeRemoved"));
       void refreshSessions();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
 
@@ -432,10 +434,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
           <div className="relative max-w-[30rem] space-y-2">
             <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-950">
-              Benchmark Setup
+              {t("sessions.benchmarkSetup")}
             </span>
             <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
-              Sessions
+              {t("sessions.pageTitle")}
             </h1>
           </div>
           <div className="grid gap-1.5 sm:grid-cols-3">
@@ -443,7 +445,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
               compact
               className="rounded-[1.2rem]"
               icon={Layers3}
-              label="Visible Sessions"
+              label={t("sessions.metricVisible")}
               tone="emerald"
               value={String(visibleSessions.length)}
             />
@@ -451,7 +453,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
               compact
               className="rounded-[1.2rem]"
               icon={Users}
-              label="Prompt Library"
+              label={t("sessions.metricPromptLibrary")}
               tone="emerald"
               value={String(promptsQuery.data?.total ?? 0)}
             />
@@ -459,7 +461,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
               compact
               className="rounded-[1.2rem]"
               icon={ShieldCheck}
-              label="Model Registry"
+              label={t("sessions.metricModelRegistry")}
               tone="emerald"
               value={String(modelsQuery.data?.total ?? 0)}
             />
@@ -472,14 +474,14 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Sessions List</h2>
+                <h2 className="text-lg font-semibold text-foreground">{t("sessions.listTitle")}</h2>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <label className="relative block min-w-64">
                   <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
-                    placeholder="Search sessions"
+                    placeholder={t("sessions.searchPlaceholder")}
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                   />
@@ -489,7 +491,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                   variant={showArchived ? "secondary" : "ghost"}
                   onClick={() => setShowArchived((current) => !current)}
                 >
-                  {showArchived ? "Show unarchived" : "Show archived"}
+                  {showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
                 </Button>
                 <Button
                   className="h-10 rounded-[1rem] px-3.5 text-[0.95rem]"
@@ -500,11 +502,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                   variant="secondary"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
-                  Configure selection
+                  {t("sessions.configureSelection")}
                 </Button>
                 <Button className="h-10 rounded-[1rem] px-4 text-[0.95rem]" onClick={openCreateModal}>
                   <Plus className="h-4 w-4" />
-                  New session
+                  {t("sessions.newSession")}
                 </Button>
               </div>
             </div>
@@ -514,7 +516,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             <LoadErrorState
               message={loadError}
               onRetry={retryLoad}
-              resourceLabel="sessions"
+              resourceLabel={t("sessions.pageTitle")}
             />
           ) : null}
 
@@ -529,12 +531,12 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             archiveMutation.isPending ||
             duplicateMutation.isPending) && (
             <div className="border-b border-border/70 px-5 py-3 text-sm text-[hsl(var(--foreground-soft))]">
-              Syncing changes...
+              {t("sessions.syncing")}
             </div>
           )}
           {launchMutation.isPending && (
             <div className="border-b border-border/70 px-5 py-3 text-sm text-[hsl(var(--foreground-soft))]">
-              Launching run...
+              {t("sessions.launching")}
             </div>
           )}
 
@@ -542,23 +544,23 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             <table className="min-w-full text-left">
               <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                 <tr>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">Session</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">Composition</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">Rubric</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">Updated</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">Status</th>
-                  <th className="px-3 py-2 font-semibold text-right lg:px-3.5">Actions</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colSession")}</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colComposition")}</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colRubric")}</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colUpdated")}</th>
+                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colStatus")}</th>
+                  <th className="px-3 py-2 font-semibold text-right lg:px-3.5">{t("sessions.colActions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {sessionsQuery.isLoading ? (
-                  <TableEmptyRow message="Loading sessions..." />
+                  <TableEmptyRow message={t("sessions.loading")} />
                 ) : visibleSessions.length === 0 ? (
                   <TableEmptyRow
                     message={
                       showArchived
-                        ? "No archived sessions yet."
-                        : "No sessions found. Create a benchmark session with seeded prompts and registered models to launch your first run."
+                        ? t("sessions.noArchivedYet")
+                        : t("sessions.emptyState")
                     }
                   />
                 ) : (
@@ -585,17 +587,17 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                               {session.name}
                             </p>
                             <p className="max-w-sm text-[0.92rem] text-[hsl(var(--foreground-soft))]">
-                              {session.description ?? "No description"}
+                              {session.description ?? t("sessions.noDescription")}
                             </p>
                           </div>
                         </td>
                         <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                           <div className="flex flex-wrap gap-2">
-                            <Badge variant="neutral">{session.prompts.length} prompts</Badge>
+                            <Badge variant="neutral">{t("sessions.compositionPrompts", { count: session.prompts.length })}</Badge>
                             <Badge variant="neutral">
-                              {session.candidates.length}/{session.max_candidates} candidates
+                              {t("sessions.compositionCandidates", { count: session.candidates.length, max: session.max_candidates })}
                             </Badge>
-                            <Badge variant="neutral">{session.judges.length} judges</Badge>
+                            <Badge variant="neutral">{t("sessions.compositionJudges", { count: session.judges.length })}</Badge>
                           </div>
                         </td>
                         <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
@@ -614,9 +616,9 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                         <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             <ActionIconButton
-                              aria-label={`Configure ${session.name}`}
-                              description="Open the step-by-step selection flow for prompts, candidates, and judge."
-                              label="Configure"
+                              aria-label={`${t("sessions.action.configure")} ${session.name}`}
+                              description={t("sessions.action.configureDesc")}
+                              label={t("sessions.action.configure")}
                               onClick={() => openSelectionModal(session, "prompts")}
                               size="iconSm"
                               variant="soft"
@@ -624,9 +626,9 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                               <SlidersHorizontal className="h-4 w-4" />
                             </ActionIconButton>
                             <ActionIconButton
-                              aria-label={`Edit ${session.name}`}
-                              description="Edit the session name, description, status, candidate limit, and rubric version."
-                              label="Edit"
+                              aria-label={`${t("sessions.action.edit")} ${session.name}`}
+                              description={t("sessions.action.editDesc")}
+                              label={t("sessions.action.edit")}
                               onClick={() => openEditModal(session)}
                               size="iconSm"
                               variant="soft"
@@ -634,10 +636,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                               <PencilLine className="h-4 w-4" />
                             </ActionIconButton>
                             <ActionIconButton
-                              aria-label={`Launch ${session.name}`}
-                              description="Create and start a new benchmark run from this session configuration."
+                              aria-label={`${t("sessions.action.launch")} ${session.name}`}
+                              description={t("sessions.action.launchDesc")}
                               disabled={launchMutation.isPending}
-                              label="Launch"
+                              label={t("sessions.action.launch")}
                               onClick={() => launchMutation.mutate(session.id)}
                               size="iconSm"
                               variant="secondary"
@@ -645,10 +647,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                               <Rocket className="h-4 w-4" />
                             </ActionIconButton>
                             <ActionIconButton
-                              aria-label={`Duplicate ${session.name}`}
-                              description="Clone this session with its current prompts, candidates, and judge selections."
+                              aria-label={`${t("sessions.action.duplicate")} ${session.name}`}
+                              description={t("sessions.action.duplicateDesc")}
                               disabled={duplicateMutation.isPending}
-                              label="Duplicate"
+                              label={t("sessions.action.duplicate")}
                               onClick={() => duplicateMutation.mutate(session.id)}
                               size="iconSm"
                               variant="secondary"
@@ -656,12 +658,12 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                               <Copy className="h-4 w-4" />
                             </ActionIconButton>
                             <ActionIconButton
-                              aria-label={`Archive ${session.name}`}
-                              description="Archive this session so it disappears from the active list without deleting history."
+                              aria-label={`${t("sessions.action.archive")} ${session.name}`}
+                              description={t("sessions.action.archiveDesc")}
                               disabled={
                                 archiveMutation.isPending || session.status === "archived"
                               }
-                              label="Archive"
+                              label={t("sessions.action.archive")}
                               onClick={() => archiveMutation.mutate(session.id)}
                               size="iconSm"
                               variant="dangerSoft"
@@ -681,12 +683,12 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       </section>
 
       <Modal
-        description="Create a benchmark session or update the selected one without leaving the setup screen."
+        description={t("sessions.modal.description")}
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
         size="xxl"
         tone="emerald"
-        title={selectedSession ? "Edit session" : "Create session"}
+        title={t(selectedSession ? "sessions.editModal.title" : "sessions.createModal.title")}
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
           {loadError ? (
@@ -694,11 +696,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           ) : null}
 
           <Field
-            hint='Example: "Release Notes Benchmark - April"'
-            label="Name"
+            hint={t("sessions.form.nameHint")}
+            label={t("sessions.form.name")}
           >
             <Input
-              placeholder="Release Notes Benchmark - April"
+              placeholder={t("sessions.form.namePlaceholder")}
               required
               value={formState.name}
               onChange={(event) =>
@@ -708,12 +710,12 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           </Field>
 
           <Field
-            hint='Example: "Compare three models on product update summarization."'
-            label="Description"
+            hint={t("sessions.form.descriptionHint")}
+            label={t("sessions.form.description")}
           >
             <Textarea
               className="min-h-24"
-              placeholder="Compare three models on product update summarization."
+              placeholder={t("sessions.form.descriptionPlaceholder")}
               value={formState.description}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -726,8 +728,8 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
           <div className="grid gap-4 sm:grid-cols-3">
             <Field
-              hint="Use Draft while configuring, then Ready when the session can be launched."
-              label="Status"
+              hint={t("sessions.form.statusHint")}
+              label={t("sessions.form.status")}
             >
               <Select
                 value={formState.status}
@@ -738,14 +740,14 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                   }))
                 }
               >
-                <option value="draft">Draft</option>
-                <option value="ready">Ready</option>
-                <option value="archived">Archived</option>
+                <option value="draft">{t("sessions.form.status.draft")}</option>
+                <option value="ready">{t("sessions.form.status.ready")}</option>
+                <option value="archived">{t("sessions.form.status.archived")}</option>
               </Select>
             </Field>
             <Field
-              hint="Choose how many candidate model slots this session can accept."
-              label="Max candidates"
+              hint={t("sessions.form.maxCandidatesHint")}
+              label={t("sessions.form.maxCandidates")}
             >
               <Select
                 value={formState.maxCandidates}
@@ -764,8 +766,8 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
               </Select>
             </Field>
             <Field
-              hint='Example: "mvp-v1"'
-              label="Rubric version"
+              hint={t("sessions.form.rubricVersionHint")}
+              label={t("sessions.form.rubricVersion")}
             >
               <Input
                 placeholder="mvp-v1"
@@ -789,11 +791,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
             {selectedSession ? (
               <Button
-                aria-label={`Archive ${selectedSession.name}`}
+                aria-label={t("common.archive", { name: selectedSession.name })}
                 disabled={archiveMutation.isPending || selectedSession.status === "archived"}
                 onClick={() => archiveMutation.mutate(selectedSession.id)}
                 size="iconSm"
-                title={`Archive ${selectedSession.name}`}
+                title={t("common.archive", { name: selectedSession.name })}
                 type="button"
                 variant="dangerSoft"
               >
@@ -801,13 +803,13 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
               </Button>
             ) : null}
             <Button onClick={() => setIsEditorOpen(false)} type="button" variant="soft">
-              Cancel
+              {t("sessions.form.cancel")}
             </Button>
             <Button
               disabled={!formState.name.trim() || saveMutation.isPending}
               type="submit"
             >
-              {selectedSession ? "Save session" : "Create session"}
+              {t(selectedSession ? "sessions.form.saveSession" : "sessions.form.createSession")}
             </Button>
           </div>
         </form>
@@ -818,7 +820,9 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         open={isSelectionOpen}
         size="xl"
         tone="emerald"
-        title={selectedSession ? `Configure ${selectedSession.name}` : "Configure session"}
+        title={selectedSession
+          ? t("sessions.configureModal.title", { name: selectedSession.name })
+          : t("sessions.configureModal.defaultTitle")}
       >
         {selectedSession ? (
           <div className="space-y-4">
@@ -830,18 +834,18 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
             {selectionStep === "prompts" ? (
               <SelectionWorkspace
-                description="Choose the prompts included in this benchmark session."
+                description={t("sessions.selection.promptsDesc")}
                 search={promptSearch}
                 selectedCount={selectedSession.prompts.length}
-                title="Prompts"
+                title={t("sessions.selection.prompts")}
                 onSearchChange={setPromptSearch}
               >
                 <SelectedList
-                  emptyMessage="No prompts selected yet."
+                  emptyMessage={t("sessions.selection.noPromptsYet")}
                   items={selectedSession.prompts.map((item) => ({
                     id: item.id,
                     label: item.prompt_name,
-                    meta: `Order ${item.display_order}`,
+                    meta: t("sessions.selection.orderPrefix", { order: item.display_order }),
                   }))}
                   onRemove={(itemId) =>
                     removePromptMutation.mutate({
@@ -868,14 +872,14 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
             {selectionStep === "candidates" ? (
               <SelectionWorkspace
-                description={`Attach up to ${selectedSession.max_candidates} candidate models for this run configuration.`}
+                description={t("sessions.selection.candidatesDesc", { max: selectedSession.max_candidates })}
                 search={candidateSearch}
                 selectedCount={selectedSession.candidates.length}
-                title="Candidates"
+                title={t("sessions.selection.candidates")}
                 onSearchChange={setCandidateSearch}
               >
                 <SelectedList
-                  emptyMessage="No candidate models selected yet."
+                  emptyMessage={t("sessions.selection.noCandidatesYet")}
                   items={selectedSession.candidates.map((item) => ({
                     id: item.id,
                     label: item.display_name,
@@ -906,14 +910,14 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
             {selectionStep === "judges" ? (
               <SelectionWorkspace
-                description="Assign the judge model responsible for evaluation."
+                description={t("sessions.selection.judgesDesc")}
                 search={judgeSearch}
                 selectedCount={selectedSession.judges.length}
-                title="Judge"
+                title={t("sessions.selection.judges")}
                 onSearchChange={setJudgeSearch}
               >
                 <SelectedList
-                  emptyMessage="No judge selected yet."
+                  emptyMessage={t("sessions.selection.noJudgeYet")}
                   items={selectedSession.judges.map((item) => ({
                     id: item.id,
                     label: item.display_name,
@@ -944,7 +948,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
             <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
               <Button onClick={() => setIsSelectionOpen(false)} type="button" variant="soft">
-                Close
+                {t("sessions.selection.close")}
               </Button>
               {selectionStep !== "judges" ? (
                 <Button
@@ -956,7 +960,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                   type="button"
                   variant="secondary"
                 >
-                  Next step
+                  {t("sessions.selection.nextStep")}
                 </Button>
               ) : null}
             </div>
@@ -986,10 +990,11 @@ function SelectedList({
   items: Array<{ id: number; label: string; meta: string }>;
   onRemove: (itemId: number) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
-        Selected
+        {t("sessions.selection.selected")}
       </p>
       {items.length === 0 ? (
         <p className="text-sm text-[hsl(var(--foreground-soft))]">{emptyMessage ?? "Nothing selected yet."}</p>
@@ -1104,12 +1109,13 @@ function SessionStepSwitcher({
   onStepChange: (step: SessionSelectionStep) => void;
   session: Session;
 }) {
+  const { t } = useTranslation();
   const steps = [
     {
       key: "prompts" as const,
       count: session.prompts.length,
       icon: Layers3,
-      label: "Prompts",
+      label: t("sessions.selection.prompts"),
       activeClassName:
         "border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))] shadow-sm",
       idleClassName:
@@ -1121,7 +1127,7 @@ function SessionStepSwitcher({
       key: "candidates" as const,
       count: session.candidates.length,
       icon: Users,
-      label: "Candidates",
+      label: t("sessions.selection.candidates"),
       activeClassName:
         "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-sm",
       idleClassName:
@@ -1133,7 +1139,7 @@ function SessionStepSwitcher({
       key: "judges" as const,
       count: session.judges.length,
       icon: ShieldCheck,
-      label: "Judge",
+      label: t("sessions.selection.judges"),
       activeClassName:
         "border-[hsl(var(--theme-warning-border))] bg-[hsl(var(--theme-warning-soft))] text-[hsl(var(--theme-warning-foreground))] shadow-sm",
       idleClassName:
@@ -1171,11 +1177,11 @@ function SessionStepSwitcher({
                 </span>
                 <div>
                   <p className="text-sm font-semibold">{step.label}</p>
-                  <p className="text-xs text-[hsl(var(--foreground-soft))]">{step.count} selected</p>
+                  <p className="text-xs text-[hsl(var(--foreground-soft))]">{t("sessions.selection.count", { count: step.count })}</p>
                 </div>
               </div>
               <Badge variant={isActive ? step.badgeVariant : "neutral"}>
-                {isActive ? "Current" : "Open"}
+                {isActive ? t("sessions.selection.current") : t("sessions.selection.open")}
               </Badge>
             </div>
           </button>
@@ -1200,13 +1206,14 @@ function SelectionWorkspace({
   title: string;
   onSearchChange: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface-overlay))] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">{title}</p>
           <h3 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-            {selectedCount} selected
+            {t("sessions.selection.count", { count: selectedCount })}
           </h3>
           <p className="mt-1 text-sm text-[hsl(var(--foreground-soft))]">{description}</p>
         </div>
@@ -1214,7 +1221,7 @@ function SelectionWorkspace({
           <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
           <Input
             className="pl-9"
-            placeholder={`Search ${title.toLowerCase()} library`}
+            placeholder={t("sessions.selection.searchLibrary", { type: title.toLowerCase() })}
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
           />
@@ -1234,13 +1241,14 @@ function LibraryList({
   items: Array<{ id: number; label: string; meta: string }>;
   onAdd: (itemId: number) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
-        Library
+        {t("sessions.selection.library")}
       </p>
       {items.length === 0 ? (
-        <p className="text-sm text-[hsl(var(--foreground-soft))]">No matching items available.</p>
+        <p className="text-sm text-[hsl(var(--foreground-soft))]">{t("sessions.selection.noItems")}</p>
       ) : (
         items.slice(0, 8).map((item) => (
           <div
@@ -1252,7 +1260,7 @@ function LibraryList({
               <p className="text-xs text-[hsl(var(--foreground-soft))]">{item.meta}</p>
             </div>
             <Button size="sm" variant="soft" onClick={() => onAdd(item.id)}>
-              Add
+              {t("sessions.selection.add")}
             </Button>
           </div>
         ))

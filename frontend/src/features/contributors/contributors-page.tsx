@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import contributorsSource from "virtual:contributors-md";
 import { Badge } from "@/components/ui/badge";
@@ -123,6 +124,7 @@ function ContributorItem({
 }
 
 export function ContributorsPage() {
+  const { t } = useTranslation();
   const { mainContributors, otherContributors } = useMemo(() => {
     return {
       mainContributors: contributors.filter((contributor) => contributor.main),
@@ -137,10 +139,10 @@ export function ContributorsPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[hsl(var(--foreground-soft))]">
-              Credits wall
+              {t("contributors.creditsWall")}
             </p>
             <h1 className="text-[1.9rem] font-semibold tracking-tight text-foreground sm:text-[2.2rem]">
-              Contributors
+              {t("contributors.pageTitle")}
             </h1>
           </div>
         </div>
@@ -148,10 +150,10 @@ export function ContributorsPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-[hsl(var(--foreground-soft))]">
-            Main contributors
+            {t("contributors.mainContributors")}
           </h2>
           {mainContributors.length === 0 ? (
-            <EmptyState text="No main contributors found." />
+            <EmptyState text={t("contributors.noMain")} />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {mainContributors.map((contributor) => (
@@ -167,10 +169,10 @@ export function ContributorsPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-[hsl(var(--foreground-soft))]">
-            Others
+            {t("contributors.others")}
           </h2>
           {otherContributors.length === 0 ? (
-            <EmptyState text="No other contributors found." />
+            <EmptyState text={t("contributors.noOthers")} />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {otherContributors.map((contributor) => (

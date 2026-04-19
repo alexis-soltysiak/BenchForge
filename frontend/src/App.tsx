@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ContributorsPage } from "@/features/contributors/contributors-page";
 import { HomePage } from "@/features/home/home-page";
@@ -35,39 +36,40 @@ type View =
   | "contributors"
   | "settings";
 
-const navigationItems: Array<{
-  id: View;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-  {
-    id: "prompts",
-    label: "Prompt Library",
-    description: "Reusable prompt assets",
-    icon: FileText,
-  },
-  {
-    id: "models",
-    label: "Model Registry",
-    description: "Profiles and endpoints",
-    icon: Database,
-  },
-  {
-    id: "sessions",
-    label: "Sessions",
-    description: "Benchmark configuration",
-    icon: Layers3,
-  },
-  {
-    id: "runs",
-    label: "Runs",
-    description: "Execution and judging",
-    icon: Activity,
-  },
-];
-
 export function App() {
+  const { t } = useTranslation();
+
+  const navigationItems: Array<{
+    id: View;
+    label: string;
+    description: string;
+    icon: LucideIcon;
+  }> = [
+    {
+      id: "prompts",
+      label: t("nav.promptLibrary"),
+      description: t("nav.promptLibraryDesc"),
+      icon: FileText,
+    },
+    {
+      id: "models",
+      label: t("nav.modelRegistry"),
+      description: t("nav.modelRegistryDesc"),
+      icon: Database,
+    },
+    {
+      id: "sessions",
+      label: t("nav.sessions"),
+      description: t("nav.sessionsDesc"),
+      icon: Layers3,
+    },
+    {
+      id: "runs",
+      label: t("nav.runs"),
+      description: t("nav.runsDesc"),
+      icon: Activity,
+    },
+  ];
   const [view, setView] = useState<View>("home");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("theme");
@@ -170,9 +172,9 @@ export function App() {
   const isHomeView = view === "home";
   const activeSectionLabel =
     view === "contributors"
-      ? "Contributors"
+      ? t("contributors.pageTitle")
       : view === "settings"
-        ? "Settings"
+        ? t("nav.settings")
         : activeView.label;
 
   return (
@@ -230,13 +232,12 @@ export function App() {
                             {activeSectionLabel}
                           </p>
                           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-foreground">
-                            Navigation rail
+                            {t("nav.navigationRail")}
                           </h1>
                         </div>
                       </div>
                       <p className="max-w-sm text-sm leading-6 text-[hsl(var(--foreground-soft))]">
-                        Desktop gets the right-side sticky navigation. Mobile
-                        keeps the same sections in a lighter compact strip.
+                        {t("nav.mobileNote")}
                       </p>
                     </div>
 
@@ -298,12 +299,12 @@ export function App() {
                               : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
                           )}
                           onClick={() => navigateToView("contributors")}
-                          title="Open contributors"
+                          title={t("nav.openCredits")}
                           type="button"
                         >
                           <UsersRound className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Credits</span>
-                          <span className="sr-only">Open contributors</span>
+                          <span className="hidden sm:inline">{t("nav.credits")}</span>
+                          <span className="sr-only">{t("nav.openCredits")}</span>
                         </button>
 
                         <button
@@ -315,11 +316,11 @@ export function App() {
                               : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
                           )}
                           onClick={() => navigateToView("settings")}
-                          title="Open settings"
+                          title={t("nav.openSettings")}
                           type="button"
                         >
                           <Settings className="h-4 w-4" />
-                          <span className="sr-only">Open settings</span>
+                          <span className="sr-only">{t("nav.openSettings")}</span>
                         </button>
                       </div>
                     </div>
@@ -416,11 +417,11 @@ export function App() {
                           : "border-[hsl(var(--surface-strong)/0.22)] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground)/0.9)] hover:brightness-[1.06]",
                       )}
                       onClick={() => navigateToView("contributors")}
-                      title="Open contributors"
+                      title={t("nav.openCredits")}
                       type="button"
                     >
                       <UsersRound className="h-3.5 w-3.5 text-current" />
-                      <span>Credits</span>
+                      <span>{t("nav.credits")}</span>
                     </button>
 
                     <button
@@ -432,11 +433,11 @@ export function App() {
                           : "border-border bg-[hsl(var(--surface-overlay))] text-[hsl(var(--foreground-soft))] hover:bg-[hsl(var(--surface))] hover:text-foreground",
                       )}
                       onClick={() => navigateToView("settings")}
-                      title="Open settings"
+                      title={t("nav.openSettings")}
                       type="button"
                     >
                       <Settings className="h-4 w-4" />
-                      <span className="sr-only">Open settings</span>
+                      <span className="sr-only">{t("nav.openSettings")}</span>
                     </button>
                   </div>
                 </div>

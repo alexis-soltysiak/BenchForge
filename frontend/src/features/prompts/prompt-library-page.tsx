@@ -1,5 +1,6 @@
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Check,
   Archive,
@@ -141,14 +142,15 @@ function uniqueTags(prompts: Prompt[]): string[] {
 function getCategoryLabel(
   categories: Prompt["category"][],
   selectedCategoryId: string,
+  allCategoriesLabel: string,
 ): string {
   if (selectedCategoryId === "all") {
-    return "All categories";
+    return allCategoriesLabel;
   }
 
   return (
     categories.find((category) => String(category.id) === selectedCategoryId)
-      ?.name ?? "Selected category"
+      ?.name ?? allCategoriesLabel
   );
 }
 
@@ -205,6 +207,7 @@ function readPromptFilterState(): PromptFilterState {
 }
 
 export function PromptLibraryPage() {
+  const { t } = useTranslation();
   const initialPromptFilters = readPromptFilterState();
   const [showArchived, setShowArchived] = useState(
     initialPromptFilters.showArchived,
@@ -278,8 +281,8 @@ export function PromptLibraryPage() {
       await queryClient.invalidateQueries({ queryKey: ["prompts"] });
       setFeedback(
         selectedPrompt
-          ? `Prompt "${prompt.name}" updated.`
-          : `Prompt "${prompt.name}" created.`,
+          ? t("prompts.feedback.updated", { name: prompt.name })
+          : t("prompts.feedback.created", { name: prompt.name }),
       );
       setIsEditorOpen(false);
       startTransition(() => {
@@ -289,7 +292,7 @@ export function PromptLibraryPage() {
     },
     onError: (error) => {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to save prompt.",
+        error instanceof ApiError ? error.message : t("prompts.feedback.errorSave"),
       );
     },
   });
@@ -298,14 +301,14 @@ export function PromptLibraryPage() {
     mutationFn: archivePrompt,
     onSuccess: async (prompt) => {
       await queryClient.invalidateQueries({ queryKey: ["prompts"] });
-      setFeedback(`Prompt "${prompt.name}" archived.`);
+      setFeedback(t("prompts.feedback.archived", { name: prompt.name }));
       startTransition(() => {
         setSelectedPrompt(null);
       });
     },
     onError: (error) => {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to archive prompt.",
+        error instanceof ApiError ? error.message : t("prompts.feedback.errorArchive"),
       );
     },
   });
@@ -315,7 +318,7 @@ export function PromptLibraryPage() {
   );
   const promptTags = uniqueTags(scopedPrompts);
   const categoryOptions = categoriesQuery.data ?? [];
-  const categoryLabel = getCategoryLabel(categoryOptions, selectedCategoryId);
+  const categoryLabel = getCategoryLabel(categoryOptions, selectedCategoryId, t("prompts.allCategories"));
   const tagOptions = useMemo(
     () => Array.from(new Set([...promptTags, ...selectedTags])).sort(
       (left, right) => left.localeCompare(right),
@@ -402,17 +405,17 @@ export function PromptLibraryPage() {
           <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
             <div className="relative max-w-[30rem] space-y-2">
               <span className="inline-flex rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-950">
-                Reusable Assets
+                {t("prompts.reusableAssets")}
               </span>
               <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
-                Prompt Library
+                {t("prompts.pageTitle")}
               </h1>
             </div>
             <div className="grid gap-1.5 sm:grid-cols-3">
               <MetricCard
                 compact
                 className="rounded-[1.2rem]"
-                label="Visible Prompts"
+                label={t("prompts.metricVisible")}
                 tone="amber"
                 value={String(visiblePrompts.length)}
                 icon={FileText}
@@ -420,7 +423,7 @@ export function PromptLibraryPage() {
               <MetricCard
                 compact
                 className="rounded-[1.2rem]"
-                label="Categories"
+                label={t("prompts.metricCategories")}
                 tone="amber"
                 value={String(categoryCount)}
                 icon={Shapes}
@@ -428,7 +431,7 @@ export function PromptLibraryPage() {
               <MetricCard
                 compact
                 className="rounded-[1.2rem]"
-                label="System Packs"
+                label={t("prompts.metricSystemPacks")}
                 tone="amber"
                 value={String(
                   (categoriesQuery.data ?? []).filter((item) => item.is_system).length,
@@ -448,7 +451,7 @@ export function PromptLibraryPage() {
                     <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       className="h-10 rounded-[1rem] pl-9 text-[0.83rem]"
-                      placeholder="Search names, descriptions, tags"
+                      placeholder={t("prompts.searchPlaceholder")}
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                     />
@@ -464,7 +467,7 @@ export function PromptLibraryPage() {
                     >
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                          Category
+                          {t("prompts.categoryLabel")}
                         </p>
                         <p className="truncate text-[0.83rem] font-semibold text-foreground">
                           {categoryLabel}
@@ -472,7 +475,7 @@ export function PromptLibraryPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {selectedCategoryId !== "all" ? (
-                          <Badge variant="accent">Filtered</Badge>
+                          <Badge variant="accent">{t("prompts.filtered")}</Badge>
                         ) : null}
                       </div>
                     </button>
@@ -481,10 +484,10 @@ export function PromptLibraryPage() {
                       <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
                         <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
                           <p className="text-sm font-semibold text-foreground">
-                            Choose a category
+                            {t("prompts.chooseCategory")}
                           </p>
                           <p className="text-xs text-[hsl(var(--foreground-soft))]">
-                            Narrow the library to one family of prompts.
+                            {t("prompts.chooseCategoryDesc")}
                           </p>
                         </div>
                         <div className="max-h-72 overflow-y-auto p-2">
@@ -501,7 +504,7 @@ export function PromptLibraryPage() {
                               setIsCategoryMenuOpen(false);
                             }}
                           >
-                            <span className="font-medium">All categories</span>
+                            <span className="font-medium">{t("prompts.allCategories")}</span>
                             {selectedCategoryId === "all" ? (
                               <Check className="h-4 w-4" />
                             ) : null}
@@ -553,7 +556,7 @@ export function PromptLibraryPage() {
                     >
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                          Tags
+                          {t("prompts.tagsLabel")}
                         </p>
                         <div className="mt-0.5 flex min-h-6 flex-wrap items-center gap-2">
                           {selectedTags.length > 0 ? (
@@ -564,12 +567,12 @@ export function PromptLibraryPage() {
                             ))
                           ) : (
                             <span className="text-[0.83rem] font-semibold text-foreground">
-                              Add or remove tags
+                              {t("prompts.addOrRemoveTags")}
                             </span>
                           )}
                           {selectedTags.length > 3 ? (
                             <Badge variant="neutral">
-                              +{selectedTags.length - 3} more
+                              {t("common.moreItems", { count: selectedTags.length - 3 })}
                             </Badge>
                           ) : null}
                         </div>
@@ -583,10 +586,10 @@ export function PromptLibraryPage() {
                       <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
                         <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
                           <p className="text-sm font-semibold text-foreground">
-                            Manage tags
+                            {t("prompts.manageTags")}
                           </p>
                           <p className="text-xs text-[hsl(var(--foreground-soft))]">
-                            Add tags to refine the library, or remove them to broaden it.
+                            {t("prompts.manageTagsDesc")}
                           </p>
                         </div>
 
@@ -594,7 +597,7 @@ export function PromptLibraryPage() {
                           <div className="flex gap-2">
                             <Input
                               className="flex-1"
-                              placeholder="Add a tag"
+                              placeholder={t("prompts.addATag")}
                               value={tagDraft}
                               onChange={(event) => setTagDraft(event.target.value)}
                               onKeyDown={(event) => {
@@ -605,7 +608,7 @@ export function PromptLibraryPage() {
                               }}
                             />
                             <Button type="button" onClick={() => addTag(tagDraft)}>
-                              Add
+                              {t("prompts.add")}
                             </Button>
                           </div>
 
@@ -613,7 +616,7 @@ export function PromptLibraryPage() {
                             <div className="space-y-2">
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                                  Active tags
+                                  {t("prompts.activeTags")}
                                 </span>
                                 <Button
                                   size="sm"
@@ -621,7 +624,7 @@ export function PromptLibraryPage() {
                                   variant="ghost"
                                   onClick={() => setSelectedTags([])}
                                 >
-                                  Clear all
+                                  {t("prompts.clearAll")}
                                 </Button>
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -644,11 +647,11 @@ export function PromptLibraryPage() {
                           <div className="space-y-2">
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                                Suggestions
+                                {t("prompts.suggestions")}
                               </span>
                               {suggestedTags.length > 0 ? (
                                 <span className="text-xs text-[hsl(var(--foreground-soft))]">
-                                  Click to add
+                                  {t("prompts.clickToAdd")}
                                 </span>
                               ) : null}
                             </div>
@@ -669,7 +672,7 @@ export function PromptLibraryPage() {
                                 </div>
                               ) : (
                                 <p className="px-2 py-3 text-sm text-[hsl(var(--foreground-soft))]">
-                                  No remaining tags to suggest.
+                                  {t("prompts.noTagsToSuggest")}
                                 </p>
                               )}
                             </div>
@@ -716,7 +719,7 @@ export function PromptLibraryPage() {
                     </Button>
                     <Button className="h-10 rounded-[1rem] px-4 text-[0.95rem]" onClick={openCreateModal}>
                       <Plus className="h-4 w-4" />
-                      New prompt
+                      {t("prompts.newPrompt")}
                     </Button>
                   </div>
                 </div>
@@ -748,25 +751,25 @@ export function PromptLibraryPage() {
               <table className="min-w-full text-left">
                 <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                   <tr>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">Name</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">Category</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">Tags</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">Updated</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">Status</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">Actions</th>
+                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colName")}</th>
+                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colCategory")}</th>
+                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colTags")}</th>
+                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colUpdated")}</th>
+                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colStatus")}</th>
+                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colActions")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {promptsQuery.isLoading ? (
-                    <TableEmptyRow message="Loading prompt library..." />
+                    <TableEmptyRow message={t("prompts.loading")} />
                   ) : visiblePrompts.length === 0 ? (
                     <TableEmptyRow
                       message={
                         showArchived
-                          ? "No archived prompts yet."
+                          ? t("prompts.noArchivedYet")
                           : promptsQuery.data?.total === 0
-                          ? "Built-in prompts are seeded automatically on first load. Refresh if the library is still empty."
-                          : "No prompts match the current filters."
+                          ? t("prompts.emptySeeded")
+                          : t("prompts.noMatchingFilters")
                       }
                     />
                   ) : (
@@ -790,7 +793,7 @@ export function PromptLibraryPage() {
                                 {prompt.name}
                               </p>
                               <p className="max-w-sm text-[0.73rem] leading-4.5 text-[hsl(var(--foreground-soft))]">
-                                {prompt.description ?? "No description"}
+                                {prompt.description ?? t("prompts.noDescription")}
                               </p>
                             </div>
                           </td>
@@ -806,7 +809,7 @@ export function PromptLibraryPage() {
                                   </Badge>
                                 ))
                               ) : (
-                                <span className="text-[0.84rem] text-[hsl(var(--foreground-soft))]">No tags</span>
+                                <span className="text-[0.84rem] text-[hsl(var(--foreground-soft))]">{t("prompts.noTags")}</span>
                               )}
                             </div>
                           </td>
@@ -816,10 +819,10 @@ export function PromptLibraryPage() {
                           <td className="px-3 py-2.5 align-top lg:px-3.5">
                             <div className="flex gap-2">
                               <Badge variant={prompt.is_archived ? "muted" : "success"}>
-                                {prompt.is_archived ? "Archived" : "Active"}
+                                {prompt.is_archived ? t("prompts.statusArchived") : t("prompts.statusActive")}
                               </Badge>
                               {!prompt.is_active && !prompt.is_archived ? (
-                                <Badge variant="neutral">Inactive</Badge>
+                                <Badge variant="neutral">{t("prompts.statusInactive")}</Badge>
                               ) : null}
                             </div>
                           </td>
@@ -849,23 +852,23 @@ export function PromptLibraryPage() {
       </div>
 
       <Modal
-        description="Create a reusable prompt or refine an existing one without leaving the library view."
+        description={t("prompts.modal.description")}
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
-        title={selectedPrompt ? "Edit prompt" : "Create prompt"}
+        title={selectedPrompt ? t("prompts.editModal.title") : t("prompts.createModal.title")}
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
           {loadError ? (
-            <LoadErrorState compact message={loadError} resourceLabel="the prompt library" />
+            <LoadErrorState compact message={loadError} resourceLabel={t("prompts.pageTitle")} />
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              hint='Example: "Summarize a product launch email"'
-              label="Name"
+              hint={t("prompts.form.nameHint")}
+              label={t("prompts.form.name")}
             >
               <Input
-                placeholder="Summarize a product launch email"
+                placeholder={t("prompts.form.namePlaceholder")}
                 required
                 value={formState.name}
                 onChange={(event) =>
@@ -878,8 +881,8 @@ export function PromptLibraryPage() {
             </Field>
 
             <Field
-              hint="Select the closest prompt family used in the library."
-              label="Category"
+              hint={t("prompts.form.categoryHint")}
+              label={t("prompts.form.category")}
             >
               <Select
                 required
@@ -901,12 +904,12 @@ export function PromptLibraryPage() {
           </div>
 
           <Field
-            hint='Example: "Short benchmark brief displayed in the library."'
-            label="Description"
+            hint={t("prompts.form.descriptionHint")}
+            label={t("prompts.form.description")}
           >
             <Textarea
               className="min-h-20"
-              placeholder="Short benchmark brief displayed in the library."
+              placeholder={t("prompts.form.descriptionPlaceholder")}
               value={formState.description}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -918,11 +921,11 @@ export function PromptLibraryPage() {
           </Field>
 
           <Field
-            hint='Example: "summarization, writing, business"'
-            label="Tags"
+            hint={t("prompts.form.tagsHint")}
+            label={t("prompts.form.tags")}
           >
             <Input
-              placeholder="Comma-separated tags"
+              placeholder={t("prompts.form.tagsPlaceholder")}
               value={formState.tags}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -934,11 +937,11 @@ export function PromptLibraryPage() {
           </Field>
 
           <Field
-            hint='Example: "You are a precise analyst who writes concise answers."'
-            label="System prompt"
+            hint={t("prompts.form.systemPromptHint")}
+            label={t("prompts.form.systemPrompt")}
           >
             <Textarea
-              placeholder="You are a precise analyst who writes concise answers."
+              placeholder={t("prompts.form.systemPromptPlaceholder")}
               value={formState.systemPromptText}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -950,13 +953,13 @@ export function PromptLibraryPage() {
           </Field>
 
           <Field
-            hint='Example: "Summarize the following text in 5 clear bullet points."'
-            label="User prompt"
+            hint={t("prompts.form.userPromptHint")}
+            label={t("prompts.form.userPrompt")}
           >
             <Textarea
               required
               className="min-h-40"
-              placeholder="Summarize the following text in 5 clear bullet points."
+              placeholder={t("prompts.form.userPromptPlaceholder")}
               value={formState.userPromptText}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -968,11 +971,11 @@ export function PromptLibraryPage() {
           </Field>
 
           <Field
-            hint='Example: "Check factual accuracy, structure and concise tone."'
-            label="Evaluation notes"
+            hint={t("prompts.form.evaluationNotesHint")}
+            label={t("prompts.form.evaluationNotes")}
           >
             <Textarea
-              placeholder="Check factual accuracy, structure and concise tone."
+              placeholder={t("prompts.form.evaluationNotesPlaceholder")}
               value={formState.evaluationNotes}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -995,11 +998,10 @@ export function PromptLibraryPage() {
               }
               type="checkbox"
             />
-            Prompt available for upcoming sessions
+            {t("prompts.form.isActive")}
           </label>
           <p className="-mt-2 text-xs leading-5 text-slate-500">
-            Keep this enabled when the prompt should remain selectable in future
-            sessions.
+            {t("prompts.form.isActiveNote")}
           </p>
 
           {feedback ? (
@@ -1023,7 +1025,7 @@ export function PromptLibraryPage() {
               </Button>
             ) : null}
             <Button onClick={() => setIsEditorOpen(false)} type="button" variant="soft">
-              Cancel
+              {t("prompts.form.cancel")}
             </Button>
             <Button
               disabled={
@@ -1035,7 +1037,7 @@ export function PromptLibraryPage() {
               }
               type="submit"
             >
-              {selectedPrompt ? "Save changes" : "Create prompt"}
+              {selectedPrompt ? t("prompts.form.saveChanges") : t("prompts.form.createPrompt")}
             </Button>
           </div>
         </form>
