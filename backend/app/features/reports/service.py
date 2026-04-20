@@ -7,12 +7,9 @@ from decimal import Decimal
 from html import escape
 from pathlib import Path
 
-# Mirrors aggregation/service.py weights — kept here for display only
-_QUALITY_WEIGHT_PCT = 70
-_COST_WEIGHT_PCT = 15
-_PERFORMANCE_WEIGHT_PCT = 15
-
-from weasyprint import HTML
+import plotly.graph_objects as go
+import plotly.io as pio
+from playwright.async_api import async_playwright
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.reports.repository import ReportsRepository
@@ -25,6 +22,34 @@ from app.features.reports.schemas import (
     RunReportRead,
 )
 from app.features.runs.models import CandidateResponse, SessionRun
+
+# Mirrors aggregation/service.py weights — kept here for display only
+_QUALITY_WEIGHT_PCT = 70
+_COST_WEIGHT_PCT = 15
+_PERFORMANCE_WEIGHT_PCT = 15
+
+# 12 perceptually distinct colors; cycles only beyond 12 candidates
+_CHART_PALETTE = [
+    "#3b82f6",  # Blue
+    "#f97316",  # Orange
+    "#10b981",  # Emerald
+    "#a855f7",  # Purple
+    "#ef4444",  # Red
+    "#f59e0b",  # Amber
+    "#06b6d4",  # Cyan
+    "#ec4899",  # Pink
+    "#84cc16",  # Lime
+    "#6366f1",  # Indigo
+    "#14b8a6",  # Teal
+    "#f43f5e",  # Rose
+]
+
+
+def _hex_rgba(hex_color: str, alpha: float) -> str:
+    r = int(hex_color[1:3], 16)
+    g = int(hex_color[3:5], 16)
+    b = int(hex_color[5:7], 16)
+    return f"rgba({r},{g},{b},{alpha})"
 
 
 class ReportError(ValueError):
@@ -57,7 +82,7 @@ class ReportsService:
         html_output_path = self.output_dir / f"run-{run.id}.html"
         pdf_output_path = self.output_dir / f"run-{run.id}.pdf"
         html_output_path.write_text(html, encoding="utf-8")
-        self._render_pdf(html, pdf_output_path)
+        await self._render_pdf(html, pdf_output_path)
 
         run.html_report_path = str(html_output_path)
         run.pdf_report_path = str(pdf_output_path)
@@ -392,9 +417,9 @@ class ReportsService:
         )
 
         judge_bias_html = self._judge_bias_notice(report)
-        radar_svg = self._render_radar_svg(report)
-        scatter_svg = self._render_scatter_svg(report)
-        category_radar_svg = self._render_category_radar_svg(report)
+        radar_plotly = self._render_radar_plotly(report)
+        scatter_plotly = self._render_scatter_plotly(report)
+        category_radar_plotly = self._render_category_radar_plotly(report)
         category_html = self._render_category_breakdown_html(report)
 
         summary_rows = ""
@@ -437,13 +462,13 @@ class ReportsService:
                 f"<h3>{escape(section.candidate_name)}</h3>"
                 f"<p class='muted'>{escape(section.provider_type)} / {escape(section.runtime_type)}</p>"
                 "<div class='stat-row'>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(section.final_global_score or '—')}</span><span class='stat-lbl'>global score</span></div>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(latency_raw)}</span><span class='stat-lbl'>avg latency</span></div>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(tps_raw)}</span><span class='stat-lbl'>throughput</span></div>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(cost_raw)}</span><span class='stat-lbl'>total cost</span></div>"
+                f"<div class='stat-box'><span class='stat-val'>{escape(section.final_global_score or '—')}</span><span class='stat-lbl'>Global Score</span></div>"
+                f"<div class='stat-box'><span class='stat-val'>{escape(latency_raw)}</span><span class='stat-lbl'>Avg Latency</span></div>"
+                f"<div class='stat-box'><span class='stat-val'>{escape(tps_raw)}</span><span class='stat-lbl'>Throughput</span></div>"
+                f"<div class='stat-box'><span class='stat-val'>{escape(cost_raw)}</span><span class='stat-lbl'>Total Cost</span></div>"
                 "</div>"
                 "<table class='sub-scores'>"
-                "<thead><tr><th>Dimension</th><th>Avg score</th></tr></thead>"
+                "<thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead>"
                 f"<tbody>{sub_rows}</tbody>"
                 "</table>"
                 f"<p>{escape(section.global_summary_text or 'No summary available.')}</p>"
@@ -531,82 +556,263 @@ class ReportsService:
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{escape(report.report_title)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <style>
       :root {{
         --ink: #0f172a;
-        --muted: #475569;
-        --line: #dbe4ee;
+        --ink-soft: #334155;
+        --muted: #64748b;
+        --line: #e2e8f0;
         --panel: #f8fafc;
-        --accent: #0f766e;
-        --accent-light: #eef6f4;
-        --green: #166534;
+        --primary: #3b82f6;
+        --primary-light: #eff6ff;
+        --primary-border: #bfdbfe;
+        --accent-light: #f0f9ff;
         --green-bg: #dcfce7;
-        --red: #991b1b;
         --red-bg: #fee2e2;
-        --yellow-bg: #fef9c3;
+        --yellow-bg: #fefce8;
+        --radius: 8px;
+        --shadow: 0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+        --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
       }}
       * {{ box-sizing: border-box; margin: 0; padding: 0; }}
       body {{
-        padding: 40px;
-        font-family: Georgia, "Times New Roman", serif;
+        padding: 40px 48px;
+        font-family: 'Manrope', system-ui, -apple-system, sans-serif;
         color: var(--ink);
-        background: white;
-        line-height: 1.6;
+        background: #f1f5f9;
+        line-height: 1.65;
         font-size: 14px;
       }}
-      h1 {{ font-size: 1.8rem; margin-bottom: 4px; }}
-      h2 {{ font-size: 1.2rem; margin: 32px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }}
-      h3 {{ font-size: 1.05rem; margin-bottom: 8px; }}
-      h4 {{ font-size: 0.95rem; margin-bottom: 6px; color: var(--accent); }}
+      h1 {{
+        font-family: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
+        font-size: 1.9rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+        letter-spacing: -0.025em;
+      }}
+      h2 {{
+        font-family: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        margin: 36px 0 14px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 8px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }}
+      h3 {{ font-size: 1rem; font-weight: 600; margin-bottom: 8px; }}
+      h4 {{ font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; color: var(--primary); }}
       p {{ margin-bottom: 8px; }}
-      .muted {{ color: var(--muted); font-size: 0.88rem; margin-bottom: 12px; }}
-      .hero {{ border-bottom: 2px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }}
-      .meta {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }}
-      .meta div {{ border: 1px solid var(--line); background: var(--panel); padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; }}
-      table {{ width: 100%; border-collapse: collapse; margin: 14px 0 24px; font-size: 0.9rem; }}
-      th, td {{ border: 1px solid var(--line); padding: 9px 12px; text-align: left; }}
-      th {{ background: var(--accent-light); font-family: Helvetica, Arial, sans-serif; font-size: 0.82rem; letter-spacing: 0.03em; }}
-      tr:nth-child(even) td {{ background: var(--panel); }}
+      .muted {{ color: var(--muted); font-size: 0.85rem; margin-bottom: 12px; }}
+      .hero {{
+        background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 28px 32px;
+        margin-bottom: 32px;
+        box-shadow: var(--shadow-md);
+      }}
+      .meta {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }}
+      .meta div {{
+        border: 1px solid var(--line);
+        background: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+      }}
+      .meta div strong {{
+        color: var(--muted);
+        font-weight: 600;
+        display: block;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 3px;
+      }}
+      table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0 24px;
+        font-size: 0.875rem;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: white;
+        box-shadow: var(--shadow);
+      }}
+      th, td {{ border-bottom: 1px solid var(--line); padding: 10px 14px; text-align: left; }}
+      th {{
+        background: var(--panel);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }}
+      tr:last-child td {{ border-bottom: none; }}
+      tbody tr:hover td {{ background: #f8fafc; }}
       .winner-row td {{ background: var(--yellow-bg) !important; }}
+      .winner-row td:first-child {{ border-left: 3px solid #eab308; padding-left: 11px; }}
       .delta-zero {{ color: var(--muted); }}
-      .delta-neg {{ color: #b91c1c; font-weight: bold; }}
+      .delta-neg {{ color: #dc2626; font-weight: 600; }}
       .candidate-grid, .prompt-grid {{ display: grid; gap: 20px; }}
-      .candidate {{ border: 1px solid var(--line); background: var(--panel); padding: 20px; border-radius: 6px; }}
-      .stat-row {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }}
-      .stat-box {{ background: white; border: 1px solid var(--line); border-radius: 4px; padding: 10px 14px; text-align: center; }}
-      .stat-val {{ display: block; font-size: 1.15rem; font-weight: bold; color: var(--accent); }}
-      .stat-lbl {{ display: block; font-size: 0.75rem; color: var(--muted); margin-top: 2px; font-family: Helvetica, Arial, sans-serif; }}
-      table.sub-scores {{ margin: 0 0 14px; }}
-      table.sub-scores td:first-child {{ color: var(--muted); font-family: Helvetica, Arial, sans-serif; font-size: 0.85rem; }}
-      .patterns {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }}
-      .pattern-block {{ padding: 12px 14px; border-radius: 4px; font-size: 0.9rem; }}
-      .strengths-block {{ background: var(--green-bg); border-left: 3px solid #16a34a; }}
-      .weaknesses-block {{ background: var(--red-bg); border-left: 3px solid #dc2626; }}
-      .pattern-block strong {{ display: block; margin-bottom: 4px; font-family: Helvetica, Arial, sans-serif; font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; }}
-      .prompt {{ border: 1px solid var(--line); background: white; padding: 20px; border-radius: 6px; }}
-      .badge {{ display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 0.78rem; font-family: Helvetica, Arial, sans-serif; padding: 2px 10px; border-radius: 12px; margin-bottom: 12px; }}
-      .prompt-label {{ font-family: Helvetica, Arial, sans-serif; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }}
-      pre {{ white-space: pre-wrap; word-break: break-word; background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 12px; }}
-      pre.sys-pre {{ background: #fffbeb; border-color: #fbbf24; }}
-      .eval-notes {{ font-size: 0.88rem; color: var(--muted); margin-bottom: 10px; }}
-      table.comparison {{ margin: 10px 0 18px; }}
-      .response {{ border: 1px solid var(--line); padding: 16px; margin-top: 12px; border-radius: 4px; }}
+      .candidate {{
+        border: 1px solid var(--line);
+        background: white;
+        padding: 24px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }}
+      .stat-row {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }}
+      .stat-box {{
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 12px 14px;
+        text-align: center;
+      }}
+      .stat-val {{
+        display: block;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary);
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+      }}
+      .stat-lbl {{
+        display: block;
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-top: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+      }}
+      table.sub-scores {{ margin: 0 0 14px; box-shadow: none; }}
+      table.sub-scores td:first-child {{ color: var(--muted); font-size: 0.85rem; font-weight: 500; }}
+      .patterns {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }}
+      .pattern-block {{ padding: 14px 16px; border-radius: 6px; font-size: 0.875rem; }}
+      .strengths-block {{ background: var(--green-bg); border-left: 3px solid #22c55e; }}
+      .weaknesses-block {{ background: var(--red-bg); border-left: 3px solid #ef4444; }}
+      .pattern-block strong {{
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }}
+      .prompt {{
+        border: 1px solid var(--line);
+        background: white;
+        padding: 24px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }}
+      .badge {{
+        display: inline-block;
+        background: var(--accent-light);
+        color: #0369a1;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 2px 10px;
+        border-radius: 20px;
+        margin-bottom: 12px;
+        border: 1px solid #bae6fd;
+      }}
+      .prompt-label {{
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }}
+      pre {{
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        margin-bottom: 12px;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        line-height: 1.55;
+      }}
+      pre.sys-pre {{ background: #fffbeb; border-color: #fde68a; }}
+      .eval-notes {{ font-size: 0.875rem; color: var(--muted); margin-bottom: 10px; }}
+      table.comparison {{ margin: 12px 0 18px; }}
+      .response {{
+        border: 1px solid var(--line);
+        padding: 18px;
+        margin-top: 12px;
+        border-radius: 6px;
+        background: white;
+      }}
       .response h4 {{ margin-bottom: 10px; }}
-      p.strengths {{ background: var(--green-bg); padding: 8px 12px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 6px; }}
-      p.weaknesses {{ background: var(--red-bg); padding: 8px 12px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 6px; }}
-      p.feedback {{ font-size: 0.88rem; color: var(--muted); margin-top: 8px; }}
-      .bias-notice {{ background: #fffbeb; border: 1px solid #fbbf24; border-left: 4px solid #f59e0b; padding: 10px 14px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 14px; }}
-      .weighting-legend {{ background: var(--panel); border: 1px solid var(--line); padding: 10px 16px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 16px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }}
-      .weighting-legend span {{ font-family: Helvetica, Arial, sans-serif; }}
-      .weight-pill {{ background: var(--accent-light); color: var(--accent); font-weight: bold; padding: 2px 8px; border-radius: 10px; font-size: 0.82rem; }}
-      .charts-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 10px; }}
-      .chart-box {{ border: 1px solid var(--line); background: var(--panel); padding: 16px; border-radius: 6px; }}
-      .chart-box h3 {{ font-size: 0.95rem; margin-bottom: 10px; }}
+      p.strengths {{ background: var(--green-bg); border-left: 3px solid #22c55e; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; margin-bottom: 6px; }}
+      p.weaknesses {{ background: var(--red-bg); border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; margin-bottom: 6px; }}
+      p.feedback {{ font-size: 0.875rem; color: var(--muted); margin-top: 8px; }}
+      .bias-notice {{
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-left: 4px solid #f59e0b;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        margin-bottom: 16px;
+      }}
+      .weighting-legend {{
+        background: white;
+        border: 1px solid var(--line);
+        padding: 12px 18px;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        margin-bottom: 18px;
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        align-items: center;
+        box-shadow: var(--shadow);
+      }}
+      .weight-pill {{
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 700;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        border: 1px solid var(--primary-border);
+      }}
+      .charts-grid {{
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 14px;
+      }}
+      .chart-box {{
+        border: 1px solid var(--line);
+        background: white;
+        padding: 20px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }}
+      .chart-box h3 {{ font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }}
       @media print {{
-        body {{ padding: 0; }}
+        body {{ padding: 0; background: white; font-size: 13px; }}
+        .hero {{ background: white; box-shadow: none; border-radius: 0; border: none; border-bottom: 2px solid var(--line); padding: 20px 0; margin-bottom: 20px; }}
+        .candidate, .prompt {{ box-shadow: none; }}
+        table {{ box-shadow: none; }}
+        h2 {{ margin: 24px 0 10px; }}
+        .charts-grid {{ grid-template-columns: 1fr; gap: 16px; }}
         .prompt {{ page-break-inside: avoid; }}
-        .prompt-grid {{ page-break-before: always; }}
-        .charts-grid {{ grid-template-columns: 1fr; }}
+        .candidate {{ page-break-inside: avoid; }}
       }}
     </style>
   </head>
@@ -615,10 +821,10 @@ class ReportsService:
       <h1>{escape(report.report_title)}</h1>
       <p class="muted">{escape(report.benchmark_session_name)}</p>
       <div class="meta">
-        <div><strong>Run timestamp:</strong> {escape(report.launched_at.isoformat())}</div>
-        <div><strong>Judge:</strong> {escape(report.judge_name)}</div>
-        <div><strong>Prompts:</strong> {report.prompt_count}</div>
-        <div><strong>Candidates:</strong> {report.candidate_count}</div>
+        <div><strong>Run timestamp</strong>{escape(report.launched_at.isoformat())}</div>
+        <div><strong>Judge</strong>{escape(report.judge_name)}</div>
+        <div><strong>Prompts</strong>{report.prompt_count}</div>
+        <div><strong>Candidates</strong>{report.candidate_count}</div>
       </div>
     </section>
     {judge_bias_html}
@@ -646,25 +852,25 @@ class ReportsService:
         </thead>
         <tbody>{summary_rows}</tbody>
       </table>
-      {f'<h3 style="font-size:0.95rem;margin:20px 0 8px">Score by Category</h3>{category_html}' if category_html else ''}
+      {f'<h3 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin:20px 0 8px">Score by Category</h3>{category_html}' if category_html else ''}
     </section>
     <section>
       <h2>Visual Analysis</h2>
       <div class="charts-grid">
         <div class="chart-box">
           <h3>Sub-Score Radar</h3>
-          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Dimension-level averages across all prompts — shows the "personality" of each model.</p>
-          {radar_svg}
+          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Dimension-level averages — shows the "personality" of each model.</p>
+          {radar_plotly}
         </div>
         <div class="chart-box">
           <h3>Efficiency Frontier — Latency vs Quality</h3>
-          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Upper-left is ideal: high quality at low latency. The Global Score may penalise a slow but accurate model — use this to judge the trade-off yourself.</p>
-          {scatter_svg}
+          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Upper-left is ideal: high quality at low latency.</p>
+          {scatter_plotly}
         </div>
         <div class="chart-box">
           <h3>Category Efficiency Radar</h3>
-          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Average judge score per prompt category. Shows where each model excels or struggles by task type.</p>
-          {category_radar_svg}
+          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Average judge score per prompt category.</p>
+          {category_radar_plotly}
         </div>
       </div>
     </section>
@@ -679,44 +885,32 @@ class ReportsService:
   </body>
 </html>"""
 
-    def _render_pdf(self, html: str, output_path: Path) -> None:
-        HTML(string=html).write_pdf(str(output_path))
+    async def _render_pdf(self, html: str, output_path: Path) -> None:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.set_content(html, wait_until="networkidle")
+            # Ensure all Plotly charts have finished rendering before export
+            await page.wait_for_function(
+                "() => document.querySelectorAll('.js-plotly-plot .main-svg').length > 0",
+                timeout=20_000,
+            )
+            await page.pdf(
+                path=str(output_path),
+                format="A4",
+                print_background=True,
+                margin={"top": "15mm", "bottom": "15mm", "left": "15mm", "right": "15mm"},
+            )
+            await browser.close()
 
-    def _render_radar_svg(self, report: RunReportRead) -> str:
+    # ── Plotly charts ──────────────────────────────────────────────────────
+
+    def _render_radar_plotly(self, report: RunReportRead) -> str:
         dims = ["Relevance", "Accuracy", "Completeness", "Clarity", "Instr. Following"]
-        palette = ["#0f766e", "#f97316", "#3b82f6", "#a855f7"]
-        cx, cy, r = 185, 185, 130
-        n = len(dims)
-
-        def axis_angle(i: int) -> float:
-            return math.pi / 2 - (2 * math.pi * i / n)
-
-        def polar(val: float, i: int) -> tuple[float, float]:
-            a = axis_angle(i)
-            d = r * val / 100
-            return cx + d * math.cos(a), cy - d * math.sin(a)
-
-        parts: list[str] = ['<svg viewBox="0 0 500 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">']
-
-        for pct in (0.25, 0.5, 0.75, 1.0):
-            pts = " ".join(f"{polar(100 * pct, i)[0]:.1f},{polar(100 * pct, i)[1]:.1f}" for i in range(n))
-            parts.append(f'<polygon points="{pts}" fill="none" stroke="#dbe4ee" stroke-width="{1.5 if pct == 1.0 else 0.8}"/>')
-            if pct < 1.0:
-                gx, gy = polar(100 * pct, 0)
-                parts.append(f'<text x="{gx + 3:.1f}" y="{gy:.1f}" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">{int(pct * 100)}</text>')
-
-        for i in range(n):
-            ex, ey = polar(100, i)
-            parts.append(f'<line x1="{cx}" y1="{cy}" x2="{ex:.1f}" y2="{ey:.1f}" stroke="#dbe4ee" stroke-width="1"/>')
-            lx, ly = polar(118, i)
-            anchor = "middle"
-            if lx < cx - 8:
-                anchor = "end"
-            elif lx > cx + 8:
-                anchor = "start"
-            parts.append(f'<text x="{lx:.1f}" y="{ly + 4:.1f}" text-anchor="{anchor}" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">{dims[i]}</text>')
+        fig = go.Figure()
 
         for ci, section in enumerate(report.candidate_sections):
+            color = _CHART_PALETTE[ci % len(_CHART_PALETTE)]
             vals = [
                 float(section.average_relevance_score or "0"),
                 float(section.average_accuracy_score or "0"),
@@ -724,24 +918,137 @@ class ReportsService:
                 float(section.average_clarity_score or "0"),
                 float(section.average_instruction_following_score or "0"),
             ]
-            color = palette[ci % len(palette)]
-            pts = " ".join(f"{polar(v, i)[0]:.1f},{polar(v, i)[1]:.1f}" for i, v in enumerate(vals))
-            parts.append(f'<polygon points="{pts}" fill="{color}" fill-opacity="0.12" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>')
-            for i, v in enumerate(vals):
-                px, py = polar(v, i)
-                parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{color}"/>')
+            fig.add_trace(go.Scatterpolar(
+                r=vals + [vals[0]],
+                theta=dims + [dims[0]],
+                fill="toself",
+                fillcolor=_hex_rgba(color, 0.12),
+                line=dict(color=color, width=2.5),
+                name=section.candidate_name,
+                hovertemplate="<b>%{theta}</b><br>Score: %{r:.1f}<extra>%{fullData.name}</extra>",
+            ))
 
-        legend_x, legend_y0 = 390, 50
-        for ci, section in enumerate(report.candidate_sections):
-            color = palette[ci % len(palette)]
-            ly = legend_y0 + ci * 26
-            parts.append(f'<rect x="{legend_x}" y="{ly}" width="13" height="13" fill="{color}" fill-opacity="0.7" rx="2"/>')
-            parts.append(f'<text x="{legend_x + 17}" y="{ly + 10}" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">{escape(section.candidate_name)}</text>')
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    range=[0, 100],
+                    tickfont=dict(size=9, color="#94a3b8", family="Manrope, sans-serif"),
+                    gridcolor="#e2e8f0",
+                    linecolor="#e2e8f0",
+                    tickmode="linear",
+                    tick0=0,
+                    dtick=25,
+                ),
+                angularaxis=dict(
+                    tickfont=dict(size=10.5, color="#475569", family="Manrope, sans-serif"),
+                    gridcolor="#e2e8f0",
+                    linecolor="#cbd5e1",
+                ),
+                bgcolor="rgba(0,0,0,0)",
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                font=dict(family="Manrope, sans-serif", size=10.5, color="#334155"),
+                bgcolor="rgba(255,255,255,0.9)",
+                bordercolor="#e2e8f0",
+                borderwidth=1,
+                orientation="h",
+                yanchor="bottom",
+                y=-0.22,
+                xanchor="center",
+                x=0.5,
+            ),
+            margin=dict(l=30, r=30, t=10, b=55),
+            height=310,
+            font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
+        )
 
-        parts.append("</svg>")
-        return "\n".join(parts)
+        return pio.to_html(
+            fig,
+            full_html=False,
+            include_plotlyjs=False,
+            config={"responsive": True, "displayModeBar": False},
+        )
 
-    def _render_category_radar_svg(self, report: RunReportRead) -> str:
+    def _render_scatter_plotly(self, report: RunReportRead) -> str:
+        data = [
+            (s.candidate_name, s.avg_duration_ms, float(s.average_overall_score or "0"))
+            for s in report.candidate_sections
+            if s.avg_duration_ms is not None
+        ]
+        if not data:
+            return "<p class='muted'>No latency data available for efficiency chart.</p>"
+
+        fig = go.Figure()
+
+        for ci, (name, lat, qual) in enumerate(data):
+            color = _CHART_PALETTE[ci % len(_CHART_PALETTE)]
+            fig.add_trace(go.Scatter(
+                x=[lat],
+                y=[qual],
+                mode="markers+text",
+                marker=dict(
+                    size=14,
+                    color=color,
+                    line=dict(color="white", width=2),
+                    opacity=0.9,
+                ),
+                text=[name],
+                textposition="top center",
+                textfont=dict(size=10.5, color=color, family="Manrope, sans-serif"),
+                name=name,
+                hovertemplate="<b>%{fullData.name}</b><br>Latency: %{x:.0f} ms<br>Quality: %{y:.1f}<extra></extra>",
+            ))
+
+        fig.update_layout(
+            xaxis=dict(
+                title=dict(
+                    text="Latency (ms) — lower is faster →",
+                    font=dict(size=11, family="Manrope, sans-serif", color="#64748b"),
+                ),
+                gridcolor="#f1f5f9",
+                linecolor="#e2e8f0",
+                tickfont=dict(size=9.5, color="#94a3b8", family="Manrope, sans-serif"),
+                zeroline=False,
+            ),
+            yaxis=dict(
+                title=dict(
+                    text="Quality score ↑",
+                    font=dict(size=11, family="Manrope, sans-serif", color="#64748b"),
+                ),
+                gridcolor="#f1f5f9",
+                linecolor="#e2e8f0",
+                tickfont=dict(size=9.5, color="#94a3b8", family="Manrope, sans-serif"),
+                zeroline=False,
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(248,250,252,0.6)",
+            legend=dict(
+                font=dict(family="Manrope, sans-serif", size=10.5, color="#334155"),
+                bgcolor="rgba(255,255,255,0.9)",
+                bordercolor="#e2e8f0",
+                borderwidth=1,
+                orientation="h",
+                yanchor="bottom",
+                y=-0.28,
+                xanchor="center",
+                x=0.5,
+            ),
+            showlegend=True,
+            margin=dict(l=55, r=20, t=15, b=70),
+            height=310,
+            font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
+        )
+
+        return pio.to_html(
+            fig,
+            full_html=False,
+            include_plotlyjs=False,
+            config={"responsive": True, "displayModeBar": False},
+        )
+
+    def _render_category_radar_plotly(self, report: RunReportRead) -> str:
         by_cat: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
         for section in report.prompt_sections:
             for c in section.candidates:
@@ -752,121 +1059,66 @@ class ReportsService:
         if len(categories) < 3:
             return "<p class='muted'>At least 3 categories are needed to render a radar chart.</p>"
 
-        palette = ["#0f766e", "#f97316", "#3b82f6", "#a855f7"]
-        cx, cy, r = 185, 185, 130
-        n = len(categories)
-
-        def axis_angle(i: int) -> float:
-            return math.pi / 2 - (2 * math.pi * i / n)
-
-        def polar(val: float, i: int) -> tuple[float, float]:
-            a = axis_angle(i)
-            d = r * val / 100
-            return cx + d * math.cos(a), cy - d * math.sin(a)
-
-        parts: list[str] = ['<svg viewBox="0 0 500 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">']
-
-        for pct in (0.25, 0.5, 0.75, 1.0):
-            pts = " ".join(f"{polar(100 * pct, i)[0]:.1f},{polar(100 * pct, i)[1]:.1f}" for i in range(n))
-            parts.append(f'<polygon points="{pts}" fill="none" stroke="#dbe4ee" stroke-width="{1.5 if pct == 1.0 else 0.8}"/>')
-            if pct < 1.0:
-                gx, gy = polar(100 * pct, 0)
-                parts.append(f'<text x="{gx + 3:.1f}" y="{gy:.1f}" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">{int(pct * 100)}</text>')
-
-        for i, cat in enumerate(categories):
-            ex, ey = polar(100, i)
-            parts.append(f'<line x1="{cx}" y1="{cy}" x2="{ex:.1f}" y2="{ey:.1f}" stroke="#dbe4ee" stroke-width="1"/>')
-            lx, ly = polar(118, i)
-            anchor = "middle"
-            if lx < cx - 8:
-                anchor = "end"
-            elif lx > cx + 8:
-                anchor = "start"
-            parts.append(f'<text x="{lx:.1f}" y="{ly + 4:.1f}" text-anchor="{anchor}" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">{escape(cat)}</text>')
+        fig = go.Figure()
 
         for ci, section in enumerate(report.candidate_sections):
-            vals = []
-            for cat in categories:
-                scores = by_cat[cat].get(section.candidate_name, [])
-                vals.append(sum(scores) / len(scores) if scores else 0.0)
-            color = palette[ci % len(palette)]
-            pts = " ".join(f"{polar(v, i)[0]:.1f},{polar(v, i)[1]:.1f}" for i, v in enumerate(vals))
-            parts.append(f'<polygon points="{pts}" fill="{color}" fill-opacity="0.12" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>')
-            for i, v in enumerate(vals):
-                px, py = polar(v, i)
-                parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{color}"/>')
-                parts.append(f'<text x="{px + 5:.1f}" y="{py + 4:.1f}" font-size="9" fill="{color}" font-family="Helvetica,Arial,sans-serif">{v:.0f}</text>')
+            color = _CHART_PALETTE[ci % len(_CHART_PALETTE)]
+            vals = [
+                sum(scores) / len(scores) if (scores := by_cat[cat].get(section.candidate_name, [])) else 0.0
+                for cat in categories
+            ]
+            fig.add_trace(go.Scatterpolar(
+                r=vals + [vals[0]],
+                theta=categories + [categories[0]],
+                fill="toself",
+                fillcolor=_hex_rgba(color, 0.12),
+                line=dict(color=color, width=2.5),
+                name=section.candidate_name,
+                hovertemplate="<b>%{theta}</b><br>Score: %{r:.1f}<extra>%{fullData.name}</extra>",
+            ))
 
-        legend_x, legend_y0 = 390, 50
-        for ci, section in enumerate(report.candidate_sections):
-            color = palette[ci % len(palette)]
-            ly = legend_y0 + ci * 26
-            parts.append(f'<rect x="{legend_x}" y="{ly}" width="13" height="13" fill="{color}" fill-opacity="0.7" rx="2"/>')
-            parts.append(f'<text x="{legend_x + 17}" y="{ly + 10}" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">{escape(section.candidate_name)}</text>')
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    range=[0, 100],
+                    tickfont=dict(size=9, color="#94a3b8", family="Manrope, sans-serif"),
+                    gridcolor="#e2e8f0",
+                    linecolor="#e2e8f0",
+                    tickmode="linear",
+                    tick0=0,
+                    dtick=25,
+                ),
+                angularaxis=dict(
+                    tickfont=dict(size=10.5, color="#475569", family="Manrope, sans-serif"),
+                    gridcolor="#e2e8f0",
+                    linecolor="#cbd5e1",
+                ),
+                bgcolor="rgba(0,0,0,0)",
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                font=dict(family="Manrope, sans-serif", size=10.5, color="#334155"),
+                bgcolor="rgba(255,255,255,0.9)",
+                bordercolor="#e2e8f0",
+                borderwidth=1,
+                orientation="h",
+                yanchor="bottom",
+                y=-0.22,
+                xanchor="center",
+                x=0.5,
+            ),
+            margin=dict(l=30, r=30, t=10, b=55),
+            height=310,
+            font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
+        )
 
-        parts.append("</svg>")
-        return "\n".join(parts)
-
-    def _render_scatter_svg(self, report: RunReportRead) -> str:
-        data = [
-            (s.candidate_name, s.avg_duration_ms, float(s.average_overall_score or "0"))
-            for s in report.candidate_sections
-            if s.avg_duration_ms is not None
-        ]
-        if not data:
-            return "<p class='muted'>No latency data available for efficiency chart.</p>"
-
-        palette = ["#0f766e", "#f97316", "#3b82f6", "#a855f7"]
-        pl, pr, pt, pb = 65, 40, 30, 50
-        w, h = 520, 300
-        pw, ph = w - pl - pr, h - pt - pb
-
-        lats = [d[1] for d in data]
-        quals = [d[2] for d in data]
-        spread_lat = max(lats) - min(lats) if len(set(lats)) > 1 else max(lats) * 0.5
-        spread_qual = max(quals) - min(quals) if len(set(quals)) > 1 else 10.0
-
-        min_lat = min(lats) - spread_lat * 0.3
-        max_lat = max(lats) + spread_lat * 0.3
-        min_q = max(0.0, min(quals) - spread_qual * 0.4)
-        max_q = min(100.0, max(quals) + spread_qual * 0.4)
-
-        def to_px(lat: float, q: float) -> tuple[float, float]:
-            x = pl + (lat - min_lat) / (max_lat - min_lat) * pw
-            y = pt + (1 - (q - min_q) / (max_q - min_q)) * ph
-            return x, y
-
-        parts: list[str] = [f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">']
-
-        for tick in range(4):
-            gx = pl + tick / 3 * pw
-            gy = pt + tick / 3 * ph
-            parts.append(f'<line x1="{gx:.0f}" y1="{pt}" x2="{gx:.0f}" y2="{pt+ph}" stroke="#f1f5f9" stroke-width="1"/>')
-            parts.append(f'<line x1="{pl}" y1="{gy:.0f}" x2="{pl+pw}" y2="{gy:.0f}" stroke="#f1f5f9" stroke-width="1"/>')
-
-        parts.append(f'<line x1="{pl}" y1="{pt}" x2="{pl}" y2="{pt+ph}" stroke="#94a3b8" stroke-width="1.5"/>')
-        parts.append(f'<line x1="{pl}" y1="{pt+ph}" x2="{pl+pw}" y2="{pt+ph}" stroke="#94a3b8" stroke-width="1.5"/>')
-        parts.append(f'<text x="{pl + pw / 2:.0f}" y="{h - 8}" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Latency (ms) — lower is faster →</text>')
-        parts.append(f'<text x="13" y="{pt + ph / 2:.0f}" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif" transform="rotate(-90,13,{pt + ph / 2:.0f})">Quality score ↑</text>')
-
-        for tick in range(4):
-            gx = pl + tick / 3 * pw
-            lat_val = min_lat + tick / 3 * (max_lat - min_lat)
-            parts.append(f'<text x="{gx:.0f}" y="{pt + ph + 16}" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">{lat_val:.0f}</text>')
-            gy = pt + tick / 3 * ph
-            q_val = max_q - tick / 3 * (max_q - min_q)
-            parts.append(f'<text x="{pl - 6}" y="{gy + 4:.0f}" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">{q_val:.0f}</text>')
-
-        for ci, (name, lat, qual) in enumerate(data):
-            px, py = to_px(lat, qual)
-            color = palette[ci % len(palette)]
-            label_dy = -14 if py > pt + 30 else 20
-            parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="8" fill="{color}" fill-opacity="0.85"/>')
-            parts.append(f'<text x="{px:.1f}" y="{py + label_dy:.1f}" text-anchor="middle" font-size="10" fill="{color}" font-weight="bold" font-family="Helvetica,Arial,sans-serif">{escape(name)}</text>')
-            parts.append(f'<text x="{px:.1f}" y="{py + label_dy + 12:.1f}" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">{lat}ms / q={qual:.1f}</text>')
-
-        parts.append("</svg>")
-        return "\n".join(parts)
+        return pio.to_html(
+            fig,
+            full_html=False,
+            include_plotlyjs=False,
+            config={"responsive": True, "displayModeBar": False},
+        )
 
     def _render_category_breakdown_html(self, report: RunReportRead) -> str:
         by_cat: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
@@ -884,15 +1136,12 @@ class ReportsService:
         rows = ""
         for cat in sorted(by_cat):
             rows += f"<tr><td><strong>{escape(cat)}</strong></td>"
-            scores_by_candidate = []
             for name in candidate_names:
                 scores = by_cat[cat].get(name, [])
                 if scores:
                     avg = sum(scores) / len(scores)
-                    scores_by_candidate.append(avg)
                     rows += f"<td>{avg:.1f}</td>"
                 else:
-                    scores_by_candidate.append(None)
                     rows += "<td>—</td>"
             rows += "</tr>"
 
