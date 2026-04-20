@@ -26,6 +26,7 @@ import { LoadErrorState } from "@/components/ui/load-error-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import {
+  clearRunJudging,
   confirmLocalReady,
   downloadRunReportPdf,
   fetchLocalNext,
@@ -34,6 +35,7 @@ import {
   fetchRunResponses,
   fetchRuns,
   generateRunReport,
+  restartRunJudging,
   resumeRun,
   retryCandidateResponse,
   retryJudgeBatch,
@@ -283,6 +285,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const [selectedResponseId, setSelectedResponseId] = useState<number | null>(null);
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
   const [selectedJudgeBatchId, setSelectedJudgeBatchId] = useState<number | null>(null);
+  const [selectedJudgingPromptId, setSelectedJudgingPromptId] = useState<number | null>(null);
   const [isJudgeModalOpen, setIsJudgeModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [startingRemoteIds, setStartingRemoteIds] = useState<number[]>([]);
@@ -355,15 +358,20 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     const items = judgingQuery.data?.items ?? [];
     if (items.length === 0) {
       setSelectedJudgeBatchId(null);
+      setSelectedJudgingPromptId(null);
       return;
     }
 
     if (selectedJudgeBatchId && items.some((item) => item.id === selectedJudgeBatchId)) {
-      return;
+      // keep existing batch selection for modal
+    } else {
+      setSelectedJudgeBatchId(items[0].id);
     }
 
-    setSelectedJudgeBatchId(items[0].id);
-  }, [judgingQuery.data?.items, selectedJudgeBatchId]);
+    if (!selectedJudgingPromptId || !items.some((item) => item.prompt_snapshot_id === selectedJudgingPromptId)) {
+      setSelectedJudgingPromptId(items[0].prompt_snapshot_id);
+    }
+  }, [judgingQuery.data?.items, selectedJudgeBatchId, selectedJudgingPromptId]);
 
   const refreshRunData = async () => {
     await Promise.all([
@@ -378,7 +386,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const resumeMutation = useMutation({
     mutationFn: () => resumeRun(runId),
     onSuccess: async () => {
-      setFeedback("Remote candidates resumed.");
       await refreshRunData();
     },
     onError: (error) => {
@@ -389,7 +396,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const confirmLocalMutation = useMutation({
     mutationFn: () => confirmLocalReady(runId),
     onSuccess: async (payload) => {
-      setFeedback(`Local model "${payload.display_name}" marked ready.`);
       await refreshRunData();
     },
     onError: (error) => {
@@ -402,7 +408,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const startLocalMutation = useMutation({
     mutationFn: () => startLocalCurrent(runId),
     onSuccess: async () => {
-      setFeedback("Current local model started.");
       await refreshRunData();
     },
     onError: (error) => {
@@ -416,7 +421,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setStartingRemoteIds((current) => [...current, modelSnapshotId]);
     try {
       await startRemoteCandidate(runId, modelSnapshotId);
-      setFeedback("Endpoint candidate started.");
       await refreshRunData();
     } catch (error) {
       setFeedback(
@@ -431,7 +435,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     setRetryingResponseIds((current) => [...current, responseId]);
     try {
       await retryCandidateResponse(runId, responseId);
-      setFeedback("Prompt response retried.");
       await refreshRunData();
     } catch (error) {
       setFeedback(
@@ -445,7 +448,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   const retryJudgingMutation = useMutation({
     mutationFn: () => retryRunJudging(runId),
     onSuccess: async () => {
-      setFeedback("Judging retried.");
       await refreshRunData();
     },
     onError: (error) => {
@@ -453,11 +455,31 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     },
   });
 
+  const clearJudgingMutation = useMutation({
+    mutationFn: () => clearRunJudging(runId),
+    onSuccess: async () => {
+      setSelectedJudgeBatchId(null);
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to clear phase 2.");
+    },
+  });
+
+  const restartJudgingMutation = useMutation({
+    mutationFn: () => restartRunJudging(runId),
+    onSuccess: async () => {
+      await refreshRunData();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to restart phase 2.");
+    },
+  });
+
   const handleRetryBatch = async (batchId: number) => {
     setRetryingBatchIds((current) => [...current, batchId]);
     try {
       await retryJudgeBatch(runId, batchId);
-      setFeedback("Batch retried.");
       await refreshRunData();
     } catch (error) {
       setFeedback(error instanceof ApiError ? error.message : "Unable to retry batch.");
@@ -892,26 +914,34 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 <div className="mt-5 grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
                   <div>
                     <JudgeBatchPanel
+                      isClearing={clearJudgingMutation.isPending}
                       isLoading={judgingQuery.isLoading}
+                      isRestarting={restartJudgingMutation.isPending}
                       isStarting={startJudgingMutation.isPending}
                       isRetrying={retryJudgingMutation.isPending}
-                      onInspectBatch={() => selectedJudgeBatch && openJudgeInspector(selectedJudgeBatch.id)}
-                      retryingBatchIds={retryingBatchIds}
+                      onClear={() => clearJudgingMutation.mutate()}
+                      onRestart={() => restartJudgingMutation.mutate()}
                       canStart={allCandidatesReady && (!judging || judging.items.length === 0)}
                       judging={judging}
                       onStart={() => startJudgingMutation.mutate()}
                       onRetry={() => retryJudgingMutation.mutate()}
-                      onRetryBatch={handleRetryBatch}
                       promptSnapshots={selectedRun.prompt_snapshots}
-                      onSelectBatch={setSelectedJudgeBatchId}
-                      selectedBatchId={selectedJudgeBatchId}
+                      selectedPromptId={selectedJudgingPromptId}
+                      onSelectPrompt={setSelectedJudgingPromptId}
                     />
                   </div>
                   <div>
-                    <JudgeFeedbackPanel
-                      batch={selectedJudgeBatch}
+                    <PromptJudgeResultsPanel
+                      promptId={selectedJudgingPromptId}
+                      promptSnapshots={selectedRun.prompt_snapshots}
+                      judging={judging}
+                      modelSnapshots={selectedRun.model_snapshots}
                       responses={rawResponses}
                       run={selectedRun}
+                      retryingBatchIds={retryingBatchIds}
+                      isJudgingActive={retryJudgingMutation.isPending || clearJudgingMutation.isPending || restartJudgingMutation.isPending || startJudgingMutation.isPending || retryingBatchIds.length > 0}
+                      onInspectBatch={(batchId) => { setSelectedJudgeBatchId(batchId); openJudgeInspector(batchId); }}
+                      onRetryBatch={handleRetryBatch}
                       onSelectResponse={(responseId) => openResponseInspector(responseId)}
                     />
                   </div>
@@ -1894,10 +1924,73 @@ function PromptRankingMatrix({
       ) ?? [],
     [judging?.items],
   );
+
+  // Columns = unique (prompt_snapshot_id, judge_model_snapshot_id) pairs in prompt order
+  const columns = useMemo(() => {
+    return run.prompt_snapshots
+      .filter((prompt) => completedBatches.some((b) => b.prompt_snapshot_id === prompt.id))
+      .map((prompt) => ({ promptId: prompt.id }));
+  }, [completedBatches, run.prompt_snapshots]);
+
   const candidates = useMemo(
     () => run.model_snapshots.filter((item) => item.role === "candidate"),
     [run.model_snapshots],
   );
+
+  // For each prompt: Map<candidateId, rank>
+  // #1 = top-3 absolute scorer with best arena win rate; rest sorted by absolute score
+  const promptRankings = useMemo(() => {
+    const arenaBatches = judging?.items.filter(
+      (b) => b.batch_type === "arena" && b.status === "completed" && b.evaluation,
+    ) ?? [];
+
+    return new Map(
+      columns.map(({ promptId }) => {
+        const promptAbsBatches = completedBatches.filter((b) => b.prompt_snapshot_id === promptId);
+        const promptArenaBatches = arenaBatches.filter((b) => b.prompt_snapshot_id === promptId);
+
+        const candidateScores = candidates.map((cand) => {
+          const scores = promptAbsBatches.flatMap((b) => {
+            const ec = b.evaluation?.candidates.find((c) => {
+              const r = responses.find((r) => r.id === c.candidate_response_id);
+              return r?.model_snapshot_id === cand.id;
+            });
+            return ec ? [Number(ec.overall_score) || 0] : [];
+          });
+          return { id: cand.id, score: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0 };
+        });
+
+        const sortedByScore = [...candidateScores].sort((a, b) => b.score - a.score);
+        const top3Ids = sortedByScore.slice(0, 3).map((x) => x.id);
+
+        const arenaWinnerId = (() => {
+          if (promptArenaBatches.length === 0) return top3Ids[0];
+          const winRates = top3Ids.map((id) => {
+            const appeared = promptArenaBatches.filter((b) =>
+              b.evaluation?.candidates.some((c) => {
+                const r = responses.find((r) => r.id === c.candidate_response_id);
+                return r?.model_snapshot_id === id;
+              }),
+            );
+            const wins = appeared.filter((b) => {
+              const ec = b.evaluation?.candidates.find((c) => {
+                const r = responses.find((r) => r.id === c.candidate_response_id);
+                return r?.model_snapshot_id === id;
+              });
+              return ec?.ranking_in_batch === 1;
+            });
+            return { id, winRate: appeared.length > 0 ? wins.length / appeared.length : 0 };
+          });
+          return winRates.sort((a, b) => b.winRate - a.winRate)[0].id;
+        })();
+
+        const rankedIds = [arenaWinnerId, ...sortedByScore.filter((x) => x.id !== arenaWinnerId).map((x) => x.id)];
+        const rankMap = new Map<number, number>();
+        rankedIds.forEach((id, i) => rankMap.set(id, i + 1));
+        return [promptId, rankMap] as const;
+      }),
+    );
+  }, [columns, completedBatches, judging?.items, candidates, responses]);
 
   useEffect(() => {
     if (completedBatches.length === 0 || candidates.length === 0) {
@@ -1950,7 +2043,7 @@ function PromptRankingMatrix({
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateScale);
     };
-  }, [candidates, completedBatches]);
+  }, [candidates, completedBatches, columns]);
 
   if (completedBatches.length === 0 || candidates.length === 0) {
     return (
@@ -1970,7 +2063,7 @@ function PromptRankingMatrix({
       <div
         ref={viewportRef}
         className="overflow-hidden rounded-[1.25rem] border border-border/80 bg-white p-3"
-        style={{ height: "calc(100vh - 19rem)" }}
+        style={{ height: "calc(100vh - 16rem)" }}
       >
         <div
           ref={contentRef}
@@ -1984,24 +2077,37 @@ function PromptRankingMatrix({
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>
                 <th className="w-[8.5rem] px-2 py-2 font-semibold">Model</th>
-                {completedBatches.map((batch, index) => {
-                  const prompt = promptById(run.prompt_snapshots, batch.prompt_snapshot_id);
-                  const topScore = Math.max(
-                    ...batch.evaluation!.candidates.map((item) => Number(item.overall_score) || 0),
+                {columns.map(({ promptId }, index) => {
+                  const prompt = promptById(run.prompt_snapshots, promptId);
+                  const promptBatches = completedBatches.filter(
+                    (b) => b.prompt_snapshot_id === promptId,
                   );
-
+                  // Average score per candidate, then take max across candidates
+                  const candidateAvgScores = candidates.map((cand) => {
+                    const scores = promptBatches.flatMap((b) => {
+                      const ec = b.evaluation?.candidates.find((c) => {
+                        const r = responses.find((r) => r.id === c.candidate_response_id);
+                        return r?.model_snapshot_id === cand.id;
+                      });
+                      return ec ? [Number(ec.overall_score) || 0] : [];
+                    });
+                    return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+                  }).filter((s): s is number => s !== null);
+                  const topScore = candidateAvgScores.length > 0 ? Math.max(...candidateAvgScores) : null;
                   return (
-                    <th key={batch.id} className="px-1.5 py-2 font-semibold">
+                    <th key={promptId} className="px-1.5 py-2 font-semibold">
                       <div className="space-y-0.5 text-center">
                         <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                           P{index + 1}
                         </p>
                         <p className="truncate text-[11px] text-slate-700">
-                          {prompt?.name ?? `Prompt #${batch.prompt_snapshot_id}`}
+                          {prompt?.name ?? `Prompt #${promptId}`}
                         </p>
-                        <p className="text-[10px] text-slate-400">
-                          Top {formatScore(String(topScore))}
-                        </p>
+                        {topScore !== null ? (
+                          <p className="text-[10px] text-slate-400">
+                            Top {formatScore(String(Math.round(topScore)))}
+                          </p>
+                        ) : null}
                       </div>
                     </th>
                   );
@@ -2011,7 +2117,7 @@ function PromptRankingMatrix({
             <tbody className="divide-y divide-border/70">
               {candidates.map((candidate) => (
                 <tr key={candidate.id}>
-                  <td className="bg-white px-2 py-2 align-top">
+                  <td className="bg-white px-2 py-1.5 align-middle">
                     <div className="space-y-0.5">
                       <p className="truncate text-xs font-medium text-slate-950">
                         {candidate.display_name}
@@ -2021,17 +2127,22 @@ function PromptRankingMatrix({
                       </p>
                     </div>
                   </td>
-                  {completedBatches.map((batch) => {
-                    const evaluationCandidate = batch.evaluation?.candidates.find((item) => {
-                      const response = responses.find(
-                        (responseItem) => responseItem.id === item.candidate_response_id,
-                      );
-                      return response?.model_snapshot_id === candidate.id;
+                  {columns.map(({ promptId }) => {
+                    const promptBatches = completedBatches.filter(
+                      (b) => b.prompt_snapshot_id === promptId,
+                    );
+                    // Collect all evaluation entries for this candidate across all judges
+                    const evalEntries = promptBatches.flatMap((b) => {
+                      const ec = b.evaluation?.candidates.find((c) => {
+                        const r = responses.find((r) => r.id === c.candidate_response_id);
+                        return r?.model_snapshot_id === candidate.id;
+                      });
+                      return ec ? [ec] : [];
                     });
 
-                    if (!evaluationCandidate) {
+                    if (evalEntries.length === 0) {
                       return (
-                        <td key={`${candidate.id}-${batch.id}`} className="px-1.5 py-2">
+                        <td key={`${candidate.id}-${promptId}`} className="px-1.5 py-2">
                           <div className="rounded-lg border border-dashed border-border/70 bg-slate-50 px-2 py-2 text-center text-[10px] text-slate-400">
                             —
                           </div>
@@ -2039,53 +2150,44 @@ function PromptRankingMatrix({
                       );
                     }
 
-                    const allScores = batch.evaluation?.candidates.map(
-                      (item) => Number(item.overall_score) || 0,
-                    ) ?? [0];
-                    const bestScore = Math.max(...allScores);
-                    const candidateScore = Number(evaluationCandidate.overall_score) || 0;
-                    const isBest = candidateScore === bestScore;
+                    const scores = evalEntries.map((ec) => Number(ec.overall_score) || 0);
+                    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+                    // Best feedback = from highest-scoring judge
+                    const bestEntry = evalEntries.reduce((best, ec) =>
+                      (Number(ec.overall_score) || 0) >= (Number(best.overall_score) || 0) ? ec : best,
+                    );
+
+                    const rank = promptRankings.get(promptId)?.get(candidate.id) ?? candidates.length;
+                    const isBest = rank === 1;
+                    const displayScore = Math.round(avgScore);
 
                     return (
-                      <td key={`${candidate.id}-${batch.id}`} className="px-1.5 py-2 align-top">
+                      <td key={`${candidate.id}-${promptId}`} className="px-1.5 py-1.5 align-middle">
                         <div
                           className={cn(
-                            "space-y-1 rounded-xl border px-2 py-2 text-center",
+                            "flex items-center justify-center gap-2 rounded-xl border px-2 py-2",
                             isBest
                               ? "border-emerald-200 bg-emerald-50 shadow-[0_12px_30px_-26px_rgba(16,185,129,0.7)]"
                               : "border-border/80 bg-slate-50",
                           )}
                         >
-                          <div className="flex items-start justify-between gap-1">
-                            <span
-                              className={cn(
-                                "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                                isBest
-                                  ? "bg-emerald-100 text-emerald-900"
-                                  : "bg-slate-100 text-slate-600",
-                              )}
-                            >
-                              #{evaluationCandidate.ranking_in_batch}
-                            </span>
-                            <span
-                              className={cn(
-                                "text-[10px] font-semibold uppercase tracking-[0.14em]",
-                                isBest ? "text-emerald-700" : "text-slate-400",
-                              )}
-                            >
-                              {isBest ? "Top" : "Score"}
-                            </span>
-                          </div>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold",
+                              isBest
+                                ? "bg-emerald-100 text-emerald-900"
+                                : "bg-slate-100 text-slate-600",
+                            )}
+                          >
+                            #{rank}
+                          </span>
                           <p
                             className={cn(
-                              "text-2xl font-semibold leading-none tracking-tight",
+                              "text-3xl font-bold leading-none tracking-tight",
                               isBest ? "text-emerald-950" : "text-slate-950",
                             )}
                           >
-                            {formatScore(evaluationCandidate.overall_score)}
-                          </p>
-                          <p className="line-clamp-2 text-[10px] leading-3.5 text-slate-500">
-                            {summarizeShortFeedback(evaluationCandidate)}
+                            {formatScore(String(displayScore))}
                           </p>
                         </div>
                       </td>
@@ -2113,7 +2215,7 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-3 font-semibold">Candidate</th>
-              <th className="px-4 py-3 font-semibold">Judge</th>
+              <th className="px-4 py-3 font-semibold">Avg Absolute</th>
               <th className="px-4 py-3 font-semibold">Latency</th>
               <th className="px-4 py-3 font-semibold">Tokens</th>
               <th className="px-4 py-3 font-semibold">Cost</th>
@@ -2121,7 +2223,9 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/70">
-            {run.global_summaries.map((summary) => {
+            {[...run.global_summaries]
+              .sort((a, b) => parseFloat(b.final_global_score ?? b.average_overall_score) - parseFloat(a.final_global_score ?? a.average_overall_score))
+              .map((summary) => {
               const model = modelById(run.model_snapshots, summary.model_snapshot_id);
               return (
                 <tr key={summary.id}>
@@ -2193,38 +2297,73 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
   );
 }
 
+function parseBatchCandidateIds(batch: JudgeBatch): number[] {
+  try {
+    const ids = JSON.parse(batch.randomized_candidate_ids_jsonb);
+    return Array.isArray(ids) ? ids.map(Number) : [];
+  } catch {
+    return [];
+  }
+}
+
+function modelNameForCandidateResponse(
+  candidateResponseId: number,
+  responses: CandidateResponse[],
+  modelSnapshots: RunModelSnapshot[],
+): string {
+  const response = responses.find((r) => r.id === candidateResponseId);
+  if (!response) return `Response #${candidateResponseId}`;
+  const model = modelSnapshots.find((m) => m.id === response.model_snapshot_id);
+  return model?.display_name ?? `Model #${response.model_snapshot_id}`;
+}
+
+function promptAggregateStatus(batches: JudgeBatch[]): string {
+  if (batches.length === 0) return "pending";
+  if (batches.every((b) => b.status === "completed")) return "completed";
+  if (batches.some((b) => b.status === "failed")) return "failed";
+  if (batches.some((b) => b.status === "running")) return "running";
+  return "pending";
+}
+
 function JudgeBatchPanel({
+  isClearing,
   isLoading,
+  isRestarting,
   isStarting,
   isRetrying,
-  onInspectBatch,
-  retryingBatchIds,
+  onClear,
+  onRestart,
   canStart,
   judging,
   onStart,
   onRetry,
-  onRetryBatch,
   promptSnapshots,
-  onSelectBatch,
-  selectedBatchId,
+  selectedPromptId,
+  onSelectPrompt,
 }: {
+  isClearing: boolean;
   isLoading: boolean;
+  isRestarting: boolean;
   isStarting: boolean;
   isRetrying: boolean;
-  onInspectBatch: () => void;
-  retryingBatchIds: number[];
+  onClear: () => void;
+  onRestart: () => void;
   canStart: boolean;
   judging: RunJudging | undefined;
   onStart: () => void;
   onRetry: () => void;
-  onRetryBatch: (batchId: number) => void;
   promptSnapshots: RunPromptSnapshot[];
-  onSelectBatch: (batchId: number) => void;
-  selectedBatchId: number | null;
+  selectedPromptId: number | null;
+  onSelectPrompt: (promptId: number) => void;
 }) {
-  const isJudgingActive = isStarting || isRetrying || retryingBatchIds.length > 0;
-  const absoluteItems = judging?.items.filter((item) => item.batch_type === "absolute") ?? [];
-  const arenaItems = judging?.items.filter((item) => item.batch_type === "arena") ?? [];
+  const isJudgingActive = isStarting || isRetrying || isClearing || isRestarting;
+
+  const promptsWithBatches = promptSnapshots
+    .map((prompt) => ({
+      prompt,
+      batches: judging?.items.filter((b) => b.prompt_snapshot_id === prompt.id) ?? [],
+    }))
+    .filter((g) => g.batches.length > 0);
 
   if (isLoading) {
     return <p className="text-sm text-slate-500">Loading judge jobs...</p>;
@@ -2232,93 +2371,382 @@ function JudgeBatchPanel({
 
   if (!judging || judging.items.length === 0) {
     return (
-      <div className="flex h-full w-full flex-col justify-between gap-5">
-        <div className="min-h-[7rem] rounded-[1.35rem] border border-border/70 bg-slate-50/60 p-4 shadow-[0_8px_18px_-26px_rgba(15,23,42,0.18)]">
-          <p className="text-[0.9rem] font-semibold tracking-tight text-slate-950">
-            No judge jobs yet
-          </p>
-          <p className="mt-2 max-w-[28rem] text-[0.92rem] leading-6 text-slate-600">
-            Phase 1 is complete. Start judging to run absolute review first, then targeted arena comparisons.
-          </p>
-        </div>
-        <div className="flex w-full justify-center">
-          <Button className="h-10 px-5" disabled={!canStart || isStarting} onClick={onStart} variant="secondary">
-            {isStarting ? (
-              <>
-                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                Judging in progress…
-              </>
-            ) : (
-              "Start judging"
-            )}
-          </Button>
+      <div className="flex flex-col gap-6">
+        <Button
+          className="h-11 w-full gap-2 text-sm font-semibold"
+          disabled={!canStart || isStarting}
+          onClick={onStart}
+          variant="secondary"
+        >
+          {isStarting ? (
+            <>
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              Judging in progress…
+            </>
+          ) : (
+            <>
+              <Gavel className="h-4 w-4" />
+              Launch judging
+            </>
+          )}
+        </Button>
+        <div className="space-y-3">
+          <div className="flex gap-3 rounded-[1rem] border border-sky-200/70 bg-sky-50/40 px-4 py-3">
+            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700 text-[11px] font-bold">
+              1
+            </div>
+            <div>
+              <p className="text-[0.82rem] font-semibold text-slate-900">Absolute review</p>
+              <p className="mt-0.5 text-[0.79rem] leading-5 text-slate-500">
+                Chaque modèle candidat est évalué indépendamment sur chaque prompt — score absolu de 0 à 100 sur 6 critères.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 rounded-[1rem] border border-violet-200/70 bg-violet-50/40 px-4 py-3">
+            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 text-[11px] font-bold">
+              2
+            </div>
+            <div>
+              <p className="text-[0.82rem] font-semibold text-slate-900">Arena pairwise</p>
+              <p className="mt-0.5 text-[0.79rem] leading-5 text-slate-500">
+                Les meilleurs modèles s'affrontent 2 par 2 par prompt — jusqu'à 3 matchs si les scores sont serrés (écart ≤ 3 pts).
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {isJudgingActive ? (
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-amber-600" />
           <p className="text-sm font-medium text-amber-900">
-            {isStarting || isRetrying ? "Running judge jobs…" : "Retrying job…"}
+            {isClearing
+              ? "Clearing phase 2…"
+              : isRestarting
+                ? "Restarting phase 2…"
+                : isStarting || isRetrying
+                  ? "Running judge jobs…"
+                  : "Retrying job…"}
           </p>
         </div>
       ) : null}
-      <button
-        className="group flex w-full items-center justify-between gap-3 rounded-[1.15rem] border border-violet-200 bg-[linear-gradient(180deg,rgba(245,243,255,0.96),rgba(255,255,255,0.98))] px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:bg-[linear-gradient(180deg,rgba(237,233,254,0.98),rgba(255,255,255,1))] hover:shadow-[0_18px_34px_-26px_rgba(139,92,246,0.25)]"
-        onClick={onInspectBatch}
-        type="button"
-      >
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-950 transition-colors duration-150 group-hover:text-violet-950">
-            Full judge response
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Inspect the complete judge payload, raw response and parsed evaluation for the selected job.
-          </p>
-        </div>
-        <Eye className="h-4 w-4 shrink-0 text-violet-600 transition-all duration-200 group-hover:scale-110 group-hover:text-violet-700" />
-      </button>
-      <div className="space-y-2">
-        {absoluteItems.length > 0 ? (
-          <div className="space-y-2">
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Absolute Review
-            </p>
-            {absoluteItems.map((batch) => renderJudgeBatchRow({
-              batch,
-              promptSnapshots,
-              retryingBatchIds,
-              selectedBatchId,
-              onRetryBatch,
-              onSelectBatch,
-              isJudgingActive,
-            }))}
-          </div>
-        ) : null}
-        {arenaItems.length > 0 ? (
-          <div className="space-y-2">
-            <p className="px-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Arena Pairwise
-            </p>
-            {arenaItems.map((batch) => renderJudgeBatchRow({
-              batch,
-              promptSnapshots,
-              retryingBatchIds,
-              selectedBatchId,
-              onRetryBatch,
-              onSelectBatch,
-              isJudgingActive,
-            }))}
-          </div>
-        ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button className="h-8 gap-1.5 px-3 text-xs font-semibold" disabled={isJudgingActive} onClick={onRetry} variant="secondary">
+          <LoaderCircle className="h-3.5 w-3.5" />
+          Retry failed
+        </Button>
+        <Button className="h-8 gap-1.5 px-3 text-xs font-semibold" disabled={isJudgingActive} onClick={onRestart} variant="secondary">
+          Restart
+        </Button>
+        <Button className="h-8 gap-1.5 px-3 text-xs font-semibold" disabled={isJudgingActive} onClick={onClear} variant="dangerSoft">
+          Clear all
+        </Button>
       </div>
-      <Button disabled={isJudgingActive} onClick={onRetry} variant="secondary">
-        Retry all failed
-      </Button>
+
+      <div className="overflow-hidden rounded-[1rem] border border-border/70 bg-white shadow-sm">
+        {promptsWithBatches.map(({ prompt, batches }, idx) => {
+          const status = promptAggregateStatus(batches);
+          const isSelected = selectedPromptId === prompt.id;
+          return (
+            <button
+              key={prompt.id}
+              className={cn(
+                "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150",
+                idx > 0 && "border-t border-border/50",
+                isSelected
+                  ? "bg-sky-50"
+                  : "hover:bg-slate-50/80",
+              )}
+              onClick={() => onSelectPrompt(prompt.id)}
+              type="button"
+            >
+              <div className="min-w-0 flex-1">
+                <p className={cn(
+                  "truncate text-[0.82rem] font-medium",
+                  isSelected ? "text-sky-800" : "text-slate-800",
+                )}>
+                  {prompt.name}
+                </p>
+              </div>
+              <StatusPill status={status} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function avgBatchScore(batches: JudgeBatch[]): number | null {
+  const scores = batches
+    .flatMap((b) => b.evaluation?.candidates ?? [])
+    .map((c) => parseFloat(c.overall_score))
+    .filter((s) => Number.isFinite(s));
+  if (scores.length === 0) return null;
+  return scores.reduce((a, b) => a + b, 0) / scores.length;
+}
+
+function PromptJudgeResultsPanel({
+  promptId,
+  promptSnapshots,
+  judging,
+  modelSnapshots,
+  responses,
+  run,
+  retryingBatchIds,
+  isJudgingActive,
+  onInspectBatch,
+  onRetryBatch,
+  onSelectResponse,
+}: {
+  promptId: number | null;
+  promptSnapshots: RunPromptSnapshot[];
+  judging: RunJudging | undefined;
+  modelSnapshots: RunModelSnapshot[];
+  responses: CandidateResponse[];
+  run: Run;
+  retryingBatchIds: number[];
+  isJudgingActive: boolean;
+  onInspectBatch: (batchId: number) => void;
+  onRetryBatch: (batchId: number) => void;
+  onSelectResponse: (responseId: number) => void;
+}) {
+  const [expandedModels, setExpandedModels] = useState<Set<number>>(new Set());
+  const [expandedArena, setExpandedArena] = useState<Set<number>>(new Set());
+
+  const toggleModel = (id: number) =>
+    setExpandedModels((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleArena = (id: number) =>
+    setExpandedArena((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  if (!promptId || !judging) {
+    return (
+      <div className="rounded-[1.35rem] border border-border/70 bg-slate-50/60 p-4">
+        <p className="text-[0.9rem] font-semibold text-slate-950">Select a prompt</p>
+        <p className="mt-1 text-[0.82rem] text-slate-500">Click a prompt on the left to see all model results.</p>
+      </div>
+    );
+  }
+
+  const prompt = promptSnapshots.find((p) => p.id === promptId);
+  const promptBatches = judging.items.filter((b) => b.prompt_snapshot_id === promptId);
+  const absoluteBatches = promptBatches.filter((b) => b.batch_type === "absolute");
+  const arenaBatches = promptBatches.filter((b) => b.batch_type === "arena");
+
+  // Group absolute batches by candidate model (dedup multiple judges)
+  const modelGroupsMap: Map<number, { modelName: string; batches: JudgeBatch[] }> = new Map();
+  for (const batch of absoluteBatches) {
+    const [candidateId] = parseBatchCandidateIds(batch);
+    if (candidateId === undefined) continue;
+    const response = responses.find((r) => r.id === candidateId);
+    if (!response) continue;
+    const modelSnapshotId = response.model_snapshot_id;
+    if (!modelGroupsMap.has(modelSnapshotId)) {
+      const model = modelSnapshots.find((m) => m.id === modelSnapshotId);
+      modelGroupsMap.set(modelSnapshotId, {
+        modelName: model?.display_name ?? `Model #${modelSnapshotId}`,
+        batches: [],
+      });
+    }
+    modelGroupsMap.get(modelSnapshotId)!.batches.push(batch);
+  }
+
+  // Sort by avg overall score descending (null scores go last)
+  const sortedModelGroups = [...modelGroupsMap.entries()].sort(([, a], [, b]) => {
+    const scoreA = avgBatchScore(a.batches);
+    const scoreB = avgBatchScore(b.batches);
+    if (scoreA === null && scoreB === null) return 0;
+    if (scoreA === null) return 1;
+    if (scoreB === null) return -1;
+    return scoreB - scoreA;
+  });
+
+  const multipleJudges = [...modelGroupsMap.values()].some((g) => g.batches.length > 1);
+
+  return (
+    <div className="space-y-4">
+      {sortedModelGroups.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Absolute Review
+          </p>
+          {sortedModelGroups.map(([modelSnapshotId, { modelName, batches }], rank) => {
+            const isExpanded = expandedModels.has(modelSnapshotId);
+            const avgScore = avgBatchScore(batches);
+            const aggregateStatus = promptAggregateStatus(batches);
+            return (
+              <div
+                key={modelSnapshotId}
+                className="overflow-hidden rounded-[1rem] border border-sky-200/70 bg-white shadow-[0_3px_10px_-6px_rgba(14,165,233,0.08)]"
+              >
+                {/* Compact header row — always visible */}
+                <button
+                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150 hover:bg-sky-50/60"
+                  onClick={() => toggleModel(modelSnapshotId)}
+                  type="button"
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
+                    {rank + 1}
+                  </span>
+                  <p className="min-w-0 flex-1 truncate text-[0.82rem] font-semibold text-slate-800">
+                    {modelName}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {avgScore !== null ? (
+                      <span className={cn(
+                        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold",
+                        scoreToneClasses(String(avgScore.toFixed(0)), "badge"),
+                      )}>
+                        {avgScore.toFixed(0)}
+                      </span>
+                    ) : null}
+                    <StatusPill status={aggregateStatus} />
+                    <ChevronDown className={cn(
+                      "h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200",
+                      isExpanded && "rotate-180",
+                    )} />
+                  </div>
+                </button>
+
+                {/* Expanded judge details */}
+                {isExpanded ? (
+                  <div className="border-t border-sky-100/80">
+                    {batches.map((batch, bIdx) => {
+                      const judgeModel = modelSnapshots.find((m) => m.id === batch.judge_model_snapshot_id);
+                      const isBatchRetrying = retryingBatchIds.includes(batch.id);
+                      return (
+                        <div key={batch.id} className={cn("px-3 py-2", bIdx > 0 && "border-t border-sky-100/60")}>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            {multipleJudges && judgeModel ? (
+                              <p className="min-w-0 flex-1 truncate text-[0.74rem] font-medium text-slate-500">
+                                {judgeModel.display_name}
+                              </p>
+                            ) : <div className="flex-1" />}
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <StatusPill status={isBatchRetrying ? "running" : batch.status} />
+                              {batch.status === "failed" && !isBatchRetrying ? (
+                                <Button disabled={isJudgingActive} onClick={() => onRetryBatch(batch.id)} size="sm" variant="secondary">
+                                  Retry
+                                </Button>
+                              ) : null}
+                              {batch.evaluation ? (
+                                <button
+                                  className="rounded p-0.5 text-violet-400 transition-colors hover:text-violet-700"
+                                  onClick={(e) => { e.stopPropagation(); onInspectBatch(batch.id); }}
+                                  title="View full judge response"
+                                  type="button"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                          {batch.evaluation ? (
+                            <JudgeFeedbackPanel
+                              batch={batch}
+                              responses={responses}
+                              run={run}
+                              onSelectResponse={onSelectResponse}
+                            />
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {arenaBatches.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Arena Pairwise
+          </p>
+          {arenaBatches.map((batch) => {
+            const candidateIds = parseBatchCandidateIds(batch);
+            const nameA = candidateIds[0] !== undefined ? modelNameForCandidateResponse(candidateIds[0], responses, modelSnapshots) : "?";
+            const nameB = candidateIds[1] !== undefined ? modelNameForCandidateResponse(candidateIds[1], responses, modelSnapshots) : "?";
+            const isBatchRetrying = retryingBatchIds.includes(batch.id);
+            const winner = batch.evaluation?.candidates.find((c) => c.ranking_in_batch === 1);
+            const winnerName = winner
+              ? modelNameForCandidateResponse(winner.candidate_response_id, responses, modelSnapshots)
+              : null;
+            const isExpanded = expandedArena.has(batch.id);
+            return (
+              <div
+                key={batch.id}
+                className="overflow-hidden rounded-[1rem] border border-violet-200/70 bg-white shadow-[0_3px_10px_-6px_rgba(139,92,246,0.08)]"
+              >
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors duration-150 hover:bg-violet-50/50"
+                  onClick={() => toggleArena(batch.id)}
+                  type="button"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[0.82rem] font-semibold text-slate-800">
+                      {nameA} <span className="font-normal text-slate-400">vs</span> {nameB}
+                    </p>
+                    {winnerName ? (
+                      <p className="mt-0.5 text-[0.74rem] font-medium text-emerald-600">
+                        ↑ {winnerName}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <StatusPill status={isBatchRetrying ? "running" : batch.status} />
+                    {batch.evaluation ? (
+                      <button
+                        className="rounded p-0.5 text-violet-400 transition-colors hover:text-violet-700"
+                        onClick={(e) => { e.stopPropagation(); onInspectBatch(batch.id); }}
+                        title="View match details"
+                        type="button"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                    <ChevronDown className={cn(
+                      "h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200",
+                      isExpanded && "rotate-180",
+                    )} />
+                  </div>
+                </button>
+                {isExpanded && batch.evaluation ? (
+                  <div className="border-t border-violet-100/80 px-3 py-2">
+                    {batch.status === "failed" && !isBatchRetrying ? (
+                      <Button disabled={isJudgingActive} onClick={() => onRetryBatch(batch.id)} size="sm" variant="secondary">
+                        Retry
+                      </Button>
+                    ) : null}
+                    <JudgeFeedbackPanel
+                      batch={batch}
+                      responses={responses}
+                      run={run}
+                      onSelectResponse={onSelectResponse}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2384,85 +2812,6 @@ function JudgeFeedbackPanel({
   );
 }
 
-function renderJudgeBatchRow({
-  batch,
-  promptSnapshots,
-  retryingBatchIds,
-  selectedBatchId,
-  onRetryBatch,
-  onSelectBatch,
-  isJudgingActive,
-}: {
-  batch: JudgeBatch;
-  promptSnapshots: RunPromptSnapshot[];
-  retryingBatchIds: number[];
-  selectedBatchId: number | null;
-  onRetryBatch: (batchId: number) => void;
-  onSelectBatch: (batchId: number) => void;
-  isJudgingActive: boolean;
-}) {
-  const prompt = promptById(promptSnapshots, batch.prompt_snapshot_id);
-  const isBatchRetrying = retryingBatchIds.includes(batch.id);
-  const candidateCount = countJudgeBatchCandidates(batch);
-
-  return (
-    <div
-      key={batch.id}
-      className={cn(
-        "group flex w-full cursor-pointer items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 transition-all duration-200",
-        selectedBatchId === batch.id
-          ? "border-sky-300 bg-[linear-gradient(180deg,rgba(240,249,255,0.96),rgba(255,255,255,0.98))] shadow-[0_16px_36px_-28px_rgba(14,165,233,0.3)]"
-          : "border-sky-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.98))] hover:-translate-y-0.5 hover:border-sky-300 hover:bg-[linear-gradient(180deg,rgba(240,249,255,0.98),rgba(255,255,255,1))] hover:shadow-[0_16px_32px_-26px_rgba(14,165,233,0.24)]",
-      )}
-    >
-      <button
-        className="min-w-0 flex-1 rounded-[0.85rem] text-left outline-none transition-transform duration-150 active:scale-[0.995]"
-        onClick={() => onSelectBatch(batch.id)}
-        type="button"
-      >
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-slate-950 transition-colors duration-150 group-hover:text-sky-900">
-            {prompt?.name ?? `Prompt snapshot #${batch.prompt_snapshot_id}`}
-          </p>
-          <span
-            className={cn(
-              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]",
-              batch.batch_type === "arena"
-                ? "bg-violet-100 text-violet-700"
-                : "bg-sky-100 text-sky-700",
-            )}
-          >
-            {batch.batch_type}
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-slate-500">
-          Job {batch.batch_index} · {candidateCount} candidate{candidateCount > 1 ? "s" : ""}
-        </p>
-      </button>
-      <div className="flex shrink-0 items-center gap-2">
-        <Eye className="h-4 w-4 text-sky-700/70 transition-all duration-200 group-hover:scale-110 group-hover:text-sky-800" />
-        {isBatchRetrying ? (
-          <LoaderCircle className="h-3.5 w-3.5 animate-spin text-amber-500" />
-        ) : null}
-        <StatusPill status={isBatchRetrying ? "running" : batch.status} />
-        {batch.status === "failed" && !isBatchRetrying ? (
-          <Button
-            disabled={isJudgingActive}
-            onClick={(e) => {
-              e.stopPropagation();
-              onRetryBatch(batch.id);
-            }}
-            size="sm"
-            type="button"
-            variant="secondary"
-          >
-            Retry
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 function JudgeCandidateCard({
   candidate,
@@ -2812,18 +3161,6 @@ function summarizeShortFeedback(candidate: JudgeEvaluationCandidate): string {
   return `${text.slice(0, 41).trimEnd()}…`;
 }
 
-function countJudgeBatchCandidates(batch: JudgeBatch): number {
-  if (batch.evaluation?.candidates.length) {
-    return batch.evaluation.candidates.length;
-  }
-
-  try {
-    const candidateIds = JSON.parse(batch.randomized_candidate_ids_jsonb);
-    return Array.isArray(candidateIds) ? candidateIds.length : 0;
-  } catch {
-    return 0;
-  }
-}
 
 function scoreToneClasses(
   value: string | null | undefined,

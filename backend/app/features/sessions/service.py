@@ -118,10 +118,6 @@ class SessionService:
         if "status" in updates and updates["status"] is not None:
             benchmark_session.status = updates["status"]
         if "max_candidates" in updates and updates["max_candidates"] is not None:
-            if len(benchmark_session.candidates) > updates["max_candidates"]:
-                raise SessionValidationError(
-                    "Current candidate count exceeds requested max_candidates."
-                )
             benchmark_session.max_candidates = updates["max_candidates"]
         if "rubric_version" in updates and updates["rubric_version"] is not None:
             benchmark_session.rubric_version = updates["rubric_version"].strip()
@@ -179,9 +175,6 @@ class SessionService:
         payload: SessionCandidateCreate,
     ) -> SessionRead:
         benchmark_session = await self._require_session(session_id)
-        if len(benchmark_session.candidates) >= benchmark_session.max_candidates:
-            raise SessionValidationError("MVP allows at most 5 candidate models per session.")
-
         model_profile = await self.repository.get_model_profile(payload.model_profile_id)
         self._validate_model_for_candidate(model_profile, payload.model_profile_id)
         if any(
@@ -221,9 +214,6 @@ class SessionService:
 
     async def add_judge(self, session_id: int, payload: SessionJudgeCreate) -> SessionRead:
         benchmark_session = await self._require_session(session_id)
-        if len(benchmark_session.judges) >= 1:
-            raise SessionValidationError("MVP allows exactly one judge model per session.")
-
         model_profile = await self.repository.get_model_profile(payload.model_profile_id)
         self._validate_model_for_judge(model_profile, payload.model_profile_id)
         if any(
@@ -359,4 +349,3 @@ class SessionService:
             created_at=benchmark_session.created_at,
             updated_at=benchmark_session.updated_at,
         )
-

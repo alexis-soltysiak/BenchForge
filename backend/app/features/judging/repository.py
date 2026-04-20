@@ -1,11 +1,11 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.features.judging.models import JudgeBatch, JudgeEvaluation
-from app.features.runs.models import CandidateResponse, SessionRun
+from app.features.runs.models import CandidateResponse, ModelGlobalSummary, SessionRun
 
 
 class JudgingRepository:
@@ -52,6 +52,16 @@ class JudgingRepository:
 
     def add_batch(self, batch: JudgeBatch) -> None:
         self.session.add(batch)
+
+    async def clear_batches(self, run_id: int) -> None:
+        await self.session.execute(
+            delete(JudgeBatch).where(JudgeBatch.run_id == run_id)
+        )
+
+    async def clear_global_summaries(self, run_id: int) -> None:
+        await self.session.execute(
+            delete(ModelGlobalSummary).where(ModelGlobalSummary.run_id == run_id)
+        )
 
     async def commit(self) -> None:
         await self.session.commit()

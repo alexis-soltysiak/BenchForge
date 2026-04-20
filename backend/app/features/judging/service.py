@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import random
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_session_factory
 from app.core.encryption import decrypt_value
 from app.features.aggregation.service import AggregationService
 from app.features.execution.adapters.anthropic import AnthropicAdapter
@@ -36,6 +38,7 @@ JUDGE_SCHEMA_VERSION = "mvp-v1"
 ANONYMIZED_LABELS = ["A", "B", "C", "D", "E"]
 ABSOLUTE_BATCH_TYPE = "absolute"
 ARENA_BATCH_TYPE = "arena"
+JUDGING_MAX_CONCURRENCY = 8
 
 
 class JudgingError(ValueError):
@@ -137,13 +140,7 @@ class JudgingService:
                 "Judging has already started for this run. Use retry judging instead."
             )
 
-        self._validate_run_ready_for_judging(run)
-        run.status = "judging"
-        await self.repository.commit()
-        await self._ensure_batches(run)
-        await self.repository.commit()
-        refreshed_batches = list(await self.repository.list_batches(run.id))
-        return self._serialize_run_judging(run, refreshed_batches)
+        return await self._run_judging(run)
 
     async def continue_judging(self, run_id: int) -> RunJudgingRead:
         run = await self.repository.get_run(run_id)
@@ -158,6 +155,29 @@ class JudgingService:
             raise JudgingError(f"Run {run_id} not found.")
 
         return await self._run_judging(run)
+
+    async def clear_judging(self, run_id: int) -> RunJudgingRead:
+        run = await self.repository.get_run(run_id)
+        if run is None:
+            raise JudgingError(f"Run {run_id} not found.")
+
+        await self.repository.clear_batches(run.id)
+        await self.repository.clear_global_summaries(run.id)
+        run.status = "ready_for_judging"
+        run.report_status = "pending"
+        run.html_report_path = None
+        run.pdf_report_path = None
+        await self.repository.commit()
+
+        refreshed_run = await self.repository.get_run(run.id)
+        if refreshed_run is None:
+            raise JudgingError(f"Run {run_id} not found after clearing judging.")
+        refreshed_batches = list(await self.repository.list_batches(run.id))
+        return self._serialize_run_judging(refreshed_run, refreshed_batches)
+
+    async def restart_judging(self, run_id: int) -> RunJudgingRead:
+        await self.clear_judging(run_id)
+        return await self.start_judging(run_id)
 
     async def retry_batch(self, run_id: int, batch_id: int) -> RunJudgingRead:
         run = await self.repository.get_run(run_id)
@@ -281,24 +301,52 @@ class JudgingService:
         return self._serialize_run_judging(run, refreshed_batches)
 
     async def _run_pending_batches(self, run: SessionRun, batch_type: str) -> bool:
-        failed = False
         batches = [
             batch
             for batch in await self.repository.list_batches(run.id)
             if batch.batch_type == batch_type
         ]
-        for batch in batches:
+        pending_batch_ids = [
+            batch.id for batch in batches if batch.status != "completed"
+        ]
+        if not pending_batch_ids:
+            return False
+
+        semaphore = asyncio.Semaphore(
+            min(JUDGING_MAX_CONCURRENCY, len(pending_batch_ids))
+        )
+
+        async def run_one(batch_id: int) -> str | None:
+            async with semaphore:
+                return await self._execute_batch_isolated(run.id, batch_id)
+
+        results = await asyncio.gather(*(run_one(batch_id) for batch_id in pending_batch_ids))
+        return any(result is not None for result in results)
+
+    async def _execute_batch_isolated(self, run_id: int, batch_id: int) -> str | None:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            service = JudgingService(session)
+            run = await service.repository.get_run(run_id)
+            if run is None:
+                return f"Run {run_id} not found."
+
+            batch = await service.repository.get_batch(batch_id)
+            if batch is None or batch.run_id != run_id:
+                return f"Judge batch {batch_id} not found for run {run_id}."
+
             if batch.status == "completed":
-                continue
+                return None
+
             try:
-                await self._execute_batch(run, batch)
+                await service._execute_batch(run, batch)
             except (httpx.HTTPError, JudgingError, ValueError) as exc:
                 batch.status = "failed"
                 batch.completed_at = datetime.now(UTC)
                 batch.error_message = str(exc)
-                await self.repository.commit()
-                failed = True
-        return failed
+                await service.repository.commit()
+                return str(exc)
+        return None
 
     async def _ensure_absolute_batches(self, run: SessionRun) -> None:
         existing_signatures = {
@@ -643,12 +691,13 @@ class JudgingService:
             return (
                 "You are a strict benchmark judge. Return JSON only. "
                 "Evaluate a single candidate response on absolute merit against the prompt. "
+                "Use a 0 to 100 scoring scale for every score field, never a 1 to 10 scale. "
                 "Use confidence on an integer scale from 1 to 5, where 1 means low confidence and 5 means very high confidence."
             )
         return (
             "You are a strict benchmark arena judge. Return JSON only. "
             "Compare the anonymized candidate responses head to head for the same benchmark prompt. "
-            "Score each candidate from 0 to 100, rank them, and use confidence on an integer scale from 1 to 5. "
+            "Score each candidate from 0 to 100, never use a 1 to 10 scale, rank them, and use confidence on an integer scale from 1 to 5. "
             "Use 1 for near-ties and 5 for clear wins."
         )
 
@@ -680,6 +729,7 @@ class JudgingService:
                 f"{candidates_block}"
                 "\n\nImportant rules:\n"
                 "- Judge the response on absolute merit, not relative to imaginary alternatives.\n"
+                "- Every score must use the 0 to 100 scale, never 1 to 10.\n"
                 "- confidence must be an integer from 1 to 5.\n"
                 "\n\nReturn JSON with this exact shape:\n"
                 '{'
@@ -695,6 +745,7 @@ class JudgingService:
             "\n\nImportant rules:\n"
             "- Rank the stronger response first.\n"
             "- Score each response from 0 to 100 based on correctness, instruction following, completeness, and clarity.\n"
+            "- Never use a 1 to 10 scale for score fields.\n"
             "- confidence must be an integer from 1 to 5.\n"
             "\n\nReturn JSON with this exact shape:\n"
             '{'

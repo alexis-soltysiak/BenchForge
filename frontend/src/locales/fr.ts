@@ -424,14 +424,14 @@ const fr = {
     "Aucune session trouvée. Crée une session de benchmark avec des prompts et des modèles enregistrés pour lancer ton premier run.",
   "sessions.noDescription": "Aucune description",
   "sessions.compositionPrompts": "{{count}} prompts",
-  "sessions.compositionCandidates": "{{count}}/{{max}} candidats",
+  "sessions.compositionCandidates": "{{count}} candidats",
   "sessions.compositionJudges": "{{count}} juges",
   "sessions.action.configure": "Configurer",
   "sessions.action.configureDesc":
     "Ouvrir le flux de sélection étape par étape pour les prompts, candidats et juge.",
   "sessions.action.edit": "Modifier",
   "sessions.action.editDesc":
-    "Modifier le nom, la description, le statut, la limite de candidats et la version de rubrique.",
+    "Modifier le nom, la description, le statut et la version de rubrique.",
   "sessions.action.launch": "Lancer",
   "sessions.action.launchDesc":
     "Créer et démarrer un nouveau run de benchmark à partir de cette configuration de session.",
@@ -461,9 +461,6 @@ const fr = {
   "sessions.form.status.draft": "Brouillon",
   "sessions.form.status.ready": "Prêt",
   "sessions.form.status.archived": "Archivé",
-  "sessions.form.maxCandidates": "Candidats max",
-  "sessions.form.maxCandidatesHint":
-    "Choisir combien de slots de modèles candidats cette session peut accepter.",
   "sessions.form.rubricVersion": "Version de rubrique",
   "sessions.form.rubricVersionHint": 'Exemple : "mvp-v1"',
   "sessions.form.cancel": "Annuler",
@@ -474,7 +471,7 @@ const fr = {
     "Choisir les prompts inclus dans cette session de benchmark.",
   "sessions.selection.candidates": "Candidats",
   "sessions.selection.candidatesDesc":
-    "Attacher jusqu'à {{max}} modèles candidats pour cette configuration de run.",
+    "Attacher les modèles candidats pour cette configuration de run.",
   "sessions.selection.judges": "Juge",
   "sessions.selection.judgesDesc": "Assigner le modèle juge responsable de l'évaluation.",
   "sessions.selection.selected": "Sélectionné",

@@ -52,37 +52,54 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
     ),
     BuiltinPromptSeed(
         slug="summarize-policy-with-exception-hierarchy",
-        name="summarize_policy_with_exception_hierarchy",
+        name="summarize-policy-with-exception-hierarchy",
         category_slug="summarization",
-        description="Summarize a policy that combines prohibitions, obligations, exceptions, and differentiated consequences without flattening its structure.",
+        description="Summarize a multi-tier access policy with nested role-scoped exceptions, counter-exceptions, temporal conditions, and differentiated consequence tracks.",
         system_prompt_text=(
-            "You are a compliance-focused summarizer. Preserve distinctions between prohibitions, obligations, "
-            "exceptions, and consequences. Do not simplify away conditional rules."
+            "You are a compliance-focused summarizer. Preserve the exact scope of every exception and counter-exception. "
+            "Do not merge distinct consequence tracks. Do not infer conditions that are not explicitly stated."
         ),
         user_prompt_text=(
-            "Summarize the policy below in exactly 5 bullets using these labels in this exact order:\n"
-            "`Applies to`\n"
-            "`Prohibited`\n"
-            "`Required reporting`\n"
-            "`Exception`\n"
-            "`Consequences`\n\n"
-            "Do not quote the source. Do not add examples.\n\n"
-            "Policy excerpt:\n"
-            "This policy applies to all employees, contractors, interns, and temporary staff with access to company "
-            "systems or customer data. Sharing credentials, disabling endpoint protection, storing customer data in "
-            "unsanctioned personal tools, or bypassing mandatory logging is prohibited. Any accidental violation "
-            "involving customer data must be reported to the security team within 24 hours. Temporary password "
-            "sharing during a formally declared incident is permitted only if approved by the incident commander "
-            "and documented within the same business day. Repeated negligence may lead to temporary access "
-            "suspension, while intentional or concealed violations may result in disciplinary action, contract "
-            "termination, or legal escalation depending on severity."
+            "Summarize the policy below in exactly 7 bullets using these labels in this exact order:\n"
+            "`Scope`\n"
+            "`Default prohibitions`\n"
+            "`Role exception`\n"
+            "`Counter-exception`\n"
+            "`Mandatory disclosure`\n"
+            "`Consequence track A`\n"
+            "`Consequence track B`\n\n"
+            "Rules for your summary:\n"
+            "- Each bullet must begin with its label followed by a colon\n"
+            "- Do not merge `Consequence track A` and `Consequence track B` into one bullet\n"
+            "- The `Role exception` bullet must name the eligible role and both conditions that must be simultaneously true\n"
+            "- The `Counter-exception` bullet must state who it applies to and the single condition that re-activates the prohibition\n"
+            "- Do not quote the source text. Do not add examples. Do not exceed one sentence per bullet.\n\n"
+            "Policy:\n"
+            "This policy governs all personnel with elevated system privileges, including full-time engineers, "
+            "on-call contractors, and third-party auditors operating under a signed data-processing agreement. "
+            "By default, no covered person may access production databases directly, export raw customer records, "
+            "or modify infrastructure configuration outside a change-management ticket. "
+            "Senior engineers who hold an active security clearance and whose team lead has filed a standing access "
+            "request for the current quarter may perform direct production reads for incident diagnosis. "
+            "However, this exception does not apply to senior engineers who are currently under a disciplinary review, "
+            "even if all other conditions are met. "
+            "Any access that results in the export of more than 500 customer records — whether intentional or incidental — "
+            "must be disclosed to the Data Protection Officer within 4 business hours and logged in the incident register. "
+            "Personnel who violate the default prohibitions through negligence face mandatory retraining and a 30-day "
+            "privilege suspension; a second negligent violation within 12 months triggers automatic escalation to HR. "
+            "Personnel who commit intentional or concealed violations face immediate privilege revocation, contract "
+            "termination, and referral to relevant regulatory authorities without prior warning."
         ),
         evaluation_notes=(
-            "Reward exact label ordering, preservation of the narrowly-scoped password-sharing exception, "
-            "and differentiated consequences for negligence versus intentional or concealed violations."
+            "Reward: correct 7-bullet structure in exact label order; Scope covering all three personnel categories; "
+            "Default prohibitions listing all three; Role exception naming senior engineers with both conditions (clearance + standing request); "
+            "Counter-exception scoped to disciplinary review only; Mandatory disclosure with 500-record threshold and 4-hour window; "
+            "Consequence track A for negligence (retraining + suspension + 12-month escalation trigger); "
+            "Consequence track B for intentional/concealed (revocation + termination + regulatory referral). "
+            "Penalize: merging consequence tracks, omitting the disciplinary-review counter-exception, dropping the 12-month recidivism condition, or exceeding one sentence per bullet."
         ),
-        tags=("benchmark", "summarization", "policy", "compliance", "exception-handling", "structured-summary"),
-        difficulty=4,
+        tags=("benchmark", "summarization", "policy", "compliance", "nested-exceptions", "role-scoped", "structured-summary"),
+        difficulty=5,
     ),
     BuiltinPromptSeed(
         slug="extract-incident-records-with-rule-collisions",
@@ -328,29 +345,42 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         slug="coding-lru-cache-with-explicit-state-invariants",
         name="coding_lru_cache_with_explicit_state_invariants",
         category_slug="coding",
-        description="Implement an LRU cache with strict behavioral guarantees and edge-case-sensitive update semantics.",
-        system_prompt_text="Write correct, concise Python. Prefer invariant-preserving logic over shortcuts. The behavior must exactly match the requested semantics.",
+        description="Implement a thread-safe LRU cache with extended semantics including peek, put_if_absent, evict_where, and strict hit/miss tracking.",
+        system_prompt_text="Write correct, concise Python. Every semantic rule must hold exactly, including under concurrent access. Do not sacrifice correctness for brevity.",
         user_prompt_text=(
-            "Implement a Python class `LRUCache` with methods `get(key)` and `put(key, value)`.\n\n"
-            "Required semantics:\n"
-            "- Constructor: `LRUCache(capacity)` where capacity is a positive integer\n"
-            "- `get(key)` returns the value if present, otherwise `-1`\n"
-            "- `put(key, value)` inserts or updates the key\n"
-            "- Both `get` and `put` must mark the key as most recently used if the key exists after the operation\n"
-            "- When capacity is exceeded, evict exactly one least recently used key\n"
-            "- Updating an existing key must not change the number of stored keys\n"
-            "- Average time complexity must be O(1)\n"
-            "- Do not use `OrderedDict`\n"
-            "- If capacity is less than 1, raise `ValueError`\n"
-            "- After the code, explain in at most 4 sentences why the operations are O(1)\n\n"
-            "Be careful with edge cases around updates, repeated gets, eviction order, and invalid capacity."
+            "Implement a Python class `LRUCache` with the following interface:\n\n"
+            "- `LRUCache(capacity)` — raises `ValueError` if capacity < 1\n"
+            "- `get(key)` — returns value if present and marks key as most recently used; returns `-1` if absent\n"
+            "- `peek(key)` — returns value if present **without** updating recency; returns `-1` if absent\n"
+            "- `put(key, value)` — inserts or updates; on update, marks as most recently used without changing size; evicts LRU when over capacity\n"
+            "- `put_if_absent(key, value)` — inserts only if key is not present; returns `True` if inserted, `False` if already existed; does **not** update recency on collision\n"
+            "- `evict_where(predicate)` — removes all entries where `predicate(key, value)` is `True`; preserves recency order of remaining entries exactly\n"
+            "- `.stats` property — returns a dict `{\"hits\": int, \"misses\": int}`; only `get` and `peek` count toward hits/misses\n\n"
+            "Additional constraints:\n"
+            "- All operations except `evict_where` must be O(1) average time\n"
+            "- The entire class must be thread-safe using only `threading.Lock` — no higher-level primitives\n"
+            "- Do not use `OrderedDict` or any other stdlib ordered container\n"
+            "- A single lock acquisition must be sufficient per operation; do not nest locks\n\n"
+            "The following sequence must evaluate correctly:\n"
+            "`c = LRUCache(2)`\n"
+            "`c.put(1, 'a')` → size 1, LRU order: [1]\n"
+            "`c.put(2, 'b')` → size 2, LRU order: [1, 2] (2 is MRU)\n"
+            "`c.peek(1)` → `'a'`, LRU order unchanged: [1, 2]\n"
+            "`c.put(3, 'c')` → evicts 1 (LRU), LRU order: [2, 3]\n"
+            "`c.put_if_absent(2, 'X')` → `False`, value and recency of 2 unchanged\n"
+            "`c.get(2)` → `'b'`, LRU order: [3, 2]\n"
+            "`c.evict_where(lambda k, v: k == 3)` → removes 3, LRU order: [2]\n"
+            "`c.stats` → `{\"hits\": 2, \"misses\": 0}`\n\n"
+            "After the code, explain in exactly 3 sentences: (1) how recency order is maintained at O(1), "
+            "(2) why `peek` and `put_if_absent` do not corrupt the recency invariant, and (3) how your locking strategy prevents data races without deadlock."
         ),
         evaluation_notes=(
-            "Reward correct hashmap + linked-structure design, exact recency semantics on both get and update, "
-            "correct eviction, explicit invalid-capacity handling, and no accidental size growth on update. "
-            "Penalize superficially correct but invariant-breaking solutions."
+            "Reward: correct doubly-linked-list + hashmap design, peek not updating recency, put_if_absent not updating on collision, "
+            "evict_where preserving remaining order, stats counting only get/peek, thread safety with a single non-nested Lock, "
+            "no OrderedDict, ValueError on bad capacity, and all sequence steps correct. "
+            "Penalize: any recency corruption from peek or put_if_absent, stats counting puts, nested locks, or O(n) operations."
         ),
-        tags=("benchmark", "coding", "python", "data-structures", "lru-cache", "invariants", "algorithm"),
+        tags=("benchmark", "coding", "python", "data-structures", "lru-cache", "concurrency", "invariants", "algorithm"),
         difficulty=5,
     ),
 )

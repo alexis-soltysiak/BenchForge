@@ -55,7 +55,6 @@ type SessionFormState = {
   name: string;
   description: string;
   status: "draft" | "ready" | "archived";
-  maxCandidates: string;
   rubricVersion: string;
 };
 
@@ -63,7 +62,6 @@ const emptyForm: SessionFormState = {
   name: "",
   description: "",
   status: "draft",
-  maxCandidates: "5",
   rubricVersion: "mvp-v1",
 };
 
@@ -72,7 +70,6 @@ function toFormState(session: Session): SessionFormState {
     name: session.name,
     description: session.description ?? "",
     status: session.status,
-    maxCandidates: String(session.max_candidates),
     rubricVersion: session.rubric_version,
   };
 }
@@ -82,7 +79,6 @@ function toPayload(state: SessionFormState): SessionPayload {
     name: state.name.trim(),
     description: state.description.trim() || null,
     status: state.status,
-    max_candidates: Number(state.maxCandidates),
     rubric_version: state.rubricVersion.trim(),
   };
 }
@@ -642,7 +638,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="neutral">{t("sessions.compositionPrompts", { count: session.prompts.length })}</Badge>
                             <Badge variant="neutral">
-                              {t("sessions.compositionCandidates", { count: session.candidates.length, max: session.max_candidates })}
+                              {t("sessions.compositionCandidates", { count: session.candidates.length })}
                             </Badge>
                             <Badge variant="neutral">{t("sessions.compositionJudges", { count: session.judges.length })}</Badge>
                           </div>
@@ -762,7 +758,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             />
           </Field>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field
               hint={t("sessions.form.statusHint")}
               label={t("sessions.form.status")}
@@ -779,26 +775,6 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                 <option value="draft">{t("sessions.form.status.draft")}</option>
                 <option value="ready">{t("sessions.form.status.ready")}</option>
                 <option value="archived">{t("sessions.form.status.archived")}</option>
-              </Select>
-            </Field>
-            <Field
-              hint={t("sessions.form.maxCandidatesHint")}
-              label={t("sessions.form.maxCandidates")}
-            >
-              <Select
-                value={formState.maxCandidates}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    maxCandidates: event.target.value,
-                  }))
-                }
-              >
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
               </Select>
             </Field>
             <Field
@@ -923,7 +899,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
             {selectionStep === "candidates" ? (
               <SelectionWorkspace
-                description={t("sessions.selection.candidatesDesc", { max: selectedSession.max_candidates })}
+                description={t("sessions.selection.candidatesDesc")}
                 search={candidateSearch}
                 selectedCount={selectedSession.candidates.length}
                 title={t("sessions.selection.candidates")}
