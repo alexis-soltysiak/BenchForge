@@ -124,7 +124,7 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         slug="transform-contract-clauses-to-strict-json",
         name="transform_contract_clauses_to_strict_json",
         category_slug="structured-output",
-        description="Extract structured contract obligations from dense clauses with overlapping conditions and explicit exclusion rules.",
+        description="Extract structured contract obligations from dense clauses with nested conditions, shared exclusions, and mixed normative language.",
         system_prompt_text="Return valid JSON only. Follow the schema exactly and obey the inclusion and exclusion rules without approximation.",
         user_prompt_text=(
             "Convert the clauses below into a JSON array. Each object must contain exactly these keys:\n"
@@ -136,6 +136,8 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "- Include only clauses that create an affirmative obligation\n"
             "- Exclude clauses that are purely definitional, purely permissive, or state only a consequence without an action\n"
             "- If a clause contains both an obligation and an exception, keep both in the same object\n"
+            "- If a clause contains a temporal or triggering condition, put it in `applies_if` rather than `action`\n"
+            "- Keep exceptions and blockers in `excluded_if`, even if they appear after the main obligation\n"
             "- Return JSON only\n\n"
             "Clauses:\n"
             "1. C1: The Vendor shall notify the Client of any security incident within 3 days of confirmation unless law enforcement prohibits disclosure.\n"
@@ -144,11 +146,14 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "4. C4: Each party shall maintain commercially reasonable backups during the Term.\n"
             "5. C5: If the Vendor fails to meet the service levels for 3 consecutive months, service credits will apply.\n"
             "6. C6: The Client must provide relevant access credentials within 5 days after written onboarding notice, except where prohibited by internal policy.\n"
-            "7. C7: Either party may terminate the Agreement for convenience with 30 days' notice."
+            "7. C7: Either party may terminate the Agreement for convenience with 30 days' notice.\n"
+            "8. C8: During any approved disaster-recovery test, the Vendor must restore the staging environment within 2 days unless the Client has not delivered the required seed data.\n"
+            "9. C9: The Vendor may archive support logs after 90 days.\n"
+            "10. C10: Upon written request by the Client, each party shall designate a security contact within 7 days, except while a merger-related confidentiality hold is active."
         ),
         evaluation_notes=(
-            "Reward inclusion of C1, C4, and C6 only; correct owner normalization; proper extraction of deadlines "
-            "and exceptions; and exclusion of definitional, permissive, and consequence-only clauses."
+            "Reward inclusion of C1, C4, C6, C8, and C10 only; correct owner normalization; proper extraction of deadlines, "
+            "trigger conditions, and exceptions; and exclusion of definitional, permissive, and consequence-only clauses."
         ),
         tags=("benchmark", "structured-output", "json", "legal", "information-extraction", "schema-discipline"),
         difficulty=5,
@@ -157,7 +162,7 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         slug="reasoning-multi-rule-approval-matrix",
         name="reasoning_multi_rule_approval_matrix",
         category_slug="reasoning",
-        description="Evaluate several approval decisions under overlapping rules, scoped exceptions, and explicit precedence constraints.",
+        description="Evaluate several approval decisions under overlapping rules, scoped exceptions, precedence, and narrow carve-outs.",
         system_prompt_text="Apply the rules exactly as written. Respect precedence and scope. Do not extend exceptions beyond what is explicitly stated.",
         user_prompt_text=(
             "A company applies these approval rules:\n"
@@ -165,7 +170,8 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "2. Finance-approved managers may approve any expense up to 5000 euros.\n"
             "3. Managers who are not finance-approved may approve non-travel expenses below 1000 euros.\n"
             "4. Temporary managers may not approve travel expenses.\n"
-            "5. A person on the exception list for a specific expense type may approve that type below 1000 euros unless blocked by a higher-priority rule.\n\n"
+            "5. A person on the exception list for a specific expense type may approve that type below 1000 euros unless blocked by a higher-priority rule.\n"
+            "6. However, the temporary-manager travel restriction in rule 4 does not apply to exception-list approvals below 500 euros.\n\n"
             "Facts:\n"
             "- Elena is a manager.\n"
             "- Elena is not finance-approved.\n"
@@ -174,25 +180,28 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "- Request A is a 300 euro travel expense submitted by Marco.\n"
             "- Request B is a 700 euro software expense submitted by Priya.\n"
             "- Request C is a 700 euro travel expense submitted by Elena.\n"
-            "- Request D is a 1200 euro travel expense submitted by Omar.\n\n"
+            "- Request D is a 1200 euro travel expense submitted by Omar.\n"
+            "- Request E is a 450 euro travel expense submitted by Omar.\n\n"
             "Answer in exactly this format:\n"
             "`A: yes/no - reason`\n"
             "`B: yes/no - reason`\n"
             "`C: yes/no - reason`\n"
-            "`D: yes/no - reason`"
+            "`D: yes/no - reason`\n"
+            "`E: yes/no - reason`"
         ),
         evaluation_notes=(
-            "Reward correct priority handling: A yes via travel exception, B yes via non-travel-under-1000 rule, "
-            "C no due to self-approval, D no because the exception does not extend above 1000. Penalize any scope drift."
+            "Reward exact precedence and scope handling: A yes because rule 6 creates a narrow carve-out, B yes via rule 3, "
+            "C no due to self-approval, D no because the exception does not extend above 1000, and E yes via the same carve-out. "
+            "Penalize treating rule 5 as broader than written."
         ),
         tags=("benchmark", "reasoning", "logic", "rule-application", "precedence", "exceptions"),
-        difficulty=4,
+        difficulty=5,
     ),
     BuiltinPromptSeed(
         slug="reasoning-policy-precedence-nested-exceptions",
         name="reasoning_policy_precedence_nested_exceptions",
         category_slug="reasoning",
-        description="Resolve access decisions under a policy stack with precedence, nested exceptions, and interacting roles.",
+        description="Resolve access decisions under a policy stack with precedence, nested exceptions, interacting roles, and one narrow override.",
         system_prompt_text="Apply the rules in precedence order. A lower rule cannot override a higher one unless the text explicitly says so.",
         user_prompt_text=(
             "Access rules are applied in this order from highest precedence to lowest:\n"
@@ -201,12 +210,14 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "3. Managers can access finance_reports only if they completed compliance training.\n"
             "4. Contractors cannot access payroll.\n"
             "5. Anyone on an exception list may access exactly one named system unless blocked by a higher-precedence rule.\n"
-            "6. Employees may access internal_tools by default.\n\n"
+            "6. Employees may access internal_tools by default.\n"
+            "7. A payroll-specific executive waiver overrides rule 2 only, but does not override rule 1.\n\n"
             "Facts:\n"
             "- Nora is an employee, a manager, and an admin.\n"
             "- Nora is under audit.\n"
             "- Nora completed compliance training.\n"
             "- Nora is on the exception list for payroll.\n"
+            "- Nora has a payroll-specific executive waiver.\n"
             "- Nora is not suspended.\n\n"
             "Question: Can Nora access each system?\n\n"
             "Answer in exactly this format:\n"
@@ -215,9 +226,9 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "`internal_tools: yes/no - reason`"
         ),
         evaluation_notes=(
-            "Reward correct precedence handling: payroll denied because the admin-under-audit restriction outranks "
-            "the lower exception rule; finance_reports allowed; internal_tools allowed. "
-            "Penalize letting the exception override a higher rule."
+            "Reward correct precedence handling: payroll allowed because rule 7 explicitly overrides rule 2, "
+            "finance_reports allowed, and internal_tools allowed. Penalize treating the lower exception list as the reason for payroll access "
+            "instead of the explicit waiver."
         ),
         tags=("benchmark", "reasoning", "policy", "precedence", "nested-rules", "logic"),
         difficulty=5,
@@ -255,33 +266,35 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         slug="write-customer-response-with-hidden-conflict-constraints",
         name="write_customer_response_with_hidden_conflict_constraints",
         category_slug="writing",
-        description="Draft a customer reply that must satisfy multiple tightly constrained commercial and stylistic requirements simultaneously.",
+        description="Draft a customer reply that must satisfy multiple tightly constrained commercial, structural, and lexical requirements simultaneously.",
         system_prompt_text="Write with empathy and professionalism. Respect every explicit constraint exactly, especially the ones that conflict in subtle ways.",
         user_prompt_text=(
             "Write a reply to a customer whose order arrived 5 days late and who is asking for a full refund.\n\n"
             "Constraints:\n"
-            "- Between 90 and 110 words inclusive\n"
+            "- Between 95 and 105 words inclusive\n"
             "- Exactly 2 paragraphs\n"
             "- Acknowledge frustration\n"
             "- Apologize clearly\n"
             "- Offer a 15% discount on the next order\n"
             "- Do not offer a refund\n"
             "- Do not blame the shipping carrier\n"
-            "- Do not use the words `policy`, `refund denied`, or `unfortunately`\n"
+            "- Do not use the words `policy`, `refund denied`, `unfortunately`, `cannot`, or `won't`\n"
+            "- Include exactly one sentence that begins with `As a gesture of goodwill,`\n"
+            "- The second paragraph must contain exactly 2 sentences\n"
             "- The final sentence must invite the customer to reply directly"
         ),
         evaluation_notes=(
-            "Reward strict compliance with length, paragraph count, and forbidden phrase constraints "
-            "while still sounding natural and empathetic. Penalize accidental carrier blame or implicit refund promises."
+            "Reward strict compliance with length, paragraph structure, forbidden phrase constraints, and the required goodwill sentence "
+            "while still sounding natural and empathetic. Penalize accidental carrier blame, blunt refusal language, or implicit refund promises."
         ),
         tags=("benchmark", "writing", "customer-support", "constraint-following", "tone-control", "precision"),
-        difficulty=4,
+        difficulty=5,
     ),
     BuiltinPromptSeed(
         slug="coding-rate-limiter-out-of-order-requests",
         name="coding_rate_limiter_out_of_order_requests",
         category_slug="coding",
-        description="Implement a per-user rolling-window rate limiter that remains correct when events arrive out of chronological order.",
+        description="Implement a per-user rolling-window rate limiter that remains correct when events arrive out of chronological order and duplicate timestamps appear.",
         system_prompt_text="Prefer correctness over cleverness. Handle edge cases explicitly. Do not silently assume monotonic timestamps.",
         user_prompt_text=(
             "Implement a Python class `RateLimiter` with a method `allow(user_id, timestamp)`.\n\n"
@@ -289,15 +302,24 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "- Each user may perform at most 3 requests in any rolling 10-second window\n"
             "- `timestamp` is an integer in seconds\n"
             "- Requests for the same user are not guaranteed to arrive in chronological order\n"
+            "- Multiple requests may share the exact same timestamp and must still be counted separately\n"
             "- Different users must be tracked independently\n"
             "- Return `True` if the request is allowed, otherwise `False`\n"
             "- Do not use external libraries\n"
-            "- After the code, explain in at most 3 sentences how your design handles out-of-order timestamps\n\n"
-            "Your implementation should be correct on window-boundary cases and should not rely on queue-only pruning assumptions."
+            "- Do not mutate stored history in a way that would make a later out-of-order decision lose needed prior events\n"
+            "- After the code, explain in at most 4 sentences how your design handles out-of-order timestamps and duplicate timestamps\n\n"
+            "Your implementation should be correct on window-boundary cases and should not rely on queue-only pruning assumptions.\n\n"
+            "The following sequence must evaluate correctly for the same user:\n"
+            "`allow(u, 100) -> True`\n"
+            "`allow(u, 101) -> True`\n"
+            "`allow(u, 102) -> True`\n"
+            "`allow(u, 102) -> False`\n"
+            "`allow(u, 200) -> True`\n"
+            "`allow(u, 103) -> False`"
         ),
         evaluation_notes=(
-            "Reward designs that explicitly support out-of-order timestamps instead of standard append-only queue logic. "
-            "Penalize implementations that are only correct for monotonic event streams."
+            "Reward designs that explicitly support out-of-order timestamps and duplicate timestamps instead of standard append-only queue logic. "
+            "Penalize implementations that destructively prune history, collapse duplicates, or are only correct for monotonic event streams."
         ),
         tags=("benchmark", "coding", "python", "algorithm", "edge-cases", "data-structures", "robustness"),
         difficulty=5,
@@ -319,15 +341,16 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "- Updating an existing key must not change the number of stored keys\n"
             "- Average time complexity must be O(1)\n"
             "- Do not use `OrderedDict`\n"
+            "- If capacity is less than 1, raise `ValueError`\n"
             "- After the code, explain in at most 4 sentences why the operations are O(1)\n\n"
-            "Be careful with edge cases around updates, repeated gets, and eviction order."
+            "Be careful with edge cases around updates, repeated gets, eviction order, and invalid capacity."
         ),
         evaluation_notes=(
             "Reward correct hashmap + linked-structure design, exact recency semantics on both get and update, "
-            "correct eviction, and no accidental size growth on update. "
+            "correct eviction, explicit invalid-capacity handling, and no accidental size growth on update. "
             "Penalize superficially correct but invariant-breaking solutions."
         ),
         tags=("benchmark", "coding", "python", "data-structures", "lru-cache", "invariants", "algorithm"),
-        difficulty=4,
+        difficulty=5,
     ),
 )

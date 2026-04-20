@@ -31,7 +31,12 @@ class JudgingRepository:
             .options(
                 selectinload(JudgeBatch.evaluation).selectinload(JudgeEvaluation.candidates),
             )
-            .order_by(JudgeBatch.prompt_snapshot_id.asc(), JudgeBatch.batch_index.asc())
+            .order_by(
+                JudgeBatch.prompt_snapshot_id.asc(),
+                JudgeBatch.judge_model_snapshot_id.asc(),
+                JudgeBatch.batch_type.asc(),
+                JudgeBatch.batch_index.asc(),
+            )
         )
         return result.scalars().all()
 

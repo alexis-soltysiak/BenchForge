@@ -35,6 +35,7 @@ class JudgeBatchRead(BaseModel):
     run_id: int
     prompt_snapshot_id: int
     judge_model_snapshot_id: int
+    batch_type: str
     batch_index: int
     randomized_candidate_ids_jsonb: str
     request_payload_jsonb: str | None

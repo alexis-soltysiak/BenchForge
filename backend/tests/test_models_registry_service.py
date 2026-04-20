@@ -104,6 +104,25 @@ def test_build_connection_test_request_uses_post_for_huggingface() -> None:
     }
 
 
+def test_build_connection_test_request_uses_post_for_anthropic() -> None:
+    model = SimpleNamespace(
+        provider_type="anthropic",
+        api_style="anthropic",
+        endpoint_url="https://api.anthropic.com/v1/messages",
+        model_identifier="claude-sonnet-4-6",
+    )
+
+    method, url, payload = build_connection_test_request(model)
+
+    assert method == "POST"
+    assert url == "https://api.anthropic.com/v1/messages"
+    assert payload == {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 1,
+        "messages": [{"role": "user", "content": "ping"}],
+    }
+
+
 def test_build_connection_test_request_falls_back_to_get() -> None:
     model = SimpleNamespace(
         provider_type="custom",

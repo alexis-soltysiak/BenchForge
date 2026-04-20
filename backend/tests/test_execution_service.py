@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+from app.features.execution.adapters.anthropic import AnthropicAdapter
 from app.features.execution.service import (
     ExecutionService,
     LocalExecutionNotReadyError,
@@ -198,3 +199,13 @@ def test_format_http_error_describes_connect_error() -> None:
         "Connection error while calling "
         "POST http://localhost:1234/v1/chat/completions: Connection refused"
     )
+
+
+def test_resolve_adapter_uses_anthropic_for_anthropic_api_style() -> None:
+    service = ExecutionService(SimpleNamespace())
+
+    adapter = service._resolve_adapter(
+        SimpleNamespace(api_style="anthropic", provider_type="anthropic")
+    )
+
+    assert isinstance(adapter, AnthropicAdapter)

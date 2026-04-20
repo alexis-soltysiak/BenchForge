@@ -168,6 +168,7 @@ export type JudgeBatch = {
   run_id: number;
   prompt_snapshot_id: number;
   judge_model_snapshot_id: number;
+  batch_type: string;
   batch_index: number;
   randomized_candidate_ids_jsonb: string;
   request_payload_jsonb: string | null;

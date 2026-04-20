@@ -25,6 +25,12 @@ class JudgeBatch(Base):
         ForeignKey("session_run_model_snapshot.id", ondelete="CASCADE"),
         nullable=False,
     )
+    batch_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="absolute",
+        server_default="absolute",
+    )
     batch_index: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

@@ -1010,18 +1010,18 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
       </Modal>
 
       <Modal
-        description="Inspection détaillée du batch de juge sélectionné, avec le prompt, le payload, la réponse brute et le JSON parsé."
+        description="Inspection détaillée du job de jugement sélectionné, avec le prompt, le payload, la réponse brute et le JSON parsé."
         onClose={() => setIsJudgeModalOpen(false)}
         open={isJudgeModalOpen && selectedJudgeBatch !== null && selectedRun !== undefined}
         size="xxl"
         tone="amber"
         title={
           selectedJudgeBatch
-            ? `Judge Batch · ${
+            ? `Judge Job · ${
                 promptById(selectedRun?.prompt_snapshots ?? [], selectedJudgeBatch.prompt_snapshot_id)
                   ?.name ?? "Unknown prompt"
               }`
-            : "Judge Batch"
+            : "Judge Job"
         }
       >
         {selectedJudgeBatch && selectedRun ? (
@@ -1573,9 +1573,10 @@ function JudgeInspector({
 
   return (
     <div className="mt-2 space-y-5 text-sm text-slate-900">
-      <div className="grid gap-3 lg:grid-cols-4">
+      <div className="grid gap-3 lg:grid-cols-5">
         <SummaryStat label="Prompt" value={prompt?.name ?? "Unknown prompt"} />
         <SummaryStat label="Judge Model" value={judgeModel?.display_name ?? "Unknown model"} />
+        <SummaryStat label="Job Type" value={batch.batch_type} />
         <SummaryStat label="Status" value={batch.status.replaceAll("_", " ")} />
         <SummaryStat label="Completed" value={formatDateTime(batch.completed_at) ?? "Pending"} />
       </div>
@@ -1592,7 +1593,7 @@ function JudgeInspector({
             accent="sky"
             eyebrow="Prompt"
             title={prompt?.name ?? "Unknown prompt"}
-            subtitle="Snapshot évalué par le juge pour ce batch."
+            subtitle="Snapshot évalué par le juge pour ce job."
           >
             {prompt?.system_prompt_text ? (
               <PromptBlock label="System Prompt" text={prompt.system_prompt_text} />
@@ -1846,6 +1847,7 @@ function buildOptimisticJudging(run: Run): RunJudging {
       prompt_snapshot_id: prompt.id,
       judge_model_snapshot_id:
         run.model_snapshots.find((item) => item.role === "judge")?.id ?? 0,
+      batch_type: "absolute",
       batch_index: 1,
       randomized_candidate_ids_jsonb: "[]",
       request_payload_jsonb: null,
@@ -1883,7 +1885,13 @@ function PromptRankingMatrix({
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [matrixScale, setMatrixScale] = useState(1);
   const completedBatches = useMemo(
-    () => judging?.items.filter((batch) => batch.status === "completed" && batch.evaluation) ?? [],
+    () =>
+      judging?.items.filter(
+        (batch) =>
+          batch.batch_type === "absolute" &&
+          batch.status === "completed" &&
+          batch.evaluation,
+      ) ?? [],
     [judging?.items],
   );
   const candidates = useMemo(
@@ -1948,7 +1956,7 @@ function PromptRankingMatrix({
     return (
       <EmptyStatePanel
         title="No prompt ranking yet"
-        description="Prompt-by-prompt ranking becomes available after judge batches complete."
+        description="Prompt-by-prompt ranking becomes available after absolute judge jobs complete."
       />
     );
   }
@@ -2215,9 +2223,11 @@ function JudgeBatchPanel({
   selectedBatchId: number | null;
 }) {
   const isJudgingActive = isStarting || isRetrying || retryingBatchIds.length > 0;
+  const absoluteItems = judging?.items.filter((item) => item.batch_type === "absolute") ?? [];
+  const arenaItems = judging?.items.filter((item) => item.batch_type === "arena") ?? [];
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Loading judge batches...</p>;
+    return <p className="text-sm text-slate-500">Loading judge jobs...</p>;
   }
 
   if (!judging || judging.items.length === 0) {
@@ -2225,10 +2235,10 @@ function JudgeBatchPanel({
       <div className="flex h-full w-full flex-col justify-between gap-5">
         <div className="min-h-[7rem] rounded-[1.35rem] border border-border/70 bg-slate-50/60 p-4 shadow-[0_8px_18px_-26px_rgba(15,23,42,0.18)]">
           <p className="text-[0.9rem] font-semibold tracking-tight text-slate-950">
-            No judge batches yet
+            No judge jobs yet
           </p>
           <p className="mt-2 max-w-[28rem] text-[0.92rem] leading-6 text-slate-600">
-            Phase 1 is complete. Start judging manually to create one judge batch per prompt.
+            Phase 1 is complete. Start judging to run absolute review first, then targeted arena comparisons.
           </p>
         </div>
         <div className="flex w-full justify-center">
@@ -2253,7 +2263,7 @@ function JudgeBatchPanel({
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-amber-600" />
           <p className="text-sm font-medium text-amber-900">
-            {isStarting || isRetrying ? "Running all judge batches…" : "Retrying batch…"}
+            {isStarting || isRetrying ? "Running judge jobs…" : "Retrying job…"}
           </p>
         </div>
       ) : null}
@@ -2267,62 +2277,44 @@ function JudgeBatchPanel({
             Full judge response
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Inspect the complete judge payload, raw response and parsed evaluation for the selected prompt.
+            Inspect the complete judge payload, raw response and parsed evaluation for the selected job.
           </p>
         </div>
         <Eye className="h-4 w-4 shrink-0 text-violet-600 transition-all duration-200 group-hover:scale-110 group-hover:text-violet-700" />
       </button>
       <div className="space-y-2">
-        {judging.items.map((batch) => {
-          const prompt = promptById(promptSnapshots, batch.prompt_snapshot_id);
-          const isBatchRetrying = retryingBatchIds.includes(batch.id);
-
-          return (
-            <div
-              key={batch.id}
-              className={cn(
-                "group flex w-full cursor-pointer items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 transition-all duration-200",
-                selectedBatchId === batch.id
-                  ? "border-sky-300 bg-[linear-gradient(180deg,rgba(240,249,255,0.96),rgba(255,255,255,0.98))] shadow-[0_16px_36px_-28px_rgba(14,165,233,0.3)]"
-                  : "border-sky-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.98))] hover:-translate-y-0.5 hover:border-sky-300 hover:bg-[linear-gradient(180deg,rgba(240,249,255,0.98),rgba(255,255,255,1))] hover:shadow-[0_16px_32px_-26px_rgba(14,165,233,0.24)]",
-              )}
-            >
-              <button
-                className="min-w-0 flex-1 rounded-[0.85rem] text-left outline-none transition-transform duration-150 active:scale-[0.995]"
-                onClick={() => onSelectBatch(batch.id)}
-                type="button"
-              >
-                <p className="text-sm font-medium text-slate-950 transition-colors duration-150 group-hover:text-sky-900">
-                  {prompt?.name ?? `Prompt snapshot #${batch.prompt_snapshot_id}`}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Batch {batch.batch_index} · {batch.evaluation?.candidates.length ?? 0} candidates
-                </p>
-              </button>
-              <div className="flex shrink-0 items-center gap-2">
-                <Eye className="h-4 w-4 text-sky-700/70 transition-all duration-200 group-hover:scale-110 group-hover:text-sky-800" />
-                {isBatchRetrying ? (
-                  <LoaderCircle className="h-3.5 w-3.5 animate-spin text-amber-500" />
-                ) : null}
-                <StatusPill status={isBatchRetrying ? "running" : batch.status} />
-                {batch.status === "failed" && !isBatchRetrying ? (
-                  <Button
-                    disabled={isJudgingActive}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRetryBatch(batch.id);
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="secondary"
-                  >
-                    Retry
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
+        {absoluteItems.length > 0 ? (
+          <div className="space-y-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Absolute Review
+            </p>
+            {absoluteItems.map((batch) => renderJudgeBatchRow({
+              batch,
+              promptSnapshots,
+              retryingBatchIds,
+              selectedBatchId,
+              onRetryBatch,
+              onSelectBatch,
+              isJudgingActive,
+            }))}
+          </div>
+        ) : null}
+        {arenaItems.length > 0 ? (
+          <div className="space-y-2">
+            <p className="px-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Arena Pairwise
+            </p>
+            {arenaItems.map((batch) => renderJudgeBatchRow({
+              batch,
+              promptSnapshots,
+              retryingBatchIds,
+              selectedBatchId,
+              onRetryBatch,
+              onSelectBatch,
+              isJudgingActive,
+            }))}
+          </div>
+        ) : null}
       </div>
       <Button disabled={isJudgingActive} onClick={onRetry} variant="secondary">
         Retry all failed
@@ -2346,10 +2338,10 @@ function JudgeFeedbackPanel({
     return (
       <div className="min-h-[7rem] rounded-[1.35rem] border border-border/70 bg-slate-50/60 p-4 shadow-[0_8px_18px_-26px_rgba(15,23,42,0.18)]">
         <p className="text-[0.9rem] font-semibold tracking-tight text-slate-950">
-          Select a judge batch
+          Select a judge job
         </p>
         <p className="mt-2 max-w-[29rem] text-[0.92rem] leading-6 text-slate-600">
-          Choose one batch to inspect rankings, criterion scores, and written feedback.
+          Choose one job to inspect rankings, criterion scores, and written feedback.
         </p>
       </div>
     );
@@ -2362,7 +2354,7 @@ function JudgeFeedbackPanel({
           batch.status === "running"
             ? "Judge is evaluating this prompt"
             : batch.status === "pending"
-              ? "Judge batch is queued"
+              ? "Judge job is queued"
               : "No parsed judge evaluation yet"
         }
         description={
@@ -2370,8 +2362,8 @@ function JudgeFeedbackPanel({
           (batch.status === "running"
             ? "Results will appear here as soon as this prompt is completed."
             : batch.status === "pending"
-              ? "This prompt is waiting for its turn. Completed prompts can already be inspected while this one is queued."
-              : "The selected batch has not completed.")
+              ? "This job is waiting for its turn. Completed jobs can already be inspected while this one is queued."
+              : "The selected job has not completed.")
         }
       />
     );
@@ -2388,6 +2380,86 @@ function JudgeFeedbackPanel({
           run={run}
         />
       ))}
+    </div>
+  );
+}
+
+function renderJudgeBatchRow({
+  batch,
+  promptSnapshots,
+  retryingBatchIds,
+  selectedBatchId,
+  onRetryBatch,
+  onSelectBatch,
+  isJudgingActive,
+}: {
+  batch: JudgeBatch;
+  promptSnapshots: RunPromptSnapshot[];
+  retryingBatchIds: number[];
+  selectedBatchId: number | null;
+  onRetryBatch: (batchId: number) => void;
+  onSelectBatch: (batchId: number) => void;
+  isJudgingActive: boolean;
+}) {
+  const prompt = promptById(promptSnapshots, batch.prompt_snapshot_id);
+  const isBatchRetrying = retryingBatchIds.includes(batch.id);
+  const candidateCount = countJudgeBatchCandidates(batch);
+
+  return (
+    <div
+      key={batch.id}
+      className={cn(
+        "group flex w-full cursor-pointer items-start justify-between gap-3 rounded-[1rem] border px-3 py-3 transition-all duration-200",
+        selectedBatchId === batch.id
+          ? "border-sky-300 bg-[linear-gradient(180deg,rgba(240,249,255,0.96),rgba(255,255,255,0.98))] shadow-[0_16px_36px_-28px_rgba(14,165,233,0.3)]"
+          : "border-sky-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.98))] hover:-translate-y-0.5 hover:border-sky-300 hover:bg-[linear-gradient(180deg,rgba(240,249,255,0.98),rgba(255,255,255,1))] hover:shadow-[0_16px_32px_-26px_rgba(14,165,233,0.24)]",
+      )}
+    >
+      <button
+        className="min-w-0 flex-1 rounded-[0.85rem] text-left outline-none transition-transform duration-150 active:scale-[0.995]"
+        onClick={() => onSelectBatch(batch.id)}
+        type="button"
+      >
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-slate-950 transition-colors duration-150 group-hover:text-sky-900">
+            {prompt?.name ?? `Prompt snapshot #${batch.prompt_snapshot_id}`}
+          </p>
+          <span
+            className={cn(
+              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]",
+              batch.batch_type === "arena"
+                ? "bg-violet-100 text-violet-700"
+                : "bg-sky-100 text-sky-700",
+            )}
+          >
+            {batch.batch_type}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Job {batch.batch_index} · {candidateCount} candidate{candidateCount > 1 ? "s" : ""}
+        </p>
+      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <Eye className="h-4 w-4 text-sky-700/70 transition-all duration-200 group-hover:scale-110 group-hover:text-sky-800" />
+        {isBatchRetrying ? (
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin text-amber-500" />
+        ) : null}
+        <StatusPill status={isBatchRetrying ? "running" : batch.status} />
+        {batch.status === "failed" && !isBatchRetrying ? (
+          <Button
+            disabled={isJudgingActive}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRetryBatch(batch.id);
+            }}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            Retry
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -2738,6 +2810,19 @@ function summarizeShortFeedback(candidate: JudgeEvaluationCandidate): string {
   }
 
   return `${text.slice(0, 41).trimEnd()}…`;
+}
+
+function countJudgeBatchCandidates(batch: JudgeBatch): number {
+  if (batch.evaluation?.candidates.length) {
+    return batch.evaluation.candidates.length;
+  }
+
+  try {
+    const candidateIds = JSON.parse(batch.randomized_candidate_ids_jsonb);
+    return Array.isArray(candidateIds) ? candidateIds.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function scoreToneClasses(

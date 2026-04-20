@@ -66,7 +66,7 @@ async def test_aggregate_run_computes_summaries_and_moves_to_reporting() -> None
         ],
         prompt_snapshots=[SimpleNamespace(id=10), SimpleNamespace(id=11)],
         candidate_responses=[candidate_response_a, candidate_response_b],
-        judge_batches=[SimpleNamespace(evaluation=evaluation)],
+        judge_batches=[SimpleNamespace(batch_type="absolute", evaluation=evaluation)],
         global_summaries=[],
     )
 

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_value
 from app.features.aggregation.service import AggregationService
+from app.features.execution.adapters.anthropic import AnthropicAdapter
 from app.features.execution.adapters.base import BaseInferenceAdapter
 from app.features.execution.adapters.huggingface import HuggingFaceAdapter
 from app.features.execution.adapters.openai_compatible import OpenAICompatibleAdapter
@@ -33,6 +34,8 @@ from app.features.runs.models import CandidateResponse, SessionRun
 
 JUDGE_SCHEMA_VERSION = "mvp-v1"
 ANONYMIZED_LABELS = ["A", "B", "C", "D", "E"]
+ABSOLUTE_BATCH_TYPE = "absolute"
+ARENA_BATCH_TYPE = "arena"
 
 
 class JudgingError(ValueError):
@@ -88,6 +91,7 @@ def serialize_judge_batch(batch: JudgeBatch) -> JudgeBatchRead:
         run_id=batch.run_id,
         prompt_snapshot_id=batch.prompt_snapshot_id,
         judge_model_snapshot_id=batch.judge_model_snapshot_id,
+        batch_type=batch.batch_type,
         batch_index=batch.batch_index,
         randomized_candidate_ids_jsonb=batch.randomized_candidate_ids_jsonb,
         request_payload_jsonb=batch.request_payload_jsonb,
@@ -177,17 +181,36 @@ class JudgingService:
             batch.completed_at = datetime.now(UTC)
             batch.error_message = str(exc)
             await self.repository.commit()
+            refreshed_batches = list(await self.repository.list_batches(run.id))
+            return self._serialize_run_judging(run, refreshed_batches)
 
-        all_batches = list(await self.repository.list_batches(run_id))
-        still_failed = any(b.status == "failed" for b in all_batches)
-
-        if still_failed:
-            run.status = "failed"
-            await self.repository.commit()
+        refreshed = list(await self.repository.list_batches(run.id))
+        absolute_jobs_complete = all(
+            item.status == "completed"
+            for item in refreshed
+            if item.batch_type == ABSOLUTE_BATCH_TYPE
+        )
+        if absolute_jobs_complete:
+            await self._ensure_arena_batches(run, refreshed)
+            arena_failed = await self._run_pending_batches(run, ARENA_BATCH_TYPE)
+            pending_arena = [
+                item
+                for item in await self.repository.list_batches(run.id)
+                if item.batch_type == ARENA_BATCH_TYPE and item.status != "completed"
+            ]
+            if arena_failed:
+                run.status = "failed"
+                await self.repository.commit()
+            elif pending_arena:
+                run.status = "judging"
+                await self.repository.commit()
+            else:
+                run.status = "aggregating"
+                await self.repository.commit()
+                await self._run_aggregation_stage(run.id)
         else:
-            run.status = "aggregating"
+            run.status = "judging"
             await self.repository.commit()
-            await self._run_aggregation_stage(run.id)
 
         refreshed_batches = list(await self.repository.list_batches(run.id))
         return self._serialize_run_judging(run, refreshed_batches)
@@ -214,8 +237,8 @@ class JudgingService:
         ]
         judge_snapshots = [item for item in run.model_snapshots if item.role == "judge"]
         effective_candidate_responses = self._effective_candidate_responses(run)
-        if len(judge_snapshots) != 1:
-            raise JudgingError("MVP requires exactly one judge snapshot in the run.")
+        if not judge_snapshots:
+            raise JudgingError("Run requires at least one judge snapshot.")
         if not run.prompt_snapshots or not candidate_snapshots:
             raise JudgingError(
                 "Run must contain prompts and candidate snapshots before judging."
@@ -238,19 +261,13 @@ class JudgingService:
         self._validate_run_ready_for_judging(run)
         run.status = "judging"
         await self.repository.commit()
-        batches = await self._ensure_batches(run)
-        failed = False
-        for batch in batches:
-            if batch.status == "completed":
-                continue
-            try:
-                await self._execute_batch(run, batch)
-            except (httpx.HTTPError, JudgingError, ValueError) as exc:
-                batch.status = "failed"
-                batch.completed_at = datetime.now(UTC)
-                batch.error_message = str(exc)
-                await self.repository.commit()
-                failed = True
+        await self._ensure_absolute_batches(run)
+        failed = await self._run_pending_batches(run, ABSOLUTE_BATCH_TYPE)
+
+        if not failed:
+            batches = list(await self.repository.list_batches(run.id))
+            await self._ensure_arena_batches(run, batches)
+            failed = await self._run_pending_batches(run, ARENA_BATCH_TYPE)
 
         if failed:
             run.status = "failed"
@@ -263,46 +280,191 @@ class JudgingService:
         refreshed_batches = list(await self.repository.list_batches(run.id))
         return self._serialize_run_judging(run, refreshed_batches)
 
-    async def _ensure_batches(self, run: SessionRun) -> list[JudgeBatch]:
-        existing = {
-            (item.prompt_snapshot_id, item.batch_index): item
-            for item in await self.repository.list_batches(run.id)
-        }
-        judge_snapshot = next(
-            item for item in run.model_snapshots if item.role == "judge"
-        )
-        for prompt_snapshot in sorted(
-            run.prompt_snapshots,
-            key=lambda item: item.snapshot_order,
-        ):
-            key = (prompt_snapshot.id, 1)
-            if key in existing:
-                continue
-            candidate_ids = [
-                item.id
-                for item in self._responses_for_prompt(run, prompt_snapshot.id)
-            ]
-            randomized_candidate_ids = list(candidate_ids)
-            random.Random(f"{run.id}:{prompt_snapshot.id}:{judge_snapshot.id}").shuffle(
-                randomized_candidate_ids
-            )
-            batch = JudgeBatch(
-                run_id=run.id,
-                prompt_snapshot_id=prompt_snapshot.id,
-                judge_model_snapshot_id=judge_snapshot.id,
-                batch_index=1,
-                randomized_candidate_ids_jsonb=json.dumps(randomized_candidate_ids),
-                status="pending",
-            )
-            self.repository.add_batch(batch)
-            existing[key] = batch
-        return [
-            existing[(item.id, 1)]
-            for item in sorted(
-                run.prompt_snapshots,
-                key=lambda prompt: prompt.snapshot_order,
-            )
+    async def _run_pending_batches(self, run: SessionRun, batch_type: str) -> bool:
+        failed = False
+        batches = [
+            batch
+            for batch in await self.repository.list_batches(run.id)
+            if batch.batch_type == batch_type
         ]
+        for batch in batches:
+            if batch.status == "completed":
+                continue
+            try:
+                await self._execute_batch(run, batch)
+            except (httpx.HTTPError, JudgingError, ValueError) as exc:
+                batch.status = "failed"
+                batch.completed_at = datetime.now(UTC)
+                batch.error_message = str(exc)
+                await self.repository.commit()
+                failed = True
+        return failed
+
+    async def _ensure_absolute_batches(self, run: SessionRun) -> None:
+        existing_signatures = {
+            self._batch_signature(batch)
+            for batch in await self.repository.list_batches(run.id)
+        }
+        judge_snapshots = sorted(
+            [item for item in run.model_snapshots if item.role == "judge"],
+            key=lambda item: item.id,
+        )
+        for judge_snapshot in judge_snapshots:
+            for prompt_snapshot in sorted(
+                run.prompt_snapshots,
+                key=lambda item: item.snapshot_order,
+            ):
+                responses = self._responses_for_prompt(run, prompt_snapshot.id)
+                for index, response in enumerate(responses, start=1):
+                    candidate_ids = [response.id]
+                    signature = (
+                        ABSOLUTE_BATCH_TYPE,
+                        prompt_snapshot.id,
+                        judge_snapshot.id,
+                        tuple(candidate_ids),
+                    )
+                    if signature in existing_signatures:
+                        continue
+                    batch = JudgeBatch(
+                        run_id=run.id,
+                        prompt_snapshot_id=prompt_snapshot.id,
+                        judge_model_snapshot_id=judge_snapshot.id,
+                        batch_type=ABSOLUTE_BATCH_TYPE,
+                        batch_index=index,
+                        randomized_candidate_ids_jsonb=json.dumps(candidate_ids),
+                        status="pending",
+                    )
+                    self.repository.add_batch(batch)
+                    existing_signatures.add(signature)
+        await self.repository.commit()
+
+    async def _ensure_arena_batches(
+        self,
+        run: SessionRun,
+        batches: list[JudgeBatch],
+    ) -> None:
+        existing_signatures = {self._batch_signature(batch) for batch in batches}
+        absolute_batches = [
+            batch
+            for batch in batches
+            if batch.batch_type == ABSOLUTE_BATCH_TYPE
+            and batch.status == "completed"
+            and batch.evaluation is not None
+        ]
+        for judge_snapshot in sorted(
+            [item for item in run.model_snapshots if item.role == "judge"],
+            key=lambda item: item.id,
+        ):
+            for prompt_snapshot in sorted(
+                run.prompt_snapshots,
+                key=lambda item: item.snapshot_order,
+            ):
+                prompt_batches = [
+                    batch
+                    for batch in absolute_batches
+                    if batch.prompt_snapshot_id == prompt_snapshot.id
+                    and batch.judge_model_snapshot_id == judge_snapshot.id
+                ]
+                if len(prompt_batches) < 2:
+                    continue
+
+                pair_candidates = self._select_arena_pairs(prompt_batches)
+                next_index = len(prompt_batches) + 1
+                for pair in pair_candidates:
+                    candidate_ids = self._shuffle_candidate_ids(
+                        run.id,
+                        prompt_snapshot.id,
+                        judge_snapshot.id,
+                        pair,
+                        ARENA_BATCH_TYPE,
+                    )
+                    signature = (
+                        ARENA_BATCH_TYPE,
+                        prompt_snapshot.id,
+                        judge_snapshot.id,
+                        tuple(candidate_ids),
+                    )
+                    reverse_signature = (
+                        ARENA_BATCH_TYPE,
+                        prompt_snapshot.id,
+                        judge_snapshot.id,
+                        tuple(reversed(candidate_ids)),
+                    )
+                    if signature in existing_signatures or reverse_signature in existing_signatures:
+                        continue
+                    batch = JudgeBatch(
+                        run_id=run.id,
+                        prompt_snapshot_id=prompt_snapshot.id,
+                        judge_model_snapshot_id=judge_snapshot.id,
+                        batch_type=ARENA_BATCH_TYPE,
+                        batch_index=next_index,
+                        randomized_candidate_ids_jsonb=json.dumps(candidate_ids),
+                        status="pending",
+                    )
+                    self.repository.add_batch(batch)
+                    existing_signatures.add(signature)
+                    next_index += 1
+        await self.repository.commit()
+
+    def _select_arena_pairs(self, absolute_batches: list[JudgeBatch]) -> list[tuple[int, int]]:
+        scored = sorted(
+            [
+                (
+                    batch.evaluation.candidates[0].candidate_response_id,
+                    batch.evaluation.candidates[0].overall_score,
+                )
+                for batch in absolute_batches
+                if batch.evaluation is not None and batch.evaluation.candidates
+            ],
+            key=lambda item: (item[1], item[0]),
+            reverse=True,
+        )
+        if len(scored) < 2:
+            return []
+
+        top = scored[: min(3, len(scored))]
+        pairs: list[tuple[int, int]] = []
+
+        def append_pair(left_index: int, right_index: int) -> None:
+            if right_index >= len(top):
+                return
+            left_id = top[left_index][0]
+            right_id = top[right_index][0]
+            if left_id == right_id:
+                return
+            pair = tuple(sorted((left_id, right_id)))
+            if pair not in pairs:
+                pairs.append(pair)
+
+        append_pair(0, 1)
+        if len(top) >= 3:
+            append_pair(1, 2)
+            if abs(top[0][1] - top[2][1]) <= Decimal("3.00"):
+                append_pair(0, 2)
+        return pairs
+
+    def _batch_signature(self, batch: JudgeBatch) -> tuple[str, int, int, tuple[int, ...]]:
+        candidate_ids = json.loads(batch.randomized_candidate_ids_jsonb)
+        return (
+            batch.batch_type,
+            batch.prompt_snapshot_id,
+            batch.judge_model_snapshot_id,
+            tuple(int(item) for item in candidate_ids),
+        )
+
+    def _shuffle_candidate_ids(
+        self,
+        run_id: int,
+        prompt_snapshot_id: int,
+        judge_model_snapshot_id: int,
+        pair: tuple[int, int],
+        batch_type: str,
+    ) -> list[int]:
+        randomized_candidate_ids = list(pair)
+        random.Random(
+            f"{run_id}:{prompt_snapshot_id}:{judge_model_snapshot_id}:{batch_type}:{pair[0]}:{pair[1]}"
+        ).shuffle(randomized_candidate_ids)
+        return randomized_candidate_ids
 
     async def _execute_batch(self, run: SessionRun, batch: JudgeBatch) -> None:
         judge_snapshot = next(
@@ -320,7 +482,7 @@ class JudgingService:
         if not isinstance(candidate_ids, list) or not candidate_ids:
             raise JudgingError("Judge batch candidate ordering is invalid.")
         candidate_responses = [
-            next(item for item in run.candidate_responses if item.id == candidate_id)
+            self._response_for_id(run.candidate_responses, int(candidate_id))
             for candidate_id in candidate_ids
         ]
         prompt_snapshot = next(
@@ -351,11 +513,12 @@ class JudgingService:
             endpoint_url=judge_snapshot.endpoint_url,
             model_identifier=judge_snapshot.model_identifier,
             prompt_text=self._build_judge_prompt(
+                batch.batch_type,
                 prompt_snapshot.user_prompt_text,
                 prompt_snapshot.evaluation_notes,
                 anonymized,
             ),
-            system_prompt_text=self._build_judge_system_prompt(),
+            system_prompt_text=self._build_judge_system_prompt(batch.batch_type),
             secret=secret,
             timeout_seconds=judge_snapshot.timeout_seconds,
             pricing_input_per_million=judge_snapshot.pricing_input_per_million,
@@ -413,7 +576,7 @@ class JudgingService:
                 candidate_payload.get("detailed_feedback")
             ),
             judge_confidence_score=(
-                self._to_score(candidate_payload["confidence"])
+                self._to_confidence(candidate_payload["confidence"])
                 if candidate_payload.get("confidence") is not None
                 else None
             ),
@@ -464,17 +627,34 @@ class JudgingService:
     def _candidate_response_timestamp(self, response: CandidateResponse) -> datetime:
         return response.completed_at or response.started_at or datetime.min.replace(tzinfo=UTC)
 
-    def _build_judge_system_prompt(self) -> str:
+    def _response_for_id(
+        self,
+        responses: list[CandidateResponse],
+        candidate_response_id: int,
+    ) -> CandidateResponse:
+        return next(
+            response
+            for response in responses
+            if response.id == candidate_response_id
+        )
+
+    def _build_judge_system_prompt(self, batch_type: str) -> str:
+        if batch_type == ABSOLUTE_BATCH_TYPE:
+            return (
+                "You are a strict benchmark judge. Return JSON only. "
+                "Evaluate a single candidate response on absolute merit against the prompt. "
+                "Use confidence on an integer scale from 1 to 5, where 1 means low confidence and 5 means very high confidence."
+            )
         return (
-            "Tu es un juge de benchmark strict. Retourne uniquement du JSON. "
-            "Évalue chaque candidat de 0 à 100 pour relevance, accuracy, "
-            "completeness, clarity, instruction_following et overall_score. "
-            "Inclus aussi ranking_in_batch, strengths, weaknesses, "
-            "short_feedback, detailed_feedback et confidence."
+            "You are a strict benchmark arena judge. Return JSON only. "
+            "Compare the anonymized candidate responses head to head for the same benchmark prompt. "
+            "Score each candidate from 0 to 100, rank them, and use confidence on an integer scale from 1 to 5. "
+            "Use 1 for near-ties and 5 for clear wins."
         )
 
     def _build_judge_prompt(
         self,
+        batch_type: str,
         prompt_text: str,
         evaluation_notes: str | None,
         anonymized: dict[str, CandidateResponse],
@@ -490,17 +670,35 @@ class JudgingService:
             if evaluation_notes
             else ""
         )
+        if batch_type == ABSOLUTE_BATCH_TYPE:
+            return (
+                "Evaluate the single anonymized candidate response for the benchmark prompt below."
+                "\n\nBenchmark prompt:\n"
+                f"{prompt_text}"
+                f"{evaluation_notes_block}"
+                "\n\nCandidate:\n"
+                f"{candidates_block}"
+                "\n\nImportant rules:\n"
+                "- Judge the response on absolute merit, not relative to imaginary alternatives.\n"
+                "- confidence must be an integer from 1 to 5.\n"
+                "\n\nReturn JSON with this exact shape:\n"
+                '{'
+                '"prompt_assessment":{"prompt_id":"string","batch_size":1,"candidates":[{"candidate_label":"A","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"ranking_in_batch":1,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1}]}}'
+            )
         return (
-            "Evaluate the anonymized candidate responses for the benchmark "
-            "prompt below."
+            "Compare the anonymized candidate responses for the benchmark prompt below."
             "\n\nBenchmark prompt:\n"
             f"{prompt_text}"
             f"{evaluation_notes_block}"
             "\n\nCandidates:\n"
             f"{candidates_block}"
+            "\n\nImportant rules:\n"
+            "- Rank the stronger response first.\n"
+            "- Score each response from 0 to 100 based on correctness, instruction following, completeness, and clarity.\n"
+            "- confidence must be an integer from 1 to 5.\n"
             "\n\nReturn JSON with this exact shape:\n"
             '{'
-            '"prompt_assessment":{"prompt_id":"string","batch_size":0,"candidates":[{"candidate_label":"A","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"ranking_in_batch":1,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":0}]}}'
+            '"prompt_assessment":{"prompt_id":"string","batch_size":2,"candidates":[{"candidate_label":"A","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"ranking_in_batch":1,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1},{"candidate_label":"B","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"ranking_in_batch":2,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1}]}}'
         )
 
     def _parse_judge_output(
@@ -572,7 +770,7 @@ class JudgingService:
                         candidate.get("detailed_feedback")
                     ),
                     "confidence": (
-                        self._normalize_score(candidate.get("confidence"))
+                        self._normalize_confidence(candidate.get("confidence"))
                         if candidate.get("confidence") is not None
                         else None
                     ),
@@ -618,6 +816,19 @@ class JudgingService:
             raise JudgingError("Judge scores must remain between 0 and 100.")
         return score.quantize(Decimal("0.01"))
 
+    def _normalize_confidence(self, value: object) -> str:
+        confidence = self._to_confidence(value)
+        return format(confidence, "f")
+
+    def _to_confidence(self, value: object) -> Decimal:
+        try:
+            confidence = Decimal(str(value))
+        except Exception as exc:  # noqa: BLE001
+            raise JudgingError(f"Invalid confidence value: {value!r}.") from exc
+        if confidence != confidence.to_integral_value() or confidence < 1 or confidence > 5:
+            raise JudgingError("Judge confidence must be an integer between 1 and 5.")
+        return confidence.quantize(Decimal("0.01"))
+
     def _normalize_feedback_list(self, value: object) -> list[str]:
         if value is None:
             return []
@@ -640,6 +851,8 @@ class JudgingService:
         return text or None
 
     def _resolve_adapter(self, model_profile: ModelProfile) -> BaseInferenceAdapter:
+        if model_profile.api_style == "anthropic":
+            return AnthropicAdapter()
         if model_profile.api_style == "openai_compatible":
             return OpenAICompatibleAdapter()
         if model_profile.provider_type.lower() == "huggingface":
