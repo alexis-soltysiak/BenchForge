@@ -23,6 +23,7 @@ from app.features.models_registry.schemas import (
 )
 
 SLUG_PATTERN = re.compile(r"[^a-z0-9]+")
+ANTHROPIC_API_VERSION = "2023-06-01"
 
 
 class ModelProfileNotFoundError(ValueError):
@@ -81,6 +82,14 @@ def build_connection_test_request(
                 "max_tokens": 1,
             },
         )
+
+    if api_style == "anthropic":
+        payload: dict[str, object] = {
+            "model": model_profile.model_identifier,
+            "max_tokens": 1,
+            "messages": [{"role": "user", "content": "ping"}],
+        }
+        return ("POST", model_profile.endpoint_url, payload)
 
     if api_style == "huggingface":
         return (
@@ -396,9 +405,12 @@ class ModelProfileService:
         timeout_seconds = payload.timeout_seconds or model_profile.timeout_seconds
         headers: dict[str, str] = {}
         if model_profile.secret_encrypted:
-            headers["Authorization"] = build_bearer_token(
-                decrypt_value(model_profile.secret_encrypted)
-            )
+            secret = decrypt_value(model_profile.secret_encrypted)
+            if model_profile.api_style.strip().lower() == "anthropic":
+                headers["x-api-key"] = secret
+                headers["anthropic-version"] = ANTHROPIC_API_VERSION
+            else:
+                headers["Authorization"] = build_bearer_token(secret)
         method, request_url, request_payload = build_connection_test_request(model_profile)
         if request_payload is not None:
             headers["Content-Type"] = "application/json"

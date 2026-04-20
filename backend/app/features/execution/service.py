@@ -9,6 +9,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_value
+from app.features.execution.adapters.anthropic import AnthropicAdapter
 from app.features.execution.adapters.base import AdapterExecutionResult, BaseInferenceAdapter
 from app.features.execution.adapters.huggingface import HuggingFaceAdapter
 from app.features.execution.adapters.openai_compatible import OpenAICompatibleAdapter
@@ -582,6 +583,8 @@ class ExecutionService:
             )
 
     def _resolve_adapter(self, model_profile: ModelProfile) -> BaseInferenceAdapter:
+        if model_profile.api_style == "anthropic":
+            return AnthropicAdapter()
         if model_profile.api_style == "openai_compatible":
             return OpenAICompatibleAdapter()
         if model_profile.provider_type.lower() == "huggingface":

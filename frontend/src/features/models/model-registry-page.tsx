@@ -222,6 +222,17 @@ const providerPresets: Record<string, ProviderPreset> = {
     endpointUrl: "https://openrouter.ai/api/v1/chat/completions",
     modelIdentifiers: ["openai/gpt-4"],
   },
+  anthropic: {
+    label: "Anthropic",
+    apiStyle: "anthropic",
+    endpointUrl: "https://api.anthropic.com/v1/messages",
+    modelIdentifiers: [
+      "claude-sonnet-4-6",
+      "claude-sonnet-4-5-20250929",
+      "claude-opus-4-7",
+      "claude-haiku-4-5-20251001",
+    ],
+  },
   huggingface: {
     label: "Hugging Face",
     apiStyle: "huggingface",
@@ -241,7 +252,7 @@ const providerPresets: Record<string, ProviderPreset> = {
 };
 
 const providerPresetKeys = Object.keys(providerPresets);
-const apiStyleOptions = ["openai_compatible", "huggingface"];
+const apiStyleOptions = ["openai_compatible", "anthropic", "huggingface"];
 
 function normalizePresetKey(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "");

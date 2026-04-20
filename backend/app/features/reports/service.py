@@ -234,7 +234,7 @@ class ReportsService:
             (
                 candidate
                 for batch in run.judge_batches
-                if batch.evaluation is not None
+                if batch.batch_type == "absolute" and batch.evaluation is not None
                 for candidate in batch.evaluation.candidates
                 if candidate.candidate_response_id == response.id
             ),
@@ -920,4 +920,3 @@ class ReportsService:
             "LLMs are known to exhibit self-preference bias. "
             "Consider re-running with a different-family judge for an independent baseline.</p>"
         )
-

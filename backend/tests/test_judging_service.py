@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.features.execution.adapters.anthropic import AnthropicAdapter
 from app.features.judging.service import JudgingError, JudgingService
 
 
@@ -80,7 +81,7 @@ def test_parse_judge_output_validates_labels_and_scores() -> None:
                         "weaknesses": ["minor omission"],
                         "short_feedback": "Strong",
                         "detailed_feedback": "Good answer",
-                        "confidence": 87,
+                        "confidence": 5,
                     },
                     {
                         "candidate_label": "B",
@@ -95,7 +96,7 @@ def test_parse_judge_output_validates_labels_and_scores() -> None:
                         "weaknesses": [],
                         "short_feedback": "Solid",
                         "detailed_feedback": "Reasonable answer",
-                        "confidence": 79,
+                        "confidence": 4,
                     },
                 ],
             }
@@ -106,6 +107,16 @@ def test_parse_judge_output_validates_labels_and_scores() -> None:
 
     assert parsed["prompt_assessment"]["batch_size"] == 2
     assert parsed["prompt_assessment"]["candidates"][0]["candidate_label"] == "A"
+
+
+def test_resolve_adapter_uses_anthropic_for_anthropic_api_style() -> None:
+    service = JudgingService(SimpleNamespace())
+
+    adapter = service._resolve_adapter(
+        SimpleNamespace(api_style="anthropic", provider_type="anthropic")
+    )
+
+    assert isinstance(adapter, AnthropicAdapter)
 
 
 @pytest.mark.asyncio
@@ -200,6 +211,58 @@ async def test_retry_judging_completes_batches_and_updates_run_status() -> None:
 
     class Adapter:
         async def generate(self, **kwargs):
+            prompt_text = kwargs["prompt_text"]
+            if "single anonymized candidate response" in prompt_text:
+                candidates = [
+                    {
+                        "candidate_label": "A",
+                        "overall_score": 90,
+                        "relevance": 90,
+                        "accuracy": 90,
+                        "completeness": 90,
+                        "clarity": 90,
+                        "instruction_following": 90,
+                        "ranking_in_batch": 1,
+                        "strengths": ["clear"],
+                        "weaknesses": ["none"],
+                        "short_feedback": "Best",
+                        "detailed_feedback": "Best answer",
+                        "confidence": 5,
+                    }
+                ]
+            else:
+                candidates = [
+                    {
+                        "candidate_label": "A",
+                        "overall_score": 90,
+                        "relevance": 90,
+                        "accuracy": 90,
+                        "completeness": 90,
+                        "clarity": 90,
+                        "instruction_following": 90,
+                        "ranking_in_batch": 1,
+                        "strengths": ["clear"],
+                        "weaknesses": ["none"],
+                        "short_feedback": "Best",
+                        "detailed_feedback": "Best answer",
+                        "confidence": 4,
+                    },
+                    {
+                        "candidate_label": "B",
+                        "overall_score": 80,
+                        "relevance": 80,
+                        "accuracy": 80,
+                        "completeness": 80,
+                        "clarity": 80,
+                        "instruction_following": 80,
+                        "ranking_in_batch": 2,
+                        "strengths": ["concise"],
+                        "weaknesses": ["thin"],
+                        "short_feedback": "Second",
+                        "detailed_feedback": "Second answer",
+                        "confidence": 3,
+                    },
+                ]
             return SimpleNamespace(
                 request_payload={"model": "judge-model"},
                 raw_response_json={"ok": True},
@@ -208,39 +271,8 @@ async def test_retry_judging_completes_batches_and_updates_run_status() -> None:
                     {
                         "prompt_assessment": {
                             "prompt_id": "10",
-                            "batch_size": 2,
-                            "candidates": [
-                                {
-                                    "candidate_label": "A",
-                                    "overall_score": 90,
-                                    "relevance": 90,
-                                    "accuracy": 90,
-                                    "completeness": 90,
-                                    "clarity": 90,
-                                    "instruction_following": 90,
-                                    "ranking_in_batch": 1,
-                                    "strengths": ["clear"],
-                                    "weaknesses": ["none"],
-                                    "short_feedback": "Best",
-                                    "detailed_feedback": "Best answer",
-                                    "confidence": 88,
-                                },
-                                {
-                                    "candidate_label": "B",
-                                    "overall_score": 80,
-                                    "relevance": 80,
-                                    "accuracy": 80,
-                                    "completeness": 80,
-                                    "clarity": 80,
-                                    "instruction_following": 80,
-                                    "ranking_in_batch": 2,
-                                    "strengths": ["concise"],
-                                    "weaknesses": ["thin"],
-                                    "short_feedback": "Second",
-                                    "detailed_feedback": "Second answer",
-                                    "confidence": 70,
-                                },
-                            ],
+                            "batch_size": len(candidates),
+                            "candidates": candidates,
                         }
                     }
                 ),
@@ -258,8 +290,11 @@ async def test_retry_judging_completes_batches_and_updates_run_status() -> None:
     payload = await service.retry_judging(1)
 
     assert payload.run_status == "reporting"
-    assert payload.completed_batches == 1
+    assert payload.completed_batches == 3
     assert created_batches[0].status == "completed"
+    assert created_batches[1].status == "completed"
+    assert created_batches[2].status == "completed"
+    assert created_batches[2].batch_type == "arena"
     assert created_batches[0].evaluation is not None
     assert (
         created_batches[0].evaluation.candidates[0].candidate_response_id

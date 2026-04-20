@@ -10,7 +10,10 @@ from app.features.aggregation.repository import AggregationRepository
 from app.features.reports.service import ReportsService
 from app.features.runs.models import CandidateResponse, ModelGlobalSummary, SessionRun
 
-QUALITY_WEIGHT = Decimal("0.70")
+ABSOLUTE_BATCH_TYPE = "absolute"
+ARENA_BATCH_TYPE = "arena"
+ABSOLUTE_QUALITY_WEIGHT = Decimal("0.60")
+ARENA_QUALITY_WEIGHT = Decimal("0.10")
 COST_WEIGHT = Decimal("0.15")
 PERFORMANCE_WEIGHT = Decimal("0.15")
 
@@ -67,10 +70,12 @@ class AggregationService:
 
         for payload in candidate_payloads:
             quality_score = payload["average_overall_score"]
+            arena_score = payload["arena_score"] or Decimal("50.00")
             cost_score = cost_scores[payload["model_snapshot_id"]]
             performance_score = performance_scores[payload["model_snapshot_id"]]
             final_global_score = (
-                (quality_score * QUALITY_WEIGHT)
+                (quality_score * ABSOLUTE_QUALITY_WEIGHT)
+                + (arena_score * ARENA_QUALITY_WEIGHT)
                 + (cost_score * COST_WEIGHT)
                 + (performance_score * PERFORMANCE_WEIGHT)
             ).quantize(Decimal("0.01"))
@@ -125,7 +130,18 @@ class AggregationService:
         judged_candidates = [
             candidate
             for batch in run.judge_batches
-            if batch.evaluation is not None
+            if batch.batch_type == ABSOLUTE_BATCH_TYPE and batch.evaluation is not None
+            for candidate in batch.evaluation.candidates
+            if self._candidate_response_for_id(
+                run.candidate_responses,
+                candidate.candidate_response_id,
+            ).model_snapshot_id
+            == model_snapshot_id
+        ]
+        arena_candidates = [
+            candidate
+            for batch in run.judge_batches
+            if batch.batch_type == ARENA_BATCH_TYPE and batch.evaluation is not None
             for candidate in batch.evaluation.candidates
             if self._candidate_response_for_id(
                 run.candidate_responses,
@@ -209,6 +225,9 @@ class AggregationService:
             "avg_total_tokens": self._average_int(total_tokens_values),
             "avg_tokens_per_second": self._average_decimal_or_none(
                 tokens_per_second_values
+            ),
+            "arena_score": self._average_decimal_or_none(
+                [candidate.overall_score for candidate in arena_candidates]
             ),
             "total_estimated_cost": (
                 sum(estimated_cost_values, Decimal("0.00")).quantize(Decimal("0.01"))
