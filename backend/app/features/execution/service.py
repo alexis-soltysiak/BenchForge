@@ -101,6 +101,42 @@ def serialize_candidate_response(response: CandidateResponse) -> CandidateRespon
     )
 
 
+def format_http_error(exc: httpx.HTTPError, *, timeout_seconds: int | None = None) -> str:
+    request = exc.request
+    url = str(request.url) if request is not None else None
+    method = request.method if request is not None else None
+    location = (
+        f"{method} {url}"
+        if method and url
+        else url
+        if url
+        else "request"
+    )
+
+    if isinstance(exc, httpx.TimeoutException):
+        if timeout_seconds is not None:
+            return f"Request timed out after {timeout_seconds}s while calling {location}."
+        return f"Request timed out while calling {location}."
+    if isinstance(exc, httpx.ConnectError):
+        detail = str(exc).strip()
+        if detail:
+            return f"Connection error while calling {location}: {detail}"
+        return f"Connection error while calling {location}."
+    if isinstance(exc, httpx.HTTPStatusError):
+        detail = exc.response.text.strip()
+        if detail:
+            return (
+                f"HTTP {exc.response.status_code} returned by {location}: "
+                f"{detail[:500]}"
+            )
+        return f"HTTP {exc.response.status_code} returned by {location}."
+
+    detail = str(exc).strip()
+    if detail:
+        return f"{exc.__class__.__name__} while calling {location}: {detail}"
+    return f"{exc.__class__.__name__} while calling {location}."
+
+
 @dataclass
 class ExecutionService:
     session: AsyncSession
@@ -542,7 +578,7 @@ class ExecutionService:
                 started_at=started_at,
                 completed_at=datetime.now(UTC),
                 local_confirmed_at=task.local_confirmed_at,
-                error_message=str(exc),
+                error_message=format_http_error(exc, timeout_seconds=task.timeout_seconds),
             )
 
     def _resolve_adapter(self, model_profile: ModelProfile) -> BaseInferenceAdapter:
