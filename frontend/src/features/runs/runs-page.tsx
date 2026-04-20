@@ -795,26 +795,44 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                               <td className="px-4 py-2 align-middle">
                                 <div className="flex items-center gap-2">
                                   {isRowLoading ? (
-                                    <LoaderCircle className="h-3 w-3 shrink-0 animate-spin text-amber-500" />
+                                    <LoaderCircle className="h-2.5 w-2.5 shrink-0 animate-spin text-amber-500" />
                                   ) : response.status === "completed" ? (
-                                    <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                                    <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
                                   ) : response.status === "failed" ? (
-                                    <XCircle className="h-3 w-3 shrink-0 text-rose-500" />
+                                    <XCircle className="h-2.5 w-2.5 shrink-0 text-rose-500" />
                                   ) : (
-                                    <Clock3 className="h-3 w-3 shrink-0 text-[hsl(var(--foreground-soft))]" />
+                                    <Clock3 className="h-2.5 w-2.5 shrink-0 text-[hsl(var(--foreground-soft))]" />
                                   )}
-                                  <span
-                                    className={cn(
-                                      "inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.72rem] font-semibold capitalize",
-                                      response.status === "completed" && "bg-emerald-100 text-emerald-900",
-                                      ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(response.status) &&
-                                        "bg-amber-100 text-amber-900",
-                                      ["failed", "cancelled"].includes(response.status) && "bg-rose-100 text-rose-900",
-                                      ["pending", "pending_local"].includes(response.status) && "bg-slate-100 text-slate-700",
-                                    )}
-                                  >
-                                    {response.status.replaceAll("_", " ")}
-                                  </span>
+                                  <div className="group/failed relative">
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center whitespace-nowrap rounded-full px-1.5 py-[0.2rem] text-[0.64rem] font-semibold capitalize",
+                                        response.status === "completed" && "bg-emerald-100 text-emerald-900",
+                                        ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(response.status) &&
+                                          "bg-amber-100 text-amber-900",
+                                        ["failed", "cancelled"].includes(response.status) && "bg-rose-100 text-rose-900",
+                                        ["pending", "pending_local"].includes(response.status) && "bg-slate-100 text-slate-700",
+                                      )}
+                                    >
+                                      {response.status.replaceAll("_", " ")}
+                                    </span>
+                                    {response.status === "failed" && response.error_message ? (
+                                      <div className="pointer-events-none absolute left-0 top-full z-30 hidden w-[22rem] pt-2 group-hover/failed:block">
+                                        <div className="overflow-hidden rounded-2xl border border-rose-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,241,242,0.96))] shadow-[0_24px_60px_-28px_rgba(225,29,72,0.45)] backdrop-blur-sm">
+                                          <div className="border-b border-rose-200/70 px-3 py-2">
+                                            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-rose-700">
+                                              Execution Error
+                                            </p>
+                                          </div>
+                                          <div className="px-3 py-2.5">
+                                            <p className="text-[0.75rem] leading-5 text-slate-700">
+                                              {response.error_message}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">
@@ -1082,9 +1100,9 @@ function RunPhaseSwitcher({
       unlocked: true,
       tint: {
         border: "border-orange-200",
-        wash: "bg-white",
-        fill: "from-orange-100/90 via-orange-50/70 to-white/20",
-        icon: "bg-orange-50 text-orange-700",
+        wash: "bg-orange-50/60",
+        fill: "",
+        icon: "bg-orange-100/80 text-orange-700",
         text: "text-slate-950",
         progress: "bg-orange-400",
       },
@@ -1099,9 +1117,9 @@ function RunPhaseSwitcher({
       unlocked: phase2Unlocked,
       tint: {
         border: "border-amber-200",
-        wash: "bg-white",
-        fill: "from-amber-100/90 via-amber-50/70 to-white/20",
-        icon: "bg-amber-50 text-amber-700",
+        wash: "bg-amber-50/60",
+        fill: "",
+        icon: "bg-amber-100/80 text-amber-700",
         text: "text-slate-950",
         progress: "bg-amber-500",
       },
@@ -1116,9 +1134,9 @@ function RunPhaseSwitcher({
       unlocked: phase3Unlocked,
       tint: {
         border: "border-teal-200",
-        wash: "bg-white",
-        fill: "from-teal-100/90 via-teal-50/70 to-white/20",
-        icon: "bg-teal-50 text-teal-700",
+        wash: "bg-teal-50/60",
+        fill: "",
+        icon: "bg-teal-100/80 text-teal-700",
         text: "text-slate-950",
         progress: "bg-teal-500",
       },
@@ -1146,20 +1164,6 @@ function RunPhaseSwitcher({
             onClick={() => onPhaseChange(phase.key)}
             type="button"
           >
-            <div
-              className={cn(
-                "absolute inset-0 transition-opacity duration-300",
-                phase.tint.wash,
-                isActive ? "opacity-100" : "opacity-50",
-              )}
-            />
-            <div
-              className={cn(
-                "absolute inset-y-0 left-0 bg-gradient-to-r transition-[width] duration-500 ease-out",
-                phase.tint.fill,
-              )}
-              style={{ width: phase.stageFill }}
-            />
             <div className="absolute inset-x-4 bottom-3 h-[4px] overflow-hidden rounded-full bg-slate-200/70">
               <div
                 className={cn(
@@ -1252,8 +1256,6 @@ function CandidateExecutionCard({
   responses: CandidateResponse[];
   runStatus: string;
 }) {
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const [detailSide, setDetailSide] = useState<"left" | "right">("right");
   const completedCount = responses.filter((item) => item.status === "completed").length;
   const runningCount = responses.filter((item) => item.status === "running").length;
   const failedCount = responses.filter((item) =>
@@ -1266,19 +1268,9 @@ function CandidateExecutionCard({
   const remainingCount = isLocal ? pendingCount + failedCount : pendingCount;
   const isCurrentLocal = localState?.model_snapshot_id === candidate.id;
   const completionRatio = promptCount > 0 ? completedCount / promptCount : 0;
-  const localInstructions =
-    localState?.local_load_instructions || "No local load instructions were provided.";
   const startedCount = responses.filter(
     (item) => item.retry_count > 0 || item.status !== "pending",
   ).length;
-  const updateDetailSide = () => {
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return;
-    }
-    const midpoint = rect.left + rect.width / 2;
-    setDetailSide(midpoint < window.innerWidth / 2 ? "right" : "left");
-  };
   const candidateStatus = (() => {
     if (completedCount === promptCount && promptCount > 0) {
       return { status: "completed", label: "candidate ready" };
@@ -1311,12 +1303,7 @@ function CandidateExecutionCard({
   })();
 
   return (
-    <div
-      ref={cardRef}
-      className="group relative"
-      onFocus={updateDetailSide}
-      onMouseEnter={updateDetailSide}
-    >
+    <div className="relative">
       <div className="relative overflow-hidden rounded-[1.35rem] border border-border/80 bg-[linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(255,255,255,0.98))] p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_36px_-26px_rgba(15,23,42,0.35)]">
         <div
           className={cn(
@@ -1348,12 +1335,6 @@ function CandidateExecutionCard({
             </p>
             <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">done</p>
           </div>
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <CompactMetric label="P" value={String(promptCount)} />
-          <CompactMetric label="Run" value={String(runningCount)} />
-          <CompactMetric label="Left" value={String(remainingCount)} />
         </div>
 
         {isLocal && isCurrentLocal ? (
@@ -1390,136 +1371,12 @@ function CandidateExecutionCard({
           </div>
         ) : null}
 
-        <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-slate-400">
-          <span>{isLocal ? "Hover for handoff" : "Hover for endpoint"}</span>
-          <span>
-            {isLocal && failedCount > 0
-              ? `${failedCount} to retry`
-              : failedCount > 0
-                ? `${failedCount} failed`
-                : "details"}
-          </span>
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "pointer-events-none absolute z-30 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-          "left-0 right-0 top-full mt-2",
-          "md:top-1/2 md:mt-0 md:w-[34rem] md:-translate-y-1/2",
-          detailSide === "right"
-            ? "md:left-full md:right-auto md:ml-3"
-            : "md:right-full md:left-auto md:mr-3",
-        )}
-      >
-        <div className="rounded-[1.3rem] border border-slate-200 bg-white/98 p-4 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.45)] ring-1 ring-slate-950/5 backdrop-blur-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-950">
-                {candidate.display_name}
-              </p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {isLocal
-                  ? "Local candidate. Load it in LM Studio, confirm readiness, then start the current handoff."
-                  : "Remote candidate. Endpoint execution can run in parallel with every other remote candidate."}
-              </p>
-            </div>
-            <StatusPill status={candidateStatus.status} label={candidateStatus.label} />
+        {failedCount > 0 ? (
+          <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-rose-500">
+            {isLocal ? `${failedCount} to retry` : `${failedCount} failed`}
           </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-[0.82fr_1.18fr]">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <CompactDetail label="Prompts" value={String(promptCount)} />
-                <CompactDetail label="Completed" value={String(completedCount)} />
-                <CompactDetail label="Running" value={String(runningCount)} />
-                <CompactDetail label="Remaining" value={String(remainingCount)} />
-              </div>
-              <CompactDetail
-                label="Machine"
-                value={
-                  isLocal && isCurrentLocal && localState
-                    ? localState.machine_label ?? "Current machine"
-                    : candidate.machine_label ?? "Managed endpoint"
-                }
-              />
-            </div>
-
-            <div className="space-y-3">
-              <CompactDetail label="Model ID" value={candidate.model_identifier} />
-
-              {isLocal ? (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
-                    LM Studio Instructions
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-emerald-950">
-                    {isCurrentLocal && localState
-                      ? localInstructions
-                      : "This local candidate is queued and will expose its handoff details when it becomes the active local model."}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          {isLocal && isCurrentLocal ? (
-            <div className="mt-4 flex gap-2">
-              <Button
-                className="flex-1"
-                disabled={isConfirming}
-                onClick={onConfirmReady}
-                size="sm"
-                variant="secondary"
-              >
-                Confirm ready
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={!localState?.confirmed_ready || isStarting}
-                onClick={onStartCurrent}
-                size="sm"
-              >
-                {isStarting ? "Starting current model..." : "Start current model"}
-              </Button>
-            </div>
-          ) : !isLocal ? (
-            <div className="mt-4 flex gap-2">
-              <Button
-                className="flex-1"
-                disabled={isStartingEndpoint || completedCount === promptCount}
-                onClick={onStartEndpoint}
-                size="sm"
-                variant="secondary"
-              >
-                {completedCount === promptCount ? "Completed" : isStartingEndpoint ? "Starting endpoint" : "Start endpoint"}
-              </Button>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
       </div>
-    </div>
-  );
-}
-
-function CompactMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-white px-2.5 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
-    </div>
-  );
-}
-
-function CompactDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-1 text-sm leading-6 text-slate-900">{value}</p>
     </div>
   );
 }
@@ -2022,9 +1879,70 @@ function PromptRankingMatrix({
   responses: CandidateResponse[];
   run: Run;
 }) {
-  const completedBatches =
-    judging?.items.filter((batch) => batch.status === "completed" && batch.evaluation) ?? [];
-  const candidates = run.model_snapshots.filter((item) => item.role === "candidate");
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [matrixScale, setMatrixScale] = useState(1);
+  const completedBatches = useMemo(
+    () => judging?.items.filter((batch) => batch.status === "completed" && batch.evaluation) ?? [],
+    [judging?.items],
+  );
+  const candidates = useMemo(
+    () => run.model_snapshots.filter((item) => item.role === "candidate"),
+    [run.model_snapshots],
+  );
+
+  useEffect(() => {
+    if (completedBatches.length === 0 || candidates.length === 0) {
+      return;
+    }
+
+    const updateScale = () => {
+      const viewport = viewportRef.current;
+      const content = contentRef.current;
+
+      if (!viewport || !content) {
+        return;
+      }
+
+      const availableWidth = viewport.clientWidth;
+      const availableHeight = viewport.clientHeight;
+      const contentWidth = content.scrollWidth;
+      const contentHeight = content.scrollHeight;
+
+      if (!availableWidth || !availableHeight || !contentWidth || !contentHeight) {
+        setMatrixScale(1);
+        return;
+      }
+
+      const nextScale = Math.min(
+        1,
+        availableWidth / contentWidth,
+        availableHeight / contentHeight,
+      );
+
+      setMatrixScale(nextScale);
+    };
+
+    updateScale();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateScale();
+    });
+
+    if (viewportRef.current) {
+      resizeObserver.observe(viewportRef.current);
+    }
+
+    if (contentRef.current) {
+      resizeObserver.observe(contentRef.current);
+    }
+
+    window.addEventListener("resize", updateScale);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateScale);
+    };
+  }, [candidates, completedBatches]);
 
   if (completedBatches.length === 0 || candidates.length === 0) {
     return (
@@ -2039,124 +1957,137 @@ function PromptRankingMatrix({
     <div className="space-y-4">
       <SectionHeading
         title="Prompt Ranking Matrix"
-        description="Une colonne par prompt. Le meilleur score de chaque prompt ressort visuellement dans la matrice."
+        description="Vue compacte ajustée automatiquement pour garder toute la matrice visible à l’écran."
       />
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-border/80 text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
-            <tr>
-              <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3 font-semibold">
-                Candidate
-              </th>
-              {completedBatches.map((batch) => {
-                const prompt = promptById(run.prompt_snapshots, batch.prompt_snapshot_id);
-                const topScore = Math.max(
-                  ...batch.evaluation!.candidates.map((item) => Number(item.overall_score) || 0),
-                );
-
-                return (
-                  <th key={batch.id} className="min-w-[12rem] px-4 py-3 font-semibold">
-                    <div>
-                      <p className="font-semibold text-slate-700">
-                        {prompt?.name ?? `Prompt #${batch.prompt_snapshot_id}`}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        Best score {formatScore(String(topScore))}
-                      </p>
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/70">
-            {candidates.map((candidate) => (
-              <tr key={candidate.id}>
-                <td className="sticky left-0 z-10 bg-white px-4 py-4">
-                  <div>
-                    <p className="font-medium text-slate-950">{candidate.display_name}</p>
-                    <p className="text-xs text-slate-500">
-                      {candidate.provider_type} / {candidate.runtime_type}
-                    </p>
-                  </div>
-                </td>
-                {completedBatches.map((batch) => {
-                  const evaluationCandidate = batch.evaluation?.candidates.find((item) => {
-                    const response = responses.find(
-                      (responseItem) => responseItem.id === item.candidate_response_id,
-                    );
-                    return response?.model_snapshot_id === candidate.id;
-                  });
-
-                  if (!evaluationCandidate) {
-                    return (
-                      <td key={`${candidate.id}-${batch.id}`} className="px-4 py-4">
-                        <span className="text-xs text-slate-400">No score</span>
-                      </td>
-                    );
-                  }
-
-                  const allScores = batch.evaluation?.candidates.map(
-                    (item) => Number(item.overall_score) || 0,
-                  ) ?? [0];
-                  const bestScore = Math.max(...allScores);
-                  const candidateScore = Number(evaluationCandidate.overall_score) || 0;
-                  const isBest = candidateScore === bestScore;
+      <div
+        ref={viewportRef}
+        className="overflow-hidden rounded-[1.25rem] border border-border/80 bg-white p-3"
+        style={{ height: "calc(100vh - 19rem)" }}
+      >
+        <div
+          ref={contentRef}
+          className="origin-top-left"
+          style={{
+            transform: `scale(${matrixScale})`,
+            width: matrixScale < 1 ? `${100 / matrixScale}%` : "100%",
+          }}
+        >
+          <table className="w-full table-fixed divide-y divide-border/80 text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="w-[8.5rem] px-2 py-2 font-semibold">Model</th>
+                {completedBatches.map((batch, index) => {
+                  const prompt = promptById(run.prompt_snapshots, batch.prompt_snapshot_id);
+                  const topScore = Math.max(
+                    ...batch.evaluation!.candidates.map((item) => Number(item.overall_score) || 0),
+                  );
 
                   return (
-                    <td key={`${candidate.id}-${batch.id}`} className="px-4 py-4 align-top">
-                      <div
-                        className={cn(
-                          "grid min-h-[11rem] grid-rows-[auto_auto_1fr] rounded-[1rem] border p-4",
-                          isBest
-                            ? "border-emerald-200 bg-emerald-50 shadow-[0_16px_36px_-28px_rgba(16,185,129,0.55)]"
-                            : "border-border/80 bg-slate-50",
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                              Score
-                            </p>
-                            <p
-                              className={cn(
-                                "mt-1 text-4xl font-semibold leading-none tracking-tight",
-                                isBest ? "text-emerald-950" : "text-slate-950",
-                              )}
-                            >
-                              {formatScore(evaluationCandidate.overall_score)}
-                            </p>
-                          </div>
-                          <span
-                            className={cn(
-                              "inline-flex min-w-[3.75rem] items-center justify-center rounded-full px-3 py-1.5 text-base font-semibold",
-                              isBest
-                                ? "bg-emerald-100 text-emerald-900"
-                                : "bg-slate-100 text-slate-600",
-                            )}
-                          >
-                            #{evaluationCandidate.ranking_in_batch}
-                          </span>
-                        </div>
-                        <p
-                          className={cn(
-                            "mt-4 text-xs font-semibold uppercase tracking-[0.18em]",
-                            isBest ? "text-emerald-700" : "text-slate-400",
-                          )}
-                        >
-                          {isBest ? "Best score" : "Ranked"}
+                    <th key={batch.id} className="px-1.5 py-2 font-semibold">
+                      <div className="space-y-0.5 text-center">
+                        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          P{index + 1}
                         </p>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">
-                          {evaluationCandidate.short_feedback ?? "No short feedback."}
+                        <p className="truncate text-[11px] text-slate-700">
+                          {prompt?.name ?? `Prompt #${batch.prompt_snapshot_id}`}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          Top {formatScore(String(topScore))}
                         </p>
                       </div>
-                    </td>
+                    </th>
                   );
                 })}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border/70">
+              {candidates.map((candidate) => (
+                <tr key={candidate.id}>
+                  <td className="bg-white px-2 py-2 align-top">
+                    <div className="space-y-0.5">
+                      <p className="truncate text-xs font-medium text-slate-950">
+                        {candidate.display_name}
+                      </p>
+                      <p className="truncate text-[10px] text-slate-500">
+                        {candidate.provider_type} / {candidate.runtime_type}
+                      </p>
+                    </div>
+                  </td>
+                  {completedBatches.map((batch) => {
+                    const evaluationCandidate = batch.evaluation?.candidates.find((item) => {
+                      const response = responses.find(
+                        (responseItem) => responseItem.id === item.candidate_response_id,
+                      );
+                      return response?.model_snapshot_id === candidate.id;
+                    });
+
+                    if (!evaluationCandidate) {
+                      return (
+                        <td key={`${candidate.id}-${batch.id}`} className="px-1.5 py-2">
+                          <div className="rounded-lg border border-dashed border-border/70 bg-slate-50 px-2 py-2 text-center text-[10px] text-slate-400">
+                            —
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    const allScores = batch.evaluation?.candidates.map(
+                      (item) => Number(item.overall_score) || 0,
+                    ) ?? [0];
+                    const bestScore = Math.max(...allScores);
+                    const candidateScore = Number(evaluationCandidate.overall_score) || 0;
+                    const isBest = candidateScore === bestScore;
+
+                    return (
+                      <td key={`${candidate.id}-${batch.id}`} className="px-1.5 py-2 align-top">
+                        <div
+                          className={cn(
+                            "space-y-1 rounded-xl border px-2 py-2 text-center",
+                            isBest
+                              ? "border-emerald-200 bg-emerald-50 shadow-[0_12px_30px_-26px_rgba(16,185,129,0.7)]"
+                              : "border-border/80 bg-slate-50",
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <span
+                              className={cn(
+                                "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                                isBest
+                                  ? "bg-emerald-100 text-emerald-900"
+                                  : "bg-slate-100 text-slate-600",
+                              )}
+                            >
+                              #{evaluationCandidate.ranking_in_batch}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[10px] font-semibold uppercase tracking-[0.14em]",
+                                isBest ? "text-emerald-700" : "text-slate-400",
+                              )}
+                            >
+                              {isBest ? "Top" : "Score"}
+                            </span>
+                          </div>
+                          <p
+                            className={cn(
+                              "text-2xl font-semibold leading-none tracking-tight",
+                              isBest ? "text-emerald-950" : "text-slate-950",
+                            )}
+                          >
+                            {formatScore(evaluationCandidate.overall_score)}
+                          </p>
+                          <p className="line-clamp-2 text-[10px] leading-3.5 text-slate-500">
+                            {summarizeShortFeedback(evaluationCandidate)}
+                          </p>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -2327,19 +2258,19 @@ function JudgeBatchPanel({
         </div>
       ) : null}
       <button
-        className="group flex w-full items-center justify-between gap-3 rounded-[1.15rem] border border-amber-200 bg-[linear-gradient(180deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-[linear-gradient(180deg,rgba(255,247,237,0.98),rgba(255,255,255,1))] hover:shadow-[0_18px_34px_-26px_rgba(245,158,11,0.3)]"
+        className="group flex w-full items-center justify-between gap-3 rounded-[1.15rem] border border-violet-200 bg-[linear-gradient(180deg,rgba(245,243,255,0.96),rgba(255,255,255,0.98))] px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:bg-[linear-gradient(180deg,rgba(237,233,254,0.98),rgba(255,255,255,1))] hover:shadow-[0_18px_34px_-26px_rgba(139,92,246,0.25)]"
         onClick={onInspectBatch}
         type="button"
       >
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-950 transition-colors duration-150 group-hover:text-amber-950">
+          <p className="text-sm font-semibold text-slate-950 transition-colors duration-150 group-hover:text-violet-950">
             Full judge response
           </p>
           <p className="mt-1 text-xs text-slate-500">
             Inspect the complete judge payload, raw response and parsed evaluation for the selected prompt.
           </p>
         </div>
-        <Eye className="h-4 w-4 shrink-0 text-amber-800 transition-all duration-200 group-hover:scale-110 group-hover:text-amber-900" />
+        <Eye className="h-4 w-4 shrink-0 text-violet-600 transition-all duration-200 group-hover:scale-110 group-hover:text-violet-700" />
       </button>
       <div className="space-y-2">
         {judging.items.map((batch) => {
@@ -2793,6 +2724,20 @@ function formatScore(value: string | null | undefined): string {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed.toFixed(0) : value;
+}
+
+function summarizeShortFeedback(candidate: JudgeEvaluationCandidate): string {
+  const text = candidate.short_feedback?.replace(/\s+/g, " ").trim();
+
+  if (!text) {
+    return "No summary";
+  }
+
+  if (text.length <= 44) {
+    return text;
+  }
+
+  return `${text.slice(0, 41).trimEnd()}…`;
 }
 
 function scoreToneClasses(

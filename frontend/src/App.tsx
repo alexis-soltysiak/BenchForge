@@ -251,7 +251,7 @@ export function App() {
                             key={item.id}
                             aria-current={isActive ? "page" : undefined}
                             className={cn(
-                              "group flex min-w-[13rem] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition",
+                              "group flex min-w-[13rem] h-[4.25rem] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition",
                               isActive
                                 ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-lg shadow-slate-900/10"
                                 : "border-border bg-[hsl(var(--surface-overlay))] text-foreground hover:bg-[hsl(var(--surface-muted))]",
@@ -275,7 +275,7 @@ export function App() {
                               </span>
                               <span
                                 className={cn(
-                                  "mt-0.5 block text-xs leading-5",
+                                  "mt-0.5 block truncate text-xs leading-5",
                                   isActive
                                     ? "text-[hsl(var(--surface-strong-foreground)/0.76)]"
                                     : "text-[hsl(var(--foreground-soft))]",
@@ -372,7 +372,7 @@ export function App() {
                           key={item.id}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "group flex w-full flex-row-reverse items-center gap-3 rounded-[1.5rem] border px-3.5 py-3.5 text-right transition duration-200",
+                            "group flex w-full flex-row-reverse items-center gap-3 rounded-[1.5rem] border px-3.5 py-3.5 text-right transition duration-200 h-[4.5rem]",
                             isActive
                               ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-[0_24px_50px_-30px_rgba(15,23,42,0.28)]"
                               : "border-[hsl(var(--border)/0.7)] bg-[hsl(var(--surface-overlay))] text-foreground hover:bg-[hsl(var(--surface))]",
@@ -399,7 +399,7 @@ export function App() {
                                 {item.label}
                               </span>
                             </span>
-                            <span className="mt-0.5 block text-[0.67rem] leading-4 text-[hsl(var(--foreground-soft))]">
+                            <span className="mt-0.5 block truncate text-[0.67rem] leading-4 text-[hsl(var(--foreground-soft))]">
                               {item.description}
                             </span>
                           </span>

@@ -29,6 +29,7 @@ const toneEyebrows = {
 export function Modal({
   children,
   description,
+  headerAction,
   onClose,
   open,
   size = "lg",
@@ -37,6 +38,7 @@ export function Modal({
 }: {
   children: ReactNode;
   description?: string;
+  headerAction?: ReactNode;
   onClose: () => void;
   open: boolean;
   size?: keyof typeof sizeClasses;
@@ -105,15 +107,18 @@ export function Modal({
                 </p>
               ) : null}
             </div>
-            <Button
-              aria-label="Close modal"
-              onClick={onClose}
-              size="icon"
-              type="button"
-              variant="soft"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {headerAction}
+              <Button
+                aria-label="Close modal"
+                onClick={onClose}
+                size="icon"
+                type="button"
+                variant="soft"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
         <div className="relative min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-7">

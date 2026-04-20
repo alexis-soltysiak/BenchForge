@@ -835,10 +835,10 @@ export function ModelRegistryPage() {
                   }}
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
+                    <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                       {t("models.rolesLabel")}
                     </p>
-                    <p className="truncate text-[0.95rem] font-semibold text-foreground">
+                    <p className="truncate text-[0.72rem] font-semibold text-foreground">
                       {selectedRoles.length > 0
                         ? selectedRoles.map((role) => roleLabel(role, t)).join(", ")
                         : t("models.allRoles")}
@@ -902,10 +902,10 @@ export function ModelRegistryPage() {
                   }}
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
+                    <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                       {t("models.providerLabel")}
                     </p>
-                    <p className="truncate text-[0.95rem] font-semibold text-foreground">
+                    <p className="truncate text-[0.72rem] font-semibold text-foreground">
                       {selectedProviderType === "all"
                         ? t("models.allProviders")
                         : selectedProviderType}
@@ -980,10 +980,10 @@ export function ModelRegistryPage() {
                   }}
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
+                    <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                       {t("models.runtimeLabel")}
                     </p>
-                    <p className="truncate text-[0.95rem] font-semibold text-foreground">
+                    <p className="truncate text-[0.72rem] font-semibold text-foreground">
                       {selectedRuntimeType === "all"
                         ? t("models.allRuntimes")
                         : selectedRuntimeType}

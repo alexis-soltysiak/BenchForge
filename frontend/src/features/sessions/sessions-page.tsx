@@ -1,5 +1,5 @@
 import type { ComponentProps, FormEvent, ReactNode } from "react";
-import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import {
@@ -129,6 +129,8 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const [promptSearch, setPromptSearch] = useState("");
   const [candidateSearch, setCandidateSearch] = useState("");
   const [judgeSearch, setJudgeSearch] = useState("");
+  const [promptCategoryFilter, setPromptCategoryFilter] = useState<string[]>([]);
+  const [promptDifficultyFilter, setPromptDifficultyFilter] = useState<number[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -340,6 +342,25 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const visibleSessions = scopedSessions.filter((session) =>
     matchesSearch(session, search),
   );
+
+  const allPromptCategories = useMemo(() => {
+    const cats = new Map<string, string>();
+    for (const p of promptsQuery.data?.items ?? []) {
+      cats.set(p.category.slug, p.category.name);
+    }
+    return Array.from(cats.entries())
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [promptsQuery.data]);
+
+  const allPromptDifficulties = useMemo(() => {
+    const diffs = new Set<number>();
+    for (const p of promptsQuery.data?.items ?? []) {
+      if (p.difficulty != null) diffs.add(p.difficulty);
+    }
+    return Array.from(diffs).sort((a, b) => a - b);
+  }, [promptsQuery.data]);
+
   const availablePrompts = (promptsQuery.data?.items ?? []).filter((prompt) => {
     const notSelected = !selectedSession?.prompts.some((item) => item.prompt_id === prompt.id);
     const matches =
@@ -348,7 +369,12 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         .join(" ")
         .toLowerCase()
         .includes(promptSearch.toLowerCase());
-    return notSelected && matches;
+    const matchesCategory =
+      promptCategoryFilter.length === 0 || promptCategoryFilter.includes(prompt.category.slug);
+    const matchesDifficulty =
+      promptDifficultyFilter.length === 0 ||
+      (prompt.difficulty != null && promptDifficultyFilter.includes(prompt.difficulty));
+    return notSelected && matches && matchesCategory && matchesDifficulty;
   });
   const availableCandidates = (modelsQuery.data?.items ?? []).filter((model) => {
     const allowed = model.role === "candidate" || model.role === "both";
@@ -402,6 +428,8 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       setSelectedSession(session);
       setSelectionStep(step);
       setFeedback(null);
+      setPromptCategoryFilter([]);
+      setPromptDifficultyFilter([]);
     });
     setIsSelectionOpen(true);
   };
@@ -582,13 +610,32 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                         }}
                       >
                         <td className="px-3 py-2.5 align-top lg:px-3.5">
-                          <div className="space-y-1">
-                            <p className="text-[0.95rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
-                              {session.name}
-                            </p>
-                            <p className="max-w-sm text-[0.92rem] text-[hsl(var(--foreground-soft))]">
-                              {session.description ?? t("sessions.noDescription")}
-                            </p>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              title={t("sessions.action.launch")}
+                              disabled={launchMutation.isPending}
+                              className={cn(
+                                "group relative flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 transition-all duration-200",
+                                "border-orange-400 bg-gradient-to-br from-orange-400 to-rose-500 text-white shadow-lg shadow-orange-200/60",
+                                "hover:scale-110 hover:shadow-xl hover:shadow-orange-300/70 active:scale-95",
+                                "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100",
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                launchMutation.mutate(session.id);
+                              }}
+                            >
+                              <Rocket className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:rotate-12" />
+                            </button>
+                            <div className="space-y-1">
+                              <p className="text-[0.95rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
+                                {session.name}
+                              </p>
+                              <p className="max-w-sm text-[0.92rem] text-[hsl(var(--foreground-soft))]">
+                                {session.description ?? t("sessions.noDescription")}
+                              </p>
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
@@ -635,18 +682,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             >
                               <PencilLine className="h-4 w-4" />
                             </ActionIconButton>
-                            <ActionIconButton
-                              aria-label={`${t("sessions.action.launch")} ${session.name}`}
-                              description={t("sessions.action.launchDesc")}
-                              disabled={launchMutation.isPending}
-                              label={t("sessions.action.launch")}
-                              onClick={() => launchMutation.mutate(session.id)}
-                              size="iconSm"
-                              variant="secondary"
-                            >
-                              <Rocket className="h-4 w-4" />
-                            </ActionIconButton>
-                            <ActionIconButton
+<ActionIconButton
                               aria-label={`${t("sessions.action.duplicate")} ${session.name}`}
                               description={t("sessions.action.duplicateDesc")}
                               disabled={duplicateMutation.isPending}
@@ -690,7 +726,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
         tone="emerald"
         title={t(selectedSession ? "sessions.editModal.title" : "sessions.createModal.title")}
       >
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-3" onSubmit={handleSubmit}>
           {loadError ? (
             <LoadErrorState compact message={loadError} resourceLabel="sessions" />
           ) : null}
@@ -714,7 +750,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             label={t("sessions.form.description")}
           >
             <Textarea
-              className="min-h-24"
+              className="min-h-16"
               placeholder={t("sessions.form.descriptionPlaceholder")}
               value={formState.description}
               onChange={(event) =>
@@ -726,7 +762,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             />
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Field
               hint={t("sessions.form.statusHint")}
               label={t("sessions.form.status")}
@@ -788,7 +824,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-3">
             {selectedSession ? (
               <Button
                 aria-label={t("common.archive", { name: selectedSession.name })}
@@ -835,6 +871,16 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             {selectionStep === "prompts" ? (
               <SelectionWorkspace
                 description={t("sessions.selection.promptsDesc")}
+                filters={
+                  <PromptFilters
+                    categories={allPromptCategories}
+                    difficulties={allPromptDifficulties}
+                    selectedCategories={promptCategoryFilter}
+                    selectedDifficulties={promptDifficultyFilter}
+                    onCategoriesChange={setPromptCategoryFilter}
+                    onDifficultiesChange={setPromptDifficultyFilter}
+                  />
+                }
                 search={promptSearch}
                 selectedCount={selectedSession.prompts.length}
                 title={t("sessions.selection.prompts")}
@@ -842,11 +888,15 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
               >
                 <SelectedList
                   emptyMessage={t("sessions.selection.noPromptsYet")}
-                  items={selectedSession.prompts.map((item) => ({
-                    id: item.id,
-                    label: item.prompt_name,
-                    meta: t("sessions.selection.orderPrefix", { order: item.display_order }),
-                  }))}
+                  items={selectedSession.prompts.map((item) => {
+                    const prompt = promptsQuery.data?.items.find((p) => p.id === item.prompt_id);
+                    return {
+                      id: item.id,
+                      label: item.prompt_name,
+                      meta: prompt?.category.name ?? t("sessions.selection.orderPrefix", { order: item.display_order }),
+                      difficulty: prompt?.difficulty ?? null,
+                    };
+                  })}
                   onRemove={(itemId) =>
                     removePromptMutation.mutate({
                       sessionId: selectedSession.id,
@@ -859,6 +909,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                     id: prompt.id,
                     label: prompt.name,
                     meta: prompt.category.name,
+                    difficulty: prompt.difficulty,
                   }))}
                   onAdd={(promptId) =>
                     addPromptMutation.mutate({
@@ -987,7 +1038,7 @@ function SelectedList({
   onRemove,
 }: {
   emptyMessage?: string;
-  items: Array<{ id: number; label: string; meta: string }>;
+  items: Array<{ id: number; label: string; meta: string; difficulty?: number | null }>;
   onRemove: (itemId: number) => void;
 }) {
   const { t } = useTranslation();
@@ -1004,8 +1055,11 @@ function SelectedList({
             key={item.id}
             className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-[hsl(var(--surface-muted))] px-3 py-3"
           >
-            <div>
-              <p className="text-sm font-medium text-foreground">{item.label}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                {item.difficulty != null ? <DifficultyBadge value={item.difficulty} /> : null}
+                <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
+              </div>
               <p className="text-xs text-[hsl(var(--foreground-soft))]">{item.meta}</p>
             </div>
             <Button size="sm" variant="dangerSoft" onClick={() => onRemove(item.id)}>
@@ -1194,6 +1248,7 @@ function SessionStepSwitcher({
 function SelectionWorkspace({
   children,
   description,
+  filters,
   search,
   selectedCount,
   title,
@@ -1201,6 +1256,7 @@ function SelectionWorkspace({
 }: {
   children: ReactNode;
   description: string;
+  filters?: ReactNode;
   search: string;
   selectedCount: number;
   title: string;
@@ -1209,23 +1265,26 @@ function SelectionWorkspace({
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface-overlay))] p-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">{title}</p>
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-            {t("sessions.selection.count", { count: selectedCount })}
-          </h3>
-          <p className="mt-1 text-sm text-[hsl(var(--foreground-soft))]">{description}</p>
+      <div className="rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface-overlay))] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">{title}</p>
+            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+              {t("sessions.selection.count", { count: selectedCount })}
+            </h3>
+            <p className="mt-1 text-sm text-[hsl(var(--foreground-soft))]">{description}</p>
+          </div>
+          <label className="relative block min-w-full lg:min-w-80">
+            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+            <Input
+              className="pl-9"
+              placeholder={t("sessions.selection.searchLibrary", { type: title.toLowerCase() })}
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+            />
+          </label>
         </div>
-        <label className="relative block min-w-full lg:min-w-80">
-          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-          <Input
-            className="pl-9"
-            placeholder={t("sessions.selection.searchLibrary", { type: title.toLowerCase() })}
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-        </label>
+        {filters ? <div className="mt-4 border-t border-border/60 pt-4">{filters}</div> : null}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {children}
@@ -1238,7 +1297,7 @@ function LibraryList({
   items,
   onAdd,
 }: {
-  items: Array<{ id: number; label: string; meta: string }>;
+  items: Array<{ id: number; label: string; meta: string; difficulty?: number | null }>;
   onAdd: (itemId: number) => void;
 }) {
   const { t } = useTranslation();
@@ -1255,8 +1314,11 @@ function LibraryList({
             key={item.id}
             className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-[hsl(var(--surface))] px-3 py-3"
           >
-            <div>
-              <p className="text-sm font-medium text-foreground">{item.label}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                {item.difficulty != null ? <DifficultyBadge value={item.difficulty} /> : null}
+                <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
+              </div>
               <p className="text-xs text-[hsl(var(--foreground-soft))]">{item.meta}</p>
             </div>
             <Button size="sm" variant="soft" onClick={() => onAdd(item.id)}>
@@ -1280,13 +1342,123 @@ function Field({
 }) {
   return (
     <label className="flex h-full flex-col gap-2">
-      <span className="block min-h-[4.75rem]">
+      <span className="flex-1">
         <span className="text-sm font-medium text-foreground">{label}</span>
         {hint ? (
-          <span className="mt-1 block text-xs leading-5 text-[hsl(var(--foreground-soft))]">{hint}</span>
+          <span className="mt-0.5 block text-xs leading-4 text-[hsl(var(--foreground-soft))]">{hint}</span>
         ) : null}
       </span>
       <span className="block">{children}</span>
     </label>
+  );
+}
+
+const DIFFICULTY_STYLES: Record<number, string> = {
+  1: "bg-emerald-500 text-white",
+  2: "bg-cyan-500 text-white",
+  3: "bg-amber-500 text-white",
+  4: "bg-orange-500 text-white",
+  5: "bg-red-500 text-white",
+};
+
+function DifficultyBadge({ value }: { value: number }) {
+  const style = DIFFICULTY_STYLES[value] ?? "bg-slate-500 text-white";
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+        style,
+      )}
+    >
+      {value}
+    </span>
+  );
+}
+
+function PromptFilters({
+  categories,
+  difficulties,
+  selectedCategories,
+  selectedDifficulties,
+  onCategoriesChange,
+  onDifficultiesChange,
+}: {
+  categories: Array<{ slug: string; name: string }>;
+  difficulties: number[];
+  selectedCategories: string[];
+  selectedDifficulties: number[];
+  onCategoriesChange: (v: string[]) => void;
+  onDifficultiesChange: (v: number[]) => void;
+}) {
+  const { t } = useTranslation();
+
+  const toggleCategory = (slug: string) =>
+    onCategoriesChange(
+      selectedCategories.includes(slug)
+        ? selectedCategories.filter((s) => s !== slug)
+        : [...selectedCategories, slug],
+    );
+
+  const toggleDifficulty = (d: number) =>
+    onDifficultiesChange(
+      selectedDifficulties.includes(d)
+        ? selectedDifficulties.filter((x) => x !== d)
+        : [...selectedDifficulties, d],
+    );
+
+  return (
+    <div className="flex flex-col gap-3">
+      {categories.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
+            {t("sessions.selection.filterCategory")}
+          </span>
+          {categories.map((cat) => {
+            const active = selectedCategories.includes(cat.slug);
+            return (
+              <button
+                key={cat.slug}
+                type="button"
+                onClick={() => toggleCategory(cat.slug)}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-xs font-medium transition",
+                  active
+                    ? "border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))]"
+                    : "border-border/70 bg-[hsl(var(--surface))] text-[hsl(var(--foreground-soft))] hover:border-[hsl(var(--theme-success-border))] hover:bg-[hsl(var(--theme-success-soft)/0.5)]",
+                )}
+              >
+                {cat.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {difficulties.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
+            {t("sessions.selection.filterDifficulty")}
+          </span>
+          {difficulties.map((d) => {
+            const active = selectedDifficulties.includes(d);
+            const style = DIFFICULTY_STYLES[d] ?? "bg-slate-500 text-white";
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDifficulty(d)}
+                className={cn(
+                  "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition",
+                  style,
+                  active ? "opacity-100 ring-2 ring-current ring-offset-1" : "opacity-30 hover:opacity-70",
+                )}
+              >
+                {d}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }

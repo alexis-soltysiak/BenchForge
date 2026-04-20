@@ -17,6 +17,7 @@ export type Prompt = {
   user_prompt_text: string;
   evaluation_notes: string | null;
   tags: string[];
+  difficulty: number | null;
   is_active: boolean;
   is_archived: boolean;
   created_at: string;
@@ -36,6 +37,7 @@ export type PromptPayload = {
   user_prompt_text: string;
   evaluation_notes: string | null;
   tags: string[];
+  difficulty: number | null;
   is_active: boolean;
 };
 
