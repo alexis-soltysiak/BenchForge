@@ -83,6 +83,45 @@ async def retry_run_judging(
         raise HTTPException(status_code=status_code, detail=detail) from exc
 
 
+@router.post("/runs/{run_id}/judging/clear", response_model=RunJudgingRead)
+async def clear_run_judging(
+    run_id: int,
+    service: JudgingService = judging_service_dependency,
+) -> RunJudgingRead:
+    try:
+        return await service.clear_judging(run_id)
+    except JudgingError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in detail.lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@router.post("/runs/{run_id}/judging/restart", response_model=RunJudgingRead)
+async def restart_run_judging(
+    run_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    service: JudgingService = judging_service_dependency,
+) -> RunJudgingRead:
+    try:
+        response = await service.restart_judging(run_id)
+        session_factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+        background_tasks.add_task(run_judging_background, run_id, session_factory)
+        return response
+    except JudgingError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in detail.lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
 @router.post("/runs/{run_id}/judging/batches/{batch_id}/retry", response_model=RunJudgingRead)
 async def retry_judge_batch(
     run_id: int,

@@ -422,14 +422,14 @@ const en = {
     "No sessions found. Create a benchmark session with seeded prompts and registered models to launch your first run.",
   "sessions.noDescription": "No description",
   "sessions.compositionPrompts": "{{count}} prompts",
-  "sessions.compositionCandidates": "{{count}}/{{max}} candidates",
+  "sessions.compositionCandidates": "{{count}} candidates",
   "sessions.compositionJudges": "{{count}} judges",
   "sessions.action.configure": "Configure",
   "sessions.action.configureDesc":
     "Open the step-by-step selection flow for prompts, candidates, and judge.",
   "sessions.action.edit": "Edit",
   "sessions.action.editDesc":
-    "Edit the session name, description, status, candidate limit, and rubric version.",
+    "Edit the session name, description, status, and rubric version.",
   "sessions.action.launch": "Launch",
   "sessions.action.launchDesc":
     "Create and start a new benchmark run from this session configuration.",
@@ -459,9 +459,6 @@ const en = {
   "sessions.form.status.draft": "Draft",
   "sessions.form.status.ready": "Ready",
   "sessions.form.status.archived": "Archived",
-  "sessions.form.maxCandidates": "Max candidates",
-  "sessions.form.maxCandidatesHint":
-    "Choose how many candidate model slots this session can accept.",
   "sessions.form.rubricVersion": "Rubric version",
   "sessions.form.rubricVersionHint": 'Example: "mvp-v1"',
   "sessions.form.cancel": "Cancel",
@@ -472,7 +469,7 @@ const en = {
     "Choose the prompts included in this benchmark session.",
   "sessions.selection.candidates": "Candidates",
   "sessions.selection.candidatesDesc":
-    "Attach up to {{max}} candidate models for this run configuration.",
+    "Attach the candidate models for this run configuration.",
   "sessions.selection.judges": "Judge",
   "sessions.selection.judgesDesc": "Assign the judge model responsible for evaluation.",
   "sessions.selection.selected": "Selected",

@@ -222,6 +222,12 @@ class PromptService:
             if existing is not None:
                 existing.is_archived = False
                 existing.is_active = True
+                existing.name = seed.name
+                existing.description = seed.description
+                existing.system_prompt_text = seed.system_prompt_text
+                existing.user_prompt_text = seed.user_prompt_text
+                existing.evaluation_notes = seed.evaluation_notes
+                existing.difficulty = seed.difficulty
                 continue
 
             category = await self.repository.get_category_by_slug(seed.category_slug)

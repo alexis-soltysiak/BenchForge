@@ -97,6 +97,18 @@ export function retryRunJudging(runId: number): Promise<RunJudging> {
   });
 }
 
+export function clearRunJudging(runId: number): Promise<RunJudging> {
+  return apiRequest<RunJudging>(`/runs/${runId}/judging/clear`, {
+    method: "POST",
+  });
+}
+
+export function restartRunJudging(runId: number): Promise<RunJudging> {
+  return apiRequest<RunJudging>(`/runs/${runId}/judging/restart`, {
+    method: "POST",
+  });
+}
+
 export function retryJudgeBatch(runId: number, batchId: number): Promise<RunJudging> {
   return apiRequest<RunJudging>(`/runs/${runId}/judging/batches/${batchId}/retry`, {
     method: "POST",

@@ -197,9 +197,19 @@ class AggregationService:
             for text in self._split_feedback(candidate.weaknesses_text)
         )
 
+        prompt_count = len(
+            {
+                self._candidate_response_for_id(
+                    run.candidate_responses,
+                    candidate.candidate_response_id,
+                ).prompt_snapshot_id
+                for candidate in judged_candidates
+            }
+        )
+
         return {
             "model_snapshot_id": model_snapshot_id,
-            "prompt_count": len(judged_candidates),
+            "prompt_count": prompt_count,
             "average_overall_score": self._average_decimal(
                 [candidate.overall_score for candidate in judged_candidates]
             ),

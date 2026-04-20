@@ -43,7 +43,7 @@ class SessionCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     status: str = Field(default="draft", pattern="^(draft|ready|archived)$")
-    max_candidates: int = Field(default=5, ge=1, le=5)
+    max_candidates: int = Field(default=5, ge=1)
     rubric_version: str = Field(default="mvp-v1", min_length=1, max_length=64)
 
 
@@ -51,7 +51,7 @@ class SessionUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     status: str | None = Field(default=None, pattern="^(draft|ready|archived)$")
-    max_candidates: int | None = Field(default=None, ge=1, le=5)
+    max_candidates: int | None = Field(default=None, ge=1)
     rubric_version: str | None = Field(default=None, min_length=1, max_length=64)
 
 
@@ -68,4 +68,3 @@ class SessionCandidateCreate(BaseModel):
 class SessionJudgeCreate(BaseModel):
     model_profile_id: int
     display_order: int | None = Field(default=None, ge=1)
-

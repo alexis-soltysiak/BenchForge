@@ -38,7 +38,6 @@ export type SessionPayload = {
   name: string;
   description: string | null;
   status: "draft" | "ready" | "archived";
-  max_candidates: number;
+  max_candidates?: number;
   rubric_version: string;
 };
-
