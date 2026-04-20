@@ -207,11 +207,21 @@ class PromptService:
         return serialize_prompt(refreshed)
 
     async def ensure_builtin_prompts(self) -> int:
+        seed_slugs = {seed.slug for seed in BUILTIN_PROMPT_SEEDS}
+
+        all_prompts, _ = await self.repository.list_prompts(include_archived=True)
+        for prompt in all_prompts:
+            if prompt.slug not in seed_slugs:
+                prompt.is_archived = True
+                prompt.is_active = False
+
         created_count = 0
 
         for seed in BUILTIN_PROMPT_SEEDS:
             existing = await self.repository.get_prompt_by_slug(seed.slug)
             if existing is not None:
+                existing.is_archived = False
+                existing.is_active = True
                 continue
 
             category = await self.repository.get_category_by_slug(seed.category_slug)
@@ -235,7 +245,5 @@ class PromptService:
             self.repository.add_prompt(prompt)
             created_count += 1
 
-        if created_count:
-            await self.repository.commit()
-
+        await self.repository.commit()
         return created_count

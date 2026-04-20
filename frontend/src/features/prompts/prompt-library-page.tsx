@@ -1,5 +1,5 @@
-import type { FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Check,
@@ -42,6 +42,7 @@ type PromptFormState = {
   description: string;
   categoryId: string;
   tags: string;
+  difficulty: number | null;
   systemPromptText: string;
   userPromptText: string;
   evaluationNotes: string;
@@ -53,6 +54,7 @@ const emptyForm: PromptFormState = {
   description: "",
   categoryId: "",
   tags: "",
+  difficulty: null,
   systemPromptText: "",
   userPromptText: "",
   evaluationNotes: "",
@@ -65,6 +67,7 @@ function toFormState(prompt: Prompt): PromptFormState {
     description: prompt.description ?? "",
     categoryId: String(prompt.category.id),
     tags: prompt.tags.join(", "),
+    difficulty: prompt.difficulty,
     systemPromptText: prompt.system_prompt_text ?? "",
     userPromptText: prompt.user_prompt_text,
     evaluationNotes: prompt.evaluation_notes ?? "",
@@ -84,15 +87,62 @@ function toPayload(state: PromptFormState): PromptPayload {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean),
+    difficulty: state.difficulty,
     is_active: state.isActive,
   };
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
+function formatDateShort(value: string): string {
+  const d = new Date(value);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = String(d.getFullYear()).slice(2);
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateFull(value: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "full",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+const DIFFICULTY_COLORS: Record<number, string> = {
+  1: "bg-emerald-400",
+  2: "bg-lime-400",
+  3: "bg-amber-400",
+  4: "bg-orange-500",
+  5: "bg-red-500",
+};
+
+const DIFFICULTY_LABELS: Record<number, string> = {
+  1: "Très facile",
+  2: "Facile",
+  3: "Moyen",
+  4: "Difficile",
+  5: "Très difficile",
+};
+
+function DifficultyDot({ level }: { level: number | null }) {
+  if (!level) {
+    return (
+      <span
+        className="flex h-5 w-5 items-center justify-center rounded-full bg-border/60 text-[10px] font-bold text-muted-foreground"
+        title="Difficulté non définie"
+      />
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white",
+        DIFFICULTY_COLORS[level],
+      )}
+      title={`Difficulté : ${DIFFICULTY_LABELS[level] ?? level}`}
+    >
+      {level}
+    </span>
+  );
 }
 
 function matchesSearch(prompt: Prompt, search: string): boolean {
@@ -129,6 +179,21 @@ function matchesTags(prompt: Prompt, tags: string[]): boolean {
   return tags.every((tag) => promptTags.has(tag.toLowerCase()));
 }
 
+function matchesDifficulty(prompt: Prompt, difficulties: number[]): boolean {
+  if (difficulties.length === 0) {
+    return true;
+  }
+  return prompt.difficulty !== null && difficulties.includes(prompt.difficulty);
+}
+
+const DIFFICULTY_STYLES: Record<number, string> = {
+  1: "bg-emerald-500 text-white",
+  2: "bg-cyan-500 text-white",
+  3: "bg-amber-500 text-white",
+  4: "bg-orange-500 text-white",
+  5: "bg-red-500 text-white",
+};
+
 function uniqueTags(prompts: Prompt[]): string[] {
   return Array.from(
     new Set(
@@ -159,28 +224,27 @@ type PromptFilterState = {
   search: string;
   selectedCategoryId: string;
   selectedTags: string[];
+  selectedDifficulties: number[];
 };
 
 const PROMPT_FILTERS_STORAGE_KEY = "benchforge.prompt-library.filters";
 
+const DEFAULT_FILTER_STATE: PromptFilterState = {
+  showArchived: false,
+  search: "",
+  selectedCategoryId: "all",
+  selectedTags: [],
+  selectedDifficulties: [],
+};
+
 function readPromptFilterState(): PromptFilterState {
   if (typeof window === "undefined") {
-    return {
-      showArchived: false,
-      search: "",
-      selectedCategoryId: "all",
-      selectedTags: [],
-    };
+    return DEFAULT_FILTER_STATE;
   }
 
   const raw = window.localStorage.getItem(PROMPT_FILTERS_STORAGE_KEY);
   if (!raw) {
-    return {
-      showArchived: false,
-      search: "",
-      selectedCategoryId: "all",
-      selectedTags: [],
-    };
+    return DEFAULT_FILTER_STATE;
   }
 
   try {
@@ -195,14 +259,12 @@ function readPromptFilterState(): PromptFilterState {
       selectedTags: Array.isArray(parsed.selectedTags)
         ? parsed.selectedTags.filter((tag): tag is string => typeof tag === "string")
         : [],
+      selectedDifficulties: Array.isArray(parsed.selectedDifficulties)
+        ? parsed.selectedDifficulties.filter((d): d is number => typeof d === "number")
+        : [],
     };
   } catch {
-    return {
-      showArchived: false,
-      search: "",
-      selectedCategoryId: "all",
-      selectedTags: [],
-    };
+    return DEFAULT_FILTER_STATE;
   }
 }
 
@@ -219,6 +281,9 @@ export function PromptLibraryPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>(
     initialPromptFilters.selectedTags,
   );
+  const [selectedDifficulties, setSelectedDifficulties] = useState<number[]>(
+    initialPromptFilters.selectedDifficulties,
+  );
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [isTagsMenuOpen, setIsTagsMenuOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
@@ -227,6 +292,14 @@ export function PromptLibraryPage() {
   const [formState, setFormState] = useState<PromptFormState>(emptyForm);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  const isDirtyRef = useRef(false);
+  const skipFormResetRef = useRef(false);
+
+  const updateForm = (updater: (prev: PromptFormState) => PromptFormState) => {
+    isDirtyRef.current = true;
+    setFormState(updater);
+  };
 
   const categoriesQuery = useQuery({
     queryKey: ["prompt-categories"],
@@ -239,6 +312,13 @@ export function PromptLibraryPage() {
   });
 
   useEffect(() => {
+    if (skipFormResetRef.current) {
+      skipFormResetRef.current = false;
+      isDirtyRef.current = false;
+      return;
+    }
+    isDirtyRef.current = false;
+
     if (selectedPrompt) {
       setFormState(toFormState(selectedPrompt));
       return;
@@ -251,6 +331,21 @@ export function PromptLibraryPage() {
       }));
     }
   }, [categoriesQuery.data, selectedPrompt]);
+
+  useEffect(() => {
+    if (!isDirtyRef.current) return;
+    const isValid =
+      formState.name.trim() &&
+      formState.userPromptText.trim() &&
+      formState.categoryId;
+    if (!isValid) return;
+
+    const timer = setTimeout(() => {
+      void saveMutation.mutateAsync(toPayload(formState));
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState]);
 
   useEffect(() => {
     if (selectedPrompt && !matchesArchiveState(selectedPrompt, showArchived)) {
@@ -266,9 +361,10 @@ export function PromptLibraryPage() {
         search,
         selectedCategoryId,
         selectedTags,
+        selectedDifficulties,
       }),
     );
-  }, [search, selectedCategoryId, selectedTags, showArchived]);
+  }, [search, selectedCategoryId, selectedTags, selectedDifficulties, showArchived]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: PromptPayload) => {
@@ -279,16 +375,10 @@ export function PromptLibraryPage() {
     },
     onSuccess: async (prompt) => {
       await queryClient.invalidateQueries({ queryKey: ["prompts"] });
-      setFeedback(
-        selectedPrompt
-          ? t("prompts.feedback.updated", { name: prompt.name })
-          : t("prompts.feedback.created", { name: prompt.name }),
-      );
-      setIsEditorOpen(false);
-      startTransition(() => {
-        setSelectedPrompt(prompt);
-        setFormState(toFormState(prompt));
-      });
+      if (!selectedPrompt) {
+        skipFormResetRef.current = true;
+        startTransition(() => setSelectedPrompt(prompt));
+      }
     },
     onError: (error) => {
       setFeedback(
@@ -332,13 +422,18 @@ export function PromptLibraryPage() {
     (prompt) =>
       matchesSearch(prompt, search) &&
       matchesCategory(prompt, selectedCategoryId) &&
-      matchesTags(prompt, selectedTags),
+      matchesTags(prompt, selectedTags) &&
+      matchesDifficulty(prompt, selectedDifficulties),
   );
   const categoryCount = categoriesQuery.data?.length ?? 0;
   const hasAnyFilters =
     search.trim().length > 0 ||
     selectedCategoryId !== "all" ||
-    selectedTags.length > 0;
+    selectedTags.length > 0 ||
+    selectedDifficulties.length > 0;
+  const availableDifficulties = Array.from(
+    new Set(scopedPrompts.map((p) => p.difficulty).filter((d): d is number => d !== null)),
+  ).sort((a, b) => a - b);
   const loadError =
     (categoriesQuery.error instanceof ApiError && categoriesQuery.error.message) ||
     (promptsQuery.error instanceof ApiError && promptsQuery.error.message) ||
@@ -367,12 +462,6 @@ export function PromptLibraryPage() {
       setFeedback(null);
     });
     setIsEditorOpen(true);
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setFeedback(null);
-    await saveMutation.mutateAsync(toPayload(formState));
   };
 
   const addTag = (tag: string) => {
@@ -466,10 +555,10 @@ export function PromptLibraryPage() {
                       }
                     >
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
+                        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                           {t("prompts.categoryLabel")}
                         </p>
-                        <p className="truncate text-[0.83rem] font-semibold text-foreground">
+                        <p className="truncate text-[0.72rem] font-semibold text-foreground">
                           {categoryLabel}
                         </p>
                       </div>
@@ -555,26 +644,28 @@ export function PromptLibraryPage() {
                       onClick={() => setIsTagsMenuOpen((current) => !current)}
                     >
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
+                        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
                           {t("prompts.tagsLabel")}
                         </p>
-                        <div className="mt-0.5 flex min-h-6 flex-wrap items-center gap-2">
+                        <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden">
                           {selectedTags.length > 0 ? (
-                            selectedTags.slice(0, 3).map((tag) => (
-                              <Badge key={tag} variant="accent">
-                                {tag}
-                              </Badge>
-                            ))
+                            <>
+                              {selectedTags.slice(0, 2).map((tag) => (
+                                <Badge key={tag} variant="accent" className="shrink-0 text-[0.6rem]">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {selectedTags.length > 2 ? (
+                                <Badge variant="neutral" className="shrink-0 text-[0.6rem]">
+                                  +{selectedTags.length - 2}
+                                </Badge>
+                              ) : null}
+                            </>
                           ) : (
-                            <span className="text-[0.83rem] font-semibold text-foreground">
+                            <span className="truncate text-[0.72rem] font-semibold text-foreground">
                               {t("prompts.addOrRemoveTags")}
                             </span>
                           )}
-                          {selectedTags.length > 3 ? (
-                            <Badge variant="neutral">
-                              {t("common.moreItems", { count: selectedTags.length - 3 })}
-                            </Badge>
-                          ) : null}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -683,6 +774,37 @@ export function PromptLibraryPage() {
                   </div>
 
                 <div className="relative z-40 flex flex-wrap items-center gap-3 xl:justify-end">
+                  {availableDifficulties.length > 0 ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
+                        Difficulty
+                      </span>
+                      {availableDifficulties.map((d) => {
+                        const active = selectedDifficulties.includes(d);
+                        const style = DIFFICULTY_STYLES[d] ?? "bg-slate-500 text-white";
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() =>
+                              setSelectedDifficulties((current) =>
+                                current.includes(d)
+                                  ? current.filter((x) => x !== d)
+                                  : [...current, d],
+                              )
+                            }
+                            className={cn(
+                              "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition",
+                              style,
+                              active ? "opacity-100 ring-2 ring-current ring-offset-1" : "opacity-30 hover:opacity-70",
+                            )}
+                          >
+                            {d}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                     <Button
                       disabled={!hasAnyFilters}
                       type="button"
@@ -695,6 +817,7 @@ export function PromptLibraryPage() {
                         setSearch("");
                         setSelectedCategoryId("all");
                         setSelectedTags([]);
+                        setSelectedDifficulties([]);
                         setTagDraft("");
                         setIsCategoryMenuOpen(false);
                         setIsTagsMenuOpen(false);
@@ -751,11 +874,11 @@ export function PromptLibraryPage() {
               <table className="min-w-full text-left">
                 <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                   <tr>
+                    <th className="w-6 px-3 py-2 font-semibold lg:px-3.5" />
                     <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colName")}</th>
                     <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colCategory")}</th>
                     <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colTags")}</th>
                     <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colUpdated")}</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colStatus")}</th>
                     <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colActions")}</th>
                   </tr>
                 </thead>
@@ -787,6 +910,9 @@ export function PromptLibraryPage() {
                           openEditModal(prompt);
                         }}
                       >
+                          <td className="w-6 px-3 py-2.5 align-middle lg:px-3.5">
+                            <DifficultyDot level={prompt.difficulty} />
+                          </td>
                           <td className="px-3 py-2.5 align-top lg:px-3.5">
                             <div className="space-y-1">
                               <p className="text-[0.9rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
@@ -814,17 +940,9 @@ export function PromptLibraryPage() {
                             </div>
                           </td>
                           <td className="px-3 py-2.5 align-top text-[0.84rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
-                            {formatDate(prompt.updated_at)}
-                          </td>
-                          <td className="px-3 py-2.5 align-top lg:px-3.5">
-                            <div className="flex gap-2">
-                              <Badge variant={prompt.is_archived ? "muted" : "success"}>
-                                {prompt.is_archived ? t("prompts.statusArchived") : t("prompts.statusActive")}
-                              </Badge>
-                              {!prompt.is_active && !prompt.is_archived ? (
-                                <Badge variant="neutral">{t("prompts.statusInactive")}</Badge>
-                              ) : null}
-                            </div>
+                            <span title={formatDateFull(prompt.updated_at)}>
+                              {formatDateShort(prompt.updated_at)}
+                            </span>
                           </td>
                           <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                             <div className="flex justify-end gap-1.5">
@@ -853,11 +971,26 @@ export function PromptLibraryPage() {
 
       <Modal
         description={t("prompts.modal.description")}
+        headerAction={
+          selectedPrompt ? (
+            <Button
+              aria-label={`Archive ${selectedPrompt.name}`}
+              disabled={archiveMutation.isPending || selectedPrompt.is_archived}
+              onClick={() => archiveMutation.mutate(selectedPrompt.id)}
+              size="iconSm"
+              title={`Archive ${selectedPrompt.name}`}
+              type="button"
+              variant="dangerSoft"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : undefined
+        }
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
         title={selectedPrompt ? t("prompts.editModal.title") : t("prompts.createModal.title")}
       >
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5">
           {loadError ? (
             <LoadErrorState compact message={loadError} resourceLabel={t("prompts.pageTitle")} />
           ) : null}
@@ -869,13 +1002,9 @@ export function PromptLibraryPage() {
             >
               <Input
                 placeholder={t("prompts.form.namePlaceholder")}
-                required
                 value={formState.name}
                 onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
+                  updateForm((current) => ({ ...current, name: event.target.value }))
                 }
               />
             </Field>
@@ -885,13 +1014,9 @@ export function PromptLibraryPage() {
               label={t("prompts.form.category")}
             >
               <Select
-                required
                 value={formState.categoryId}
                 onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    categoryId: event.target.value,
-                  }))
+                  updateForm((current) => ({ ...current, categoryId: event.target.value }))
                 }
               >
                 {(categoriesQuery.data ?? []).map((category) => (
@@ -912,10 +1037,7 @@ export function PromptLibraryPage() {
               placeholder={t("prompts.form.descriptionPlaceholder")}
               value={formState.description}
               onChange={(event) =>
-                setFormState((current) => ({
-                  ...current,
-                  description: event.target.value,
-                }))
+                updateForm((current) => ({ ...current, description: event.target.value }))
               }
             />
           </Field>
@@ -928,13 +1050,61 @@ export function PromptLibraryPage() {
               placeholder={t("prompts.form.tagsPlaceholder")}
               value={formState.tags}
               onChange={(event) =>
-                setFormState((current) => ({
-                  ...current,
-                  tags: event.target.value,
-                }))
+                updateForm((current) => ({ ...current, tags: event.target.value }))
               }
             />
           </Field>
+
+          <div className="space-y-2">
+            <span className="block text-sm font-medium text-slate-700">{t("prompts.form.difficulty")}</span>
+            <div className="flex gap-2">
+              {([1, 2, 3, 4, 5] as const).map((level) => {
+                const isSelected = formState.difficulty === level;
+                const borderColors: Record<number, string> = {
+                  1: "border-l-emerald-400",
+                  2: "border-l-lime-400",
+                  3: "border-l-amber-400",
+                  4: "border-l-orange-500",
+                  5: "border-l-red-500",
+                };
+                const hoverBg: Record<number, string> = {
+                  1: "hover:bg-emerald-400 hover:border-emerald-400 hover:text-white",
+                  2: "hover:bg-lime-400 hover:border-lime-400 hover:text-white",
+                  3: "hover:bg-amber-400 hover:border-amber-400 hover:text-white",
+                  4: "hover:bg-orange-500 hover:border-orange-500 hover:text-white",
+                  5: "hover:bg-red-500 hover:border-red-500 hover:text-white",
+                };
+                const activeBg: Record<number, string> = {
+                  1: "bg-emerald-400 border-emerald-400 text-white",
+                  2: "bg-lime-400 border-lime-400 text-white",
+                  3: "bg-amber-400 border-amber-400 text-white",
+                  4: "bg-orange-500 border-orange-500 text-white",
+                  5: "bg-red-500 border-red-500 text-white",
+                };
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    title={DIFFICULTY_LABELS[level]}
+                    className={cn(
+                      "flex h-9 flex-1 items-center justify-center rounded-xl border border-l-4 text-sm font-semibold transition-all",
+                      isSelected
+                        ? activeBg[level]
+                        : cn("border-border bg-[hsl(var(--surface))] text-foreground", borderColors[level], hoverBg[level]),
+                    )}
+                    onClick={() =>
+                      updateForm((current) => ({
+                        ...current,
+                        difficulty: current.difficulty === level ? null : level,
+                      }))
+                    }
+                  >
+                    {level}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <Field
             hint={t("prompts.form.systemPromptHint")}
@@ -944,10 +1114,7 @@ export function PromptLibraryPage() {
               placeholder={t("prompts.form.systemPromptPlaceholder")}
               value={formState.systemPromptText}
               onChange={(event) =>
-                setFormState((current) => ({
-                  ...current,
-                  systemPromptText: event.target.value,
-                }))
+                updateForm((current) => ({ ...current, systemPromptText: event.target.value }))
               }
             />
           </Field>
@@ -957,15 +1124,11 @@ export function PromptLibraryPage() {
             label={t("prompts.form.userPrompt")}
           >
             <Textarea
-              required
               className="min-h-40"
               placeholder={t("prompts.form.userPromptPlaceholder")}
               value={formState.userPromptText}
               onChange={(event) =>
-                setFormState((current) => ({
-                  ...current,
-                  userPromptText: event.target.value,
-                }))
+                updateForm((current) => ({ ...current, userPromptText: event.target.value }))
               }
             />
           </Field>
@@ -978,10 +1141,7 @@ export function PromptLibraryPage() {
               placeholder={t("prompts.form.evaluationNotesPlaceholder")}
               value={formState.evaluationNotes}
               onChange={(event) =>
-                setFormState((current) => ({
-                  ...current,
-                  evaluationNotes: event.target.value,
-                }))
+                updateForm((current) => ({ ...current, evaluationNotes: event.target.value }))
               }
             />
           </Field>
@@ -991,10 +1151,7 @@ export function PromptLibraryPage() {
               checked={formState.isActive}
               className="h-4 w-4 rounded border-border"
               onChange={(event) =>
-                setFormState((current) => ({
-                  ...current,
-                  isActive: event.target.checked,
-                }))
+                updateForm((current) => ({ ...current, isActive: event.target.checked }))
               }
               type="checkbox"
             />
@@ -1009,37 +1166,6 @@ export function PromptLibraryPage() {
               {feedback}
             </div>
           ) : null}
-
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
-            {selectedPrompt ? (
-              <Button
-                aria-label={`Archive ${selectedPrompt.name}`}
-                disabled={archiveMutation.isPending || selectedPrompt.is_archived}
-                onClick={() => archiveMutation.mutate(selectedPrompt.id)}
-                size="iconSm"
-                title={`Archive ${selectedPrompt.name}`}
-                type="button"
-                variant="dangerSoft"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <Button onClick={() => setIsEditorOpen(false)} type="button" variant="soft">
-              {t("prompts.form.cancel")}
-            </Button>
-            <Button
-              disabled={
-                saveMutation.isPending ||
-                categoriesQuery.isLoading ||
-                !formState.categoryId ||
-                !formState.name.trim() ||
-                !formState.userPromptText.trim()
-              }
-              type="submit"
-            >
-              {selectedPrompt ? t("prompts.form.saveChanges") : t("prompts.form.createPrompt")}
-            </Button>
-          </div>
         </form>
       </Modal>
     </div>

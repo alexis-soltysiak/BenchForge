@@ -1,8 +1,13 @@
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
-from app.features.execution.service import ExecutionService, LocalExecutionNotReadyError
+from app.features.execution.service import (
+    ExecutionService,
+    LocalExecutionNotReadyError,
+    format_http_error,
+)
 from app.features.runs.models import CandidateResponse, SessionRunModelSnapshot
 
 
@@ -169,3 +174,27 @@ async def test_advance_run_after_candidate_execution_marks_ready_for_manual_judg
 
     assert run.status == "ready_for_judging"
     assert commit_calls == 1
+
+
+def test_format_http_error_describes_timeout() -> None:
+    request = httpx.Request("POST", "http://localhost:1234/v1/chat/completions")
+    exc = httpx.ReadTimeout("timed out", request=request)
+
+    message = format_http_error(exc, timeout_seconds=60)
+
+    assert message == (
+        "Request timed out after 60s while calling "
+        "POST http://localhost:1234/v1/chat/completions."
+    )
+
+
+def test_format_http_error_describes_connect_error() -> None:
+    request = httpx.Request("POST", "http://localhost:1234/v1/chat/completions")
+    exc = httpx.ConnectError("Connection refused", request=request)
+
+    message = format_http_error(exc)
+
+    assert message == (
+        "Connection error while calling "
+        "POST http://localhost:1234/v1/chat/completions: Connection refused"
+    )
