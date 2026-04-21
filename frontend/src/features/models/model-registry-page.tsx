@@ -251,7 +251,6 @@ const providerPresets: Record<string, ProviderPreset> = {
   },
 };
 
-const providerPresetKeys = Object.keys(providerPresets);
 const apiStyleOptions = ["openai_compatible", "anthropic", "huggingface"];
 
 function normalizePresetKey(value: string): string {
@@ -278,9 +277,6 @@ function shouldAutofillField(currentValue: string, previousSuggestion: string | 
   return trimmedValue.length === 0 || trimmedValue === previousSuggestion;
 }
 
-function getFieldHintLabel(providerType: string): string {
-  return getProviderPreset(providerType)?.label ?? "this provider";
-}
 
 function toFormState(model: ModelProfile): ModelFormState {
   const hasPreset = model.api_key_preset_id !== null;
@@ -441,6 +437,8 @@ export function ModelRegistryPage() {
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const [isProviderMenuOpen, setIsProviderMenuOpen] = useState(false);
   const [isRuntimeMenuOpen, setIsRuntimeMenuOpen] = useState(false);
+  const [customProviderOpen, setCustomProviderOpen] = useState(false);
+  const [customModelOpen, setCustomModelOpen] = useState(false);
   const [, startTransition] = useTransition();
   const lastSuggestedApiStyleRef = useRef<string | null>(null);
   const lastSuggestedEndpointRef = useRef<string | null>(null);
@@ -750,6 +748,8 @@ export function ModelRegistryPage() {
       setFeedback(null);
       setFormState(emptyForm);
     });
+    setCustomProviderOpen(false);
+    setCustomModelOpen(false);
     setIsEditorOpen(true);
   };
 
@@ -758,6 +758,9 @@ export function ModelRegistryPage() {
       setSelectedModel(model);
       setFeedback(null);
     });
+    const fs = toFormState(model);
+    setCustomProviderOpen(!providerPresets[normalizePresetKey(fs.providerType)] && fs.providerType.length > 0);
+    setCustomModelOpen(false);
     setIsEditorOpen(true);
   };
 
@@ -1310,88 +1313,99 @@ export function ModelRegistryPage() {
         tone="sky"
         title={t(selectedModel ? "models.editModal.title" : "models.createModal.title")}
       >
-        <form className="space-y-5">
+        <form className="space-y-3.5">
           {loadError ? (
             <LoadErrorState compact message={loadError} resourceLabel="the model registry" />
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              hint={t("models.form.displayNameHint")}
-              label={t("models.form.displayName")}
-            >
+          {/* Display Name + Role */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ModalField label={t("models.form.displayName")}>
               <Input
                 placeholder={t("models.form.displayNamePlaceholder")}
                 value={formState.displayName}
                 onChange={(event) =>
-                  updateForm((current) => ({
-                    ...current,
-                    displayName: event.target.value,
-                  }))
+                  updateForm((current) => ({ ...current, displayName: event.target.value }))
                 }
               />
-            </Field>
-            <Field
-              hint={t("models.form.roleHint")}
-              label={t("models.form.role")}
-            >
-              <Select
-                value={formState.role}
-                onChange={(event) =>
-                  updateForm((current) => ({
-                    ...current,
-                    role: event.target.value as ModelFormState["role"],
-                  }))
-                }
-              >
-                <option value="candidate">{t("models.role.candidate")}</option>
-                <option value="judge">{t("models.role.judge")}</option>
-                <option value="both">{t("models.role.both")}</option>
-              </Select>
-            </Field>
+            </ModalField>
+            <ModalField label={t("models.form.role")}>
+              <div className="flex gap-1.5">
+                {(["candidate", "judge", "both"] as const).map((r) => {
+                  const isSelected = formState.role === r;
+                  const label = r === "candidate" ? t("models.role.candidate") : r === "judge" ? t("models.role.judge") : t("models.role.both");
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => updateForm((c) => ({ ...c, role: r }))}
+                      className={cn(
+                        "flex flex-1 items-center justify-center rounded-lg border px-2 py-2 text-xs font-medium transition-all",
+                        isSelected
+                          ? "border-sky-300 bg-sky-50 text-sky-700 shadow-sm"
+                          : "border-border bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </ModalField>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              hint={t("models.form.providerTypeHint")}
-              label={t("models.form.providerType")}
-            >
-              <Input
-                list="provider-type-options"
-                placeholder="openai"
-                value={formState.providerType}
-                onChange={(event) =>
-                  updateFormWithSuggestions((current) => ({
-                    ...current,
-                    providerType: event.target.value,
-                  }))
-                }
-              />
-            </Field>
-            <Field
-              hint={t("models.form.apiStyleHint")}
-              label={t("models.form.apiStyle")}
-            >
-              <Input
-                list="api-style-options"
-                placeholder="openai_compatible"
-                value={formState.apiStyle}
-                onChange={(event) =>
-                  updateFormWithSuggestions((current) => ({
-                    ...current,
-                    apiStyle: event.target.value,
-                  }), { preserveApiStyleInput: true })
-                }
-              />
-            </Field>
-          </div>
+          {/* Provider chips + Runtime buttons */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ModalField label={t("models.form.providerType")}>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(providerPresets).map(([key, preset]) => {
+                  const isSelected = normalizePresetKey(formState.providerType) === key && !customProviderOpen;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setCustomProviderOpen(false);
+                        updateFormWithSuggestions((c) => ({ ...c, providerType: key }));
+                      }}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all",
+                        isSelected
+                          ? "border-sky-300 bg-sky-50 text-sky-700"
+                          : "border-border bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setCustomProviderOpen((v) => !v)}
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all",
+                    customProviderOpen
+                      ? "border-sky-300 bg-sky-50 text-sky-700"
+                      : "border-dashed border-border text-slate-400 hover:border-slate-300 hover:text-slate-600",
+                  )}
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+              {customProviderOpen ? (
+                <Input
+                  className="mt-1.5"
+                  placeholder="custom-provider"
+                  value={formState.providerType}
+                  onChange={(event) =>
+                    updateFormWithSuggestions((c) => ({ ...c, providerType: event.target.value }))
+                  }
+                />
+              ) : null}
+            </ModalField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              hint={t("models.form.runtimeTypeHint")}
-              label={t("models.form.runtimeType")}
-            >
-              <div className="flex gap-2">
+            <ModalField label={t("models.form.runtimeType")}>
+              <div className="flex gap-1.5">
                 {(["remote", "local"] as const).map((rt) => {
                   const isSelected = formState.runtimeType === rt;
                   return (
@@ -1399,17 +1413,15 @@ export function ModelRegistryPage() {
                       key={rt}
                       type="button"
                       onClick={() =>
-                        updateForm((current) => ({
-                          ...current,
+                        updateForm((c) => ({
+                          ...c,
                           runtimeType: rt,
-                          pricingInputPerMillion:
-                            rt === "local" ? "0" : current.pricingInputPerMillion,
-                          pricingOutputPerMillion:
-                            rt === "local" ? "0" : current.pricingOutputPerMillion,
+                          pricingInputPerMillion: rt === "local" ? "0" : c.pricingInputPerMillion,
+                          pricingOutputPerMillion: rt === "local" ? "0" : c.pricingOutputPerMillion,
                         }))
                       }
                       className={cn(
-                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-all",
+                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all",
                         isSelected && rt === "remote"
                           ? "border-sky-300 bg-sky-50 text-sky-700 shadow-sm"
                           : isSelected && rt === "local"
@@ -1417,103 +1429,148 @@ export function ModelRegistryPage() {
                             : "border-border bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600",
                       )}
                     >
-                      {rt === "remote" ? (
-                        <Cable className="h-3.5 w-3.5" />
-                      ) : (
-                        <HardDrive className="h-3.5 w-3.5" />
-                      )}
+                      {rt === "remote" ? <Cable className="h-3.5 w-3.5" /> : <HardDrive className="h-3.5 w-3.5" />}
                       {t(`models.runtime.${rt}`)}
                     </button>
                   );
                 })}
               </div>
-            </Field>
+            </ModalField>
           </div>
 
-          <Field
-            hint={t("models.form.endpointUrlHint", { provider: getFieldHintLabel(formState.providerType) })}
-            label={t("models.form.endpointUrl")}
-          >
+          {/* API Style buttons */}
+          <ModalField label={t("models.form.apiStyle")}>
+            <div className="flex gap-1.5">
+              {apiStyleOptions.map((style) => {
+                const isSelected = formState.apiStyle === style;
+                const styleLabel =
+                  style === "openai_compatible" ? "OpenAI compatible" : style === "anthropic" ? "Anthropic" : "HuggingFace";
+                return (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() =>
+                      updateFormWithSuggestions((c) => ({ ...c, apiStyle: style }), { preserveApiStyleInput: true })
+                    }
+                    className={cn(
+                      "flex flex-1 items-center justify-center rounded-lg border px-2 py-2 text-xs font-medium transition-all",
+                      isSelected
+                        ? "border-sky-300 bg-sky-50 text-sky-700 shadow-sm"
+                        : "border-border bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600",
+                    )}
+                  >
+                    {styleLabel}
+                  </button>
+                );
+              })}
+            </div>
+          </ModalField>
+
+          {/* Endpoint URL */}
+          <ModalField label={t("models.form.endpointUrl")}>
             <Input
               placeholder={suggestedEndpointUrl || "https://api.openai.com/v1/chat/completions"}
               required
               value={formState.endpointUrl}
               onChange={(event) =>
                 updateFormWithSuggestions(
-                  (current) => ({
-                    ...current,
-                    endpointUrl: event.target.value,
-                  }),
+                  (c) => ({ ...c, endpointUrl: event.target.value }),
                   { preserveEndpointInput: true },
                 )
               }
             />
-          </Field>
+          </ModalField>
 
-          <Field
-            hint={t("models.form.modelIdentifierHint", { provider: getFieldHintLabel(formState.providerType) })}
-            label={t("models.form.modelIdentifier")}
-          >
-            <Input
-              list="model-identifier-options"
-              placeholder={
-                modelIdentifierSuggestions[0] ?? "gpt-5-mini"
-              }
-              required
-              value={formState.modelIdentifier}
-              onChange={(event) =>
-                updateFormWithSuggestions(
-                  (current) => ({
-                    ...current,
-                    modelIdentifier: event.target.value,
-                  }),
-                  { preserveModelIdentifierInput: true },
-                )
-              }
-            />
-          </Field>
+          {/* Model identifier chips */}
+          <ModalField label={t("models.form.modelIdentifier")}>
+            <div className="flex flex-wrap gap-1">
+              {modelIdentifierSuggestions.map((id) => {
+                const isSelected = formState.modelIdentifier === id && !customModelOpen;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setCustomModelOpen(false);
+                      updateFormWithSuggestions((c) => ({ ...c, modelIdentifier: id }), { preserveModelIdentifierInput: true });
+                    }}
+                    className={cn(
+                      "rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium transition-all",
+                      isSelected
+                        ? "border-sky-300 bg-sky-50 text-sky-700"
+                        : "border-border bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
+                    )}
+                  >
+                    {id}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setCustomModelOpen((v) => !v)}
+                className={cn(
+                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all",
+                  customModelOpen
+                    ? "border-sky-300 bg-sky-50 text-sky-700"
+                    : "border-dashed border-border text-slate-400 hover:border-slate-300 hover:text-slate-600",
+                )}
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+            {customModelOpen ? (
+              <Input
+                className="mt-1.5"
+                placeholder="custom-model-id"
+                value={formState.modelIdentifier}
+                onChange={(event) =>
+                  updateFormWithSuggestions(
+                    (c) => ({ ...c, modelIdentifier: event.target.value }),
+                    { preserveModelIdentifierInput: true },
+                  )
+                }
+              />
+            ) : null}
+          </ModalField>
 
-          <Field
-            hint={
-              formState.runtimeType === "local"
-                ? t("models.form.secretHint.local")
-                : remoteSecretMissing
-                  ? t("models.form.secretHint.remoteMissing")
-                  : hasStoredSecret
-                    ? t("models.form.secretHint.hasStored")
-                    : t("models.form.secretHint.default")
-            }
-            label={t("models.form.secret")}
-          >
+          {/* Secret */}
+          <ModalField label={t("models.form.secret")}>
             <div className="space-y-2">
               {formState.runtimeType === "remote" ? (
-                <Select
-                  value={formState.secretMode}
-                  onChange={(event) =>
-                    updateForm((current) => ({
-                      ...current,
-                      secretMode: event.target.value as ModelFormState["secretMode"],
-                      apiKeyPresetId:
-                        event.target.value === "preset" ? current.apiKeyPresetId : "",
-                      secret: event.target.value === "manual" ? current.secret : "",
-                    }))
-                  }
-                >
-                  <option value="manual">{t("models.form.secretMode.manual")}</option>
-                  <option value="preset">{t("models.form.secretMode.preset")}</option>
-                </Select>
+                <div className="flex gap-1.5">
+                  {(["manual", "preset"] as const).map((mode) => {
+                    const isSelected = formState.secretMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() =>
+                          updateForm((c) => ({
+                            ...c,
+                            secretMode: mode,
+                            apiKeyPresetId: mode === "preset" ? c.apiKeyPresetId : "",
+                            secret: mode === "manual" ? c.secret : "",
+                          }))
+                        }
+                        className={cn(
+                          "flex flex-1 items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-medium transition-all",
+                          isSelected
+                            ? "border-sky-300 bg-sky-50 text-sky-700 shadow-sm"
+                            : "border-border bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600",
+                        )}
+                      >
+                        {t(`models.form.secretMode.${mode}`)}
+                      </button>
+                    );
+                  })}
+                </div>
               ) : null}
               {formState.runtimeType === "remote" && formState.secretMode === "preset" ? (
                 <Select
                   value={formState.apiKeyPresetId}
                   onChange={(event) => {
                     const nextApiKeyPresetId = event.target.value;
-                    updateForm((current) => ({
-                      ...current,
-                      secretMode: "preset" as const,
-                      apiKeyPresetId: nextApiKeyPresetId,
-                      secret: "",
-                    }));
+                    updateForm((c) => ({ ...c, secretMode: "preset" as const, apiKeyPresetId: nextApiKeyPresetId, secret: "" }));
                   }}
                 >
                   <option value="">{t("models.form.selectPreset")}</option>
@@ -1534,189 +1591,96 @@ export function ModelRegistryPage() {
                   }
                   type="password"
                   value={formState.secret}
-                  onChange={(event) =>
-                    updateForm((current) => ({
-                      ...current,
-                      secret: event.target.value,
-                    }))
-                  }
+                  onChange={(event) => updateForm((c) => ({ ...c, secret: event.target.value }))}
                 />
               )}
-              {formState.runtimeType === "local" ? (
-                <p className="text-xs text-slate-500">
-                  {t("models.form.noSecretLocal")}
-                </p>
-              ) : formState.secretMode === "preset" ? (
-                availableApiKeyPresets.length > 0 ? (
-                  <p className="text-xs text-slate-500">
-                    {t("models.form.presetsFrom")}
-                  </p>
-                ) : (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
-                    {t("models.form.noPresetAvailable")}
-                  </div>
-                )
+              {formState.secretMode === "preset" && availableApiKeyPresets.length === 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
+                  {t("models.form.noPresetAvailable")}
+                </div>
               ) : remoteSecretMissing ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
                   {t("models.form.remoteSecretMissing")}
                 </div>
               ) : null}
             </div>
-          </Field>
+          </ModalField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              hint={t("models.form.timeoutSecondsHint")}
-              label={t("models.form.timeoutSeconds")}
-            >
+          {/* Timeout + Context + Pricing (4 cols) */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <ModalField label={t("models.form.timeoutSeconds")}>
               <Input
                 inputMode="numeric"
                 placeholder="60"
                 value={formState.timeoutSeconds}
-                onChange={(event) =>
-                  updateForm((current) => ({
-                    ...current,
-                    timeoutSeconds: event.target.value,
-                  }))
-                }
+                onChange={(event) => updateForm((c) => ({ ...c, timeoutSeconds: event.target.value }))}
               />
-            </Field>
-            <Field
-              hint={t("models.form.contextWindowHint")}
-              label={t("models.form.contextWindow")}
-            >
+            </ModalField>
+            <ModalField label={t("models.form.contextWindow")}>
               <Input
                 inputMode="numeric"
                 placeholder={t("models.form.contextWindowPlaceholder")}
                 value={formState.contextWindow}
-                onChange={(event) =>
-                  updateForm((current) => ({
-                    ...current,
-                    contextWindow: event.target.value,
-                  }))
-                }
+                onChange={(event) => updateForm((c) => ({ ...c, contextWindow: event.target.value }))}
               />
-            </Field>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              hint={
-                formState.runtimeType === "local"
-                  ? t("models.form.inputPricingHint.local")
-                  : t("models.form.inputPricingHint.remote")
-              }
-              label={t("models.form.inputPricing")}
-            >
+            </ModalField>
+            <ModalField label={t("models.form.inputPricing")}>
               <Input
                 inputMode="decimal"
                 placeholder={t("models.form.pricingPlaceholder")}
                 disabled={formState.runtimeType === "local"}
                 value={formState.pricingInputPerMillion}
-                onChange={(event) =>
-                  updateForm((current) => ({
-                    ...current,
-                    pricingInputPerMillion: event.target.value,
-                  }))
-                }
+                onChange={(event) => updateForm((c) => ({ ...c, pricingInputPerMillion: event.target.value }))}
               />
-            </Field>
-            <Field
-              hint={
-                formState.runtimeType === "local"
-                  ? t("models.form.outputPricingHint.local")
-                  : t("models.form.outputPricingHint.remote")
-              }
-              label={t("models.form.outputPricing")}
-            >
+            </ModalField>
+            <ModalField label={t("models.form.outputPricing")}>
               <Input
                 inputMode="decimal"
                 placeholder={t("models.form.pricingPlaceholder")}
                 disabled={formState.runtimeType === "local"}
                 value={formState.pricingOutputPerMillion}
-                onChange={(event) =>
-                  updateForm((current) => ({
-                    ...current,
-                    pricingOutputPerMillion: event.target.value,
-                  }))
-                }
+                onChange={(event) => updateForm((c) => ({ ...c, pricingOutputPerMillion: event.target.value }))}
               />
-            </Field>
+            </ModalField>
           </div>
 
-          <Field
-            hint={t("models.form.notesHint")}
-            label={t("models.form.notes")}
-          >
+          {/* Notes */}
+          <ModalField label={t("models.form.notes")}>
             <Textarea
               placeholder={t("models.form.notesPlaceholder")}
               value={formState.notes}
-              onChange={(event) =>
-                updateForm((current) => ({
-                  ...current,
-                  notes: event.target.value,
-                }))
-              }
+              onChange={(event) => updateForm((c) => ({ ...c, notes: event.target.value }))}
             />
-          </Field>
+          </ModalField>
 
-          <Field
-            hint={t("models.form.localLoadInstructionsHint")}
-            label={t("models.form.localLoadInstructions")}
-          >
-            <Textarea
-              placeholder={t("models.form.localLoadInstructionsPlaceholder")}
-              value={formState.localLoadInstructions}
-              onChange={(event) =>
-                updateForm((current) => ({
-                  ...current,
-                  localLoadInstructions: event.target.value,
-                }))
-              }
-            />
-          </Field>
+          {/* Local load instructions (local runtime only) */}
+          {formState.runtimeType === "local" ? (
+            <ModalField label={t("models.form.localLoadInstructions")}>
+              <Textarea
+                placeholder={t("models.form.localLoadInstructionsPlaceholder")}
+                value={formState.localLoadInstructions}
+                onChange={(event) => updateForm((c) => ({ ...c, localLoadInstructions: event.target.value }))}
+              />
+            </ModalField>
+          ) : null}
 
-          <label className="flex items-center gap-3 rounded-2xl border border-border/80 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {/* Active toggle */}
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-slate-50 px-3 py-2 text-sm text-slate-700">
             <input
               checked={formState.isActive}
               className="h-4 w-4 rounded border-border"
-              onChange={(event) =>
-                updateForm((current) => ({
-                  ...current,
-                  isActive: event.target.checked,
-                }))
-              }
+              onChange={(event) => updateForm((c) => ({ ...c, isActive: event.target.checked }))}
               type="checkbox"
             />
             {t("models.form.isActive")}
           </label>
-          <p className="-mt-2 text-xs leading-5 text-slate-500">
-            {t("models.form.isActiveNote")}
-          </p>
 
           {feedback ? (
-            <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
               {feedback}
             </div>
           ) : null}
         </form>
-        <datalist id="provider-type-options">
-          {providerPresetKeys.map((provider) => (
-            <option key={provider} value={provider}>
-              {providerPresets[provider].label}
-            </option>
-          ))}
-        </datalist>
-        <datalist id="api-style-options">
-          {apiStyleOptions.map((apiStyle) => (
-            <option key={apiStyle} value={apiStyle} />
-          ))}
-        </datalist>
-        <datalist id="model-identifier-options">
-          {modelIdentifierSuggestions.map((modelIdentifier) => (
-            <option key={modelIdentifier} value={modelIdentifier} />
-          ))}
-        </datalist>
       </Modal>
 
       {warningModel && warningAnchor
@@ -1787,24 +1751,13 @@ function TableEmptyRow({ message }: { message: string }) {
   );
 }
 
-function Field({
-  children,
-  hint,
-  label,
-}: {
-  children: ReactNode;
-  hint?: string;
-  label: string;
-}) {
+function ModalField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block space-y-2">
-      <span className="block">
-        <span className="text-sm font-medium text-slate-700">{label}</span>
-        {hint ? (
-          <span className="mt-1 block text-xs leading-5 text-slate-500">{hint}</span>
-        ) : null}
+    <div className="space-y-1.5">
+      <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        {label}
       </span>
       {children}
-    </label>
+    </div>
   );
 }

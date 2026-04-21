@@ -363,3 +363,34 @@
     min-height: 100vh;
   }
 }
+
+@keyframes btn-shimmer {
+  0% { transform: translateX(-120%) skewX(-12deg); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translateX(120%) skewX(-12deg); opacity: 1; }
+  55%, 100% { transform: translateX(120%) skewX(-12deg); opacity: 0; }
+}
+
+.animate-btn-shimmer { animation: btn-shimmer 2.2s ease-in-out infinite; }
+
+@keyframes btn-glow-amber {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+  50% { box-shadow: 0 0 18px 5px rgba(251, 191, 36, 0.42); }
+}
+@keyframes btn-glow-sky {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+  50% { box-shadow: 0 0 18px 5px rgba(56, 189, 248, 0.38); }
+}
+@keyframes btn-glow-emerald {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+  50% { box-shadow: 0 0 18px 5px rgba(52, 211, 153, 0.38); }
+}
+@keyframes btn-glow-rose {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0); }
+  50% { box-shadow: 0 0 18px 5px rgba(251, 113, 133, 0.38); }
+}
+
+.animate-btn-glow-amber   { animation: btn-glow-amber   2.2s ease-in-out infinite; }
+.animate-btn-glow-sky     { animation: btn-glow-sky     2.2s ease-in-out infinite; }
+.animate-btn-glow-emerald { animation: btn-glow-emerald 2.2s ease-in-out infinite; }
+.animate-btn-glow-rose    { animation: btn-glow-rose    2.2s ease-in-out infinite; }
