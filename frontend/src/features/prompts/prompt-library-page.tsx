@@ -289,12 +289,20 @@ export function PromptLibraryPage() {
   const [tagDraft, setTagDraft] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [tagsPopoverId, setTagsPopoverId] = useState<number | null>(null);
   const [formState, setFormState] = useState<PromptFormState>(emptyForm);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const isDirtyRef = useRef(false);
   const skipFormResetRef = useRef(false);
+
+  useEffect(() => {
+    if (tagsPopoverId === null) return;
+    const close = () => setTagsPopoverId(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [tagsPopoverId]);
 
   const updateForm = (updater: (prev: PromptFormState) => PromptFormState) => {
     isDirtyRef.current = true;
@@ -903,7 +911,7 @@ export function PromptLibraryPage() {
                         <tr
                           key={prompt.id}
                           className={cn(
-                            "cursor-pointer border-t border-border/70 transition-colors",
+                            "cursor-pointer border-t border-border/70 transition-colors hover:bg-amber-50",
                             isSelected && "bg-[hsl(var(--theme-accent-muted)/0.78)]",
                           )}
                         onClick={() => {
@@ -913,27 +921,55 @@ export function PromptLibraryPage() {
                           <td className="w-6 px-3 py-2.5 align-middle lg:px-3.5">
                             <DifficultyDot level={prompt.difficulty} />
                           </td>
-                          <td className="px-3 py-2.5 align-top lg:px-3.5">
-                            <div className="space-y-1">
-                              <p className="text-[0.9rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
-                                {prompt.name}
-                              </p>
-                              <p className="max-w-sm text-[0.73rem] leading-4.5 text-[hsl(var(--foreground-soft))]">
-                                {prompt.description ?? t("prompts.noDescription")}
-                              </p>
-                            </div>
+                          <td className="px-3 py-2.5 align-middle lg:px-3.5">
+                            <p
+                              className="text-[0.9rem] font-semibold text-foreground"
+                              title={prompt.description ?? t("prompts.noDescription")}
+                            >
+                              {prompt.name}
+                            </p>
                           </td>
                           <td className="px-3 py-2.5 align-top lg:px-3.5">
                             <Badge variant="accent">{prompt.category.name}</Badge>
                           </td>
                           <td className="px-3 py-2.5 align-top lg:px-3.5">
-                            <div className="flex max-w-56 flex-wrap gap-2">
+                            <div className="flex flex-nowrap gap-2 items-center">
                               {prompt.tags.length > 0 ? (
-                                prompt.tags.map((tag) => (
-                                  <Badge key={tag} variant="neutral">
-                                    {tag}
-                                  </Badge>
-                                ))
+                                <>
+                                  {prompt.tags.slice(0, 3).map((tag) => (
+                                    <Badge key={tag} variant="neutral">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                  {prompt.tags.length > 3 && (
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        className="text-xs font-medium text-[hsl(var(--foreground-soft))] hover:text-foreground whitespace-nowrap px-1.5 py-0.5 rounded-md hover:bg-slate-100 transition-colors"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTagsPopoverId(tagsPopoverId === prompt.id ? null : prompt.id);
+                                        }}
+                                      >
+                                        +{prompt.tags.length - 3}
+                                      </button>
+                                      {tagsPopoverId === prompt.id && (
+                                        <div
+                                          className="absolute z-50 left-0 top-full mt-1.5 w-56 rounded-xl border border-slate-200 bg-white shadow-lg p-3"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {prompt.tags.slice(3).map((tag) => (
+                                              <Badge key={tag} variant="neutral">
+                                                {tag}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
                               ) : (
                                 <span className="text-[0.84rem] text-[hsl(var(--foreground-soft))]">{t("prompts.noTags")}</span>
                               )}
@@ -971,21 +1007,6 @@ export function PromptLibraryPage() {
 
       <Modal
         description={t("prompts.modal.description")}
-        headerAction={
-          selectedPrompt ? (
-            <Button
-              aria-label={`Archive ${selectedPrompt.name}`}
-              disabled={archiveMutation.isPending || selectedPrompt.is_archived}
-              onClick={() => archiveMutation.mutate(selectedPrompt.id)}
-              size="iconSm"
-              title={`Archive ${selectedPrompt.name}`}
-              type="button"
-              variant="dangerSoft"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          ) : undefined
-        }
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
         title={selectedPrompt ? t("prompts.editModal.title") : t("prompts.createModal.title")}

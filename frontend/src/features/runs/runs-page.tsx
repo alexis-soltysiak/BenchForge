@@ -86,6 +86,7 @@ function isServiceAvailabilityError(message: string | null): boolean {
 export function RunsPage({ onOpenRun }: RunsPageProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [previewRun, setPreviewRun] = useState<{ id: number; name: string } | null>(null);
 
   const runsQuery = useQuery({
@@ -95,11 +96,16 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
   });
 
   const visibleRuns = useMemo(() => {
-    const items = runsQuery.data?.items ?? [];
-    if (!search) {
-      return items;
+    let items = runsQuery.data?.items ?? [];
+    if (statusFilter) {
+      const activeStatuses = ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"];
+      if (statusFilter === "active") {
+        items = items.filter((item) => activeStatuses.includes(item.status));
+      } else {
+        items = items.filter((item) => item.status === statusFilter);
+      }
     }
-
+    if (!search) return items;
     const needle = search.toLowerCase();
     return items.filter((item) =>
       [item.name, item.status, item.report_status, item.rubric_version]
@@ -107,7 +113,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
         .toLowerCase()
         .includes(needle),
     );
-  }, [runsQuery.data?.items, search]);
+  }, [runsQuery.data?.items, search, statusFilter]);
 
   const completedRuns = visibleRuns.filter((item) => item.status === "completed").length;
   const activeRuns = visibleRuns.filter((item) =>
@@ -173,90 +179,102 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
         </div>
       </section>
 
-      <section className="mt-5">
-        <Card className="overflow-hidden border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
-          <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
-            <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">{t("runs.listTitle")}</h2>
-              </div>
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
-                  placeholder={t("runs.searchPlaceholder")}
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </label>
-            </div>
-          </div>
-
-          {loadError ? (
-            <LoadErrorState
-              message={loadError}
-              onRetry={retryLoad}
-              resourceLabel={t("runs.pageTitle")}
+      <section className="mt-5 space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="relative block flex-1 max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
+              placeholder={t("runs.searchPlaceholder")}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
             />
-          ) : null}
-
-          <div className="divide-y divide-border/70">
-            {runsQuery.isLoading ? (
-              <div className="px-4 py-10 text-[0.92rem] text-[hsl(var(--foreground-soft))]">{t("runs.loading")}</div>
-            ) : visibleRuns.length === 0 ? (
-              <div className="px-4 py-7">
-                <EmptyStatePanel
-                  title={t("runs.noRuns")}
-                  description=""
-                />
-              </div>
-            ) : (
-              visibleRuns.map((item) => (
-                <button
-                  key={item.id}
-                  className="block w-full px-3.5 py-3 text-left transition hover:bg-[hsl(var(--surface-muted))]"
-                  onClick={() => {
-                    onOpenRun(item.id);
-                  }}
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[0.95rem] font-semibold text-foreground">{item.name}</p>
-                      <p className="mt-1 text-[0.92rem] text-[hsl(var(--foreground-soft))]">
-                        Session #{item.session_id} · {item.prompt_count} prompts ·{" "}
-                        {item.model_count} models
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.status === "completed" ? (
-                        <Button
-                          aria-label={`Preview report for ${item.name}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setPreviewRun({ id: item.id, name: item.name });
-                          }}
-                          size="iconSm"
-                          title={`Preview report for ${item.name}`}
-                          type="button"
-                          variant="soft"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      ) : null}
-                      <StatusPill status={item.status} />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-[hsl(var(--foreground-soft))]">
-                    <span>Report {item.report_status}</span>
-                    <span>Rubric {item.rubric_version}</span>
-                    <span>Launched {formatDate(item.launched_at)}</span>
-                  </div>
-                </button>
-              ))
-            )}
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {([null, "active", "completed", "failed"] as const).map((s) => (
+              <button
+                key={String(s)}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                  statusFilter === s
+                    ? s === "completed"
+                      ? "bg-emerald-100 text-emerald-900"
+                      : s === "active"
+                        ? "bg-amber-100 text-amber-900"
+                        : s === "failed"
+                          ? "bg-rose-100 text-rose-900"
+                          : "bg-foreground text-background"
+                    : "bg-[hsl(var(--surface-muted))] text-[hsl(var(--foreground-soft))] hover:text-foreground",
+                )}
+              >
+                {s === null ? "Tous" : s === "active" ? "En cours" : s === "completed" ? "Terminés" : "Échoués"}
+              </button>
+            ))}
           </div>
-        </Card>
+        </div>
+
+        {loadError ? (
+          <LoadErrorState
+            message={loadError}
+            onRetry={retryLoad}
+            resourceLabel={t("runs.pageTitle")}
+          />
+        ) : null}
+
+        {runsQuery.isLoading ? (
+          <div className="py-10 text-center text-[0.92rem] text-[hsl(var(--foreground-soft))]">{t("runs.loading")}</div>
+        ) : visibleRuns.length === 0 ? (
+          <div className="py-7">
+            <EmptyStatePanel title={t("runs.noRuns")} description="" />
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {visibleRuns.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onOpenRun(item.id)}
+                className="group flex flex-col gap-2 rounded-xl border border-border/70 bg-[hsl(var(--surface-overlay))] p-3 text-left shadow-sm transition-all hover:border-border hover:shadow-md hover:bg-amber-50"
+              >
+                <div className="flex min-h-[2.8rem] items-start justify-between gap-2">
+                  <p className="flex-1 text-[0.88rem] font-semibold text-foreground leading-snug line-clamp-2">
+                    {item.name}
+                  </p>
+                  <StatusPill status={item.status} />
+                </div>
+
+                <div className="flex items-center justify-between border-t border-border/40 pt-2">
+                  <div className="flex gap-3 text-[0.75rem] text-[hsl(var(--foreground-soft))]">
+                    <span><span className="font-medium text-foreground">{item.prompt_count}</span> prompts</span>
+                    <span><span className="font-medium text-foreground">{item.model_count}</span> modèles</span>
+                    <span><span className="font-medium text-foreground">{item.judge_count}</span> juges</span>
+                  </div>
+                  {item.status === "completed" ? (
+                    <Button
+                      aria-label={`Preview report for ${item.name}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPreviewRun({ id: item.id, name: item.name });
+                      }}
+                      size="iconSm"
+                      title={`Preview report for ${item.name}`}
+                      type="button"
+                      variant="soft"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : (
+                    <span className="text-[0.72rem] text-[hsl(var(--foreground-soft))]">
+                      {formatDate(item.launched_at)}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       <Modal
