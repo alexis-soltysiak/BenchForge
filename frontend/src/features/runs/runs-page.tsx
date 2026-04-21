@@ -7,11 +7,13 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  DollarSign,
   Download,
   Eye,
   Gavel,
   LoaderCircle,
   Play,
+  RefreshCw,
   Search,
   Sparkles,
   SquareTerminal,
@@ -764,152 +766,153 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   title="Phase 1 · Responses By Prompt"
                   description="Une ligne = un prompt exécuté par un candidat. Clique une réponse pour ouvrir son inspection détaillée dans un grand modal."
                 />
-                <div className="mt-5 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-border/80 text-[0.88rem]">
-                    <thead className="bg-[hsl(var(--surface-muted))] text-left text-[hsl(var(--foreground-soft))]">
-                      <tr>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Prompt</th>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Candidate</th>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Status</th>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Duration</th>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Tokens</th>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Cost</th>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold">Retries</th>
-                        <th className="px-4 py-2 text-[0.82rem] font-semibold text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/70">
-                      {responsesQuery.isLoading ? (
-                        <tr>
-                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
-                            Loading candidate responses...
-                          </td>
-                        </tr>
-                      ) : effectiveResponses.length === 0 ? (
-                        <tr>
-                          <td className="px-4 py-6 text-[hsl(var(--foreground-soft))]" colSpan={8}>
-                            No responses recorded yet. Candidate execution has not produced persisted outputs yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        effectiveResponses.map((response) => {
-                          const prompt = promptById(
-                            selectedRun.prompt_snapshots,
-                            response.prompt_snapshot_id,
-                          );
-                          const model = modelById(
-                            selectedRun.model_snapshots,
-                            response.model_snapshot_id,
-                          );
-                          const isRowLoading =
-                            retryingResponseIds.includes(response.id) ||
-                            response.status === "pending" ||
-                            response.status === "running";
+                <div className="mt-5 flex flex-col divide-y divide-border/60">
+                  {responsesQuery.isLoading ? (
+                    <p className="py-6 text-[0.86rem] text-[hsl(var(--foreground-soft))]">Loading candidate responses...</p>
+                  ) : effectiveResponses.length === 0 ? (
+                    <p className="py-6 text-[0.86rem] text-[hsl(var(--foreground-soft))]">No responses recorded yet. Candidate execution has not produced persisted outputs yet.</p>
+                  ) : (
+                    (() => {
+                      // Group responses by prompt_snapshot_id
+                      const promptGroups = Array.from(
+                        effectiveResponses.reduce((map, response) => {
+                          const key = response.prompt_snapshot_id;
+                          if (!map.has(key)) map.set(key, []);
+                          map.get(key)!.push(response);
+                          return map;
+                        }, new Map<number, typeof effectiveResponses>()),
+                      );
 
-                          return (
-                              <tr
-                                key={response.id}
-                                className={cn(
-                                  "cursor-pointer transition hover:bg-[hsl(var(--surface-muted))]",
-                                  selectedResponseId === response.id &&
-                                    "bg-[hsl(var(--surface-muted))]",
-                                )}
-                                onClick={() => {
-                                  openResponseInspector(response.id);
-                                }}
-                              >
-                              <td className="px-4 py-2 align-middle">
-                                <div>
-                                  <p className="text-[0.88rem] font-medium leading-tight text-foreground">{prompt?.name ?? "Unknown prompt"}</p>
-                                  <p className="mt-0.5 text-[0.76rem] leading-tight text-[hsl(var(--foreground-soft))]">{prompt?.category_name ?? "Unknown category"}</p>
+                      return promptGroups.map(([promptSnapshotId, responses]) => {
+                        const prompt = promptById(selectedRun.prompt_snapshots, promptSnapshotId);
+                        const completedCount = responses.filter((r) => r.status === "completed").length;
+                        const pct = responses.length > 0 ? Math.round((completedCount / responses.length) * 100) : 0;
+
+                        return (
+                          <div key={promptSnapshotId} className="py-3 first:pt-0 last:pb-0">
+                            {/* Prompt header row */}
+                            <div className="flex items-center gap-3 px-1">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-baseline gap-2">
+                                  <p className="truncate text-[0.88rem] font-semibold text-foreground">{prompt?.name ?? "Unknown prompt"}</p>
+                                  <span className="shrink-0 text-[0.72rem] text-[hsl(var(--foreground-soft))]">{prompt?.category_name ?? ""}</span>
                                 </div>
-                              </td>
-                              <td className="px-4 py-2 align-middle">
-                                <div>
-                                  <p className="text-[0.88rem] font-medium leading-tight text-foreground">{model?.display_name ?? "Unknown model"}</p>
-                                  <p className="mt-0.5 text-[0.76rem] leading-tight text-[hsl(var(--foreground-soft))]">
-                                    {model ? `${model.provider_type} / ${model.runtime_type}` : "Missing snapshot"}
-                                  </p>
-                                </div>
-                              </td>
-                              <td className="px-4 py-2 align-middle">
-                                <div className="flex items-center gap-2">
-                                  {isRowLoading ? (
-                                    <LoaderCircle className="h-2.5 w-2.5 shrink-0 animate-spin text-amber-500" />
-                                  ) : response.status === "completed" ? (
-                                    <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
-                                  ) : response.status === "failed" ? (
-                                    <XCircle className="h-2.5 w-2.5 shrink-0 text-rose-500" />
-                                  ) : (
-                                    <Clock3 className="h-2.5 w-2.5 shrink-0 text-[hsl(var(--foreground-soft))]" />
-                                  )}
-                                  <div className="group/failed relative">
-                                    <span
+                                {/* Progress bar */}
+                                <div className="mt-1.5 flex items-center gap-2">
+                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[hsl(var(--surface-muted))]">
+                                    <div
                                       className={cn(
-                                        "inline-flex items-center whitespace-nowrap rounded-full px-1.5 py-[0.2rem] text-[0.64rem] font-semibold capitalize",
-                                        response.status === "completed" && "bg-emerald-100 text-emerald-900",
-                                        ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(response.status) &&
-                                          "bg-amber-100 text-amber-900",
-                                        ["failed", "cancelled"].includes(response.status) && "bg-rose-100 text-rose-900",
-                                        ["pending", "pending_local"].includes(response.status) && "bg-slate-100 text-slate-700",
+                                        "h-full rounded-full transition-all duration-500",
+                                        pct === 100 ? "bg-emerald-500" : "bg-amber-400",
                                       )}
-                                    >
-                                      {response.status.replaceAll("_", " ")}
-                                    </span>
-                                    {response.status === "failed" && response.error_message ? (
-                                      <div className="pointer-events-none absolute left-0 top-full z-30 hidden w-[22rem] pt-2 group-hover/failed:block">
-                                        <div className="overflow-hidden rounded-2xl border border-rose-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,241,242,0.96))] shadow-[0_24px_60px_-28px_rgba(225,29,72,0.45)] backdrop-blur-sm">
-                                          <div className="border-b border-rose-200/70 px-3 py-2">
-                                            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-rose-700">
-                                              Execution Error
-                                            </p>
-                                          </div>
-                                          <div className="px-3 py-2.5">
-                                            <p className="text-[0.75rem] leading-5 text-slate-700">
-                                              {response.error_message}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ) : null}
+                                      style={{ width: `${pct}%` }}
+                                    />
                                   </div>
+                                  <span className="shrink-0 text-[0.7rem] tabular-nums text-[hsl(var(--foreground-soft))]">
+                                    {completedCount}/{responses.length}
+                                  </span>
                                 </div>
-                              </td>
-                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">
-                                {formatDuration(response.metric?.duration_ms)}
-                              </td>
-                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">
-                                {response.metric?.total_tokens ?? "—"}
-                              </td>
-                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">
-                                {formatCost(response.metric?.estimated_cost)}
-                              </td>
-                              <td className="px-4 py-2 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))]">{response.retry_count}</td>
-                              <td className="px-4 py-2 align-middle text-right">
-                                {["failed", "cancelled"].includes(response.status) ? (
-                                  <Button
-                                    className="h-8 px-3 text-[0.82rem]"
-                                    disabled={retryingResponseIds.includes(response.id)}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      void handleRetryResponse(response.id);
-                                    }}
-                                    size="sm"
-                                    type="button"
-                                    variant="secondary"
+                              </div>
+                            </div>
+
+                            {/* Model cards grid — max 5 per row */}
+                            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 px-1">
+                              {responses.map((response) => {
+                                const model = modelById(selectedRun.model_snapshots, response.model_snapshot_id);
+                                const isCardLoading =
+                                  retryingResponseIds.includes(response.id) ||
+                                  response.status === "pending" ||
+                                  response.status === "running";
+
+                                return (
+                                  <div
+                                    key={response.id}
+                                    className={cn(
+                                      "group/card relative cursor-pointer rounded-lg border border-border/60 bg-[hsl(var(--surface-muted))] px-2.5 py-2 transition hover:border-border hover:bg-[hsl(var(--surface-overlay))]",
+                                      selectedResponseId === response.id && "border-border bg-[hsl(var(--surface-overlay))] ring-1 ring-inset ring-border",
+                                    )}
+                                    onClick={() => openResponseInspector(response.id)}
                                   >
-                                    Retry
-                                  </Button>
-                                ) : (
-                                  <span className="text-[0.78rem] text-[hsl(var(--foreground-soft))]">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                                    {/* Model name + badge top-right */}
+                                    <div className="flex items-center justify-between gap-1">
+                                      <p className="truncate text-[0.76rem] font-semibold leading-tight text-foreground">
+                                        {model?.display_name ?? "Unknown"}
+                                      </p>
+                                      <div className="group/failed relative shrink-0">
+                                        <span
+                                          className={cn(
+                                            "inline-flex items-center whitespace-nowrap rounded-full px-1.5 py-[0.15rem] text-[0.6rem] font-semibold capitalize",
+                                            response.status === "completed" && "bg-emerald-100 text-emerald-900",
+                                            ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(response.status) && "bg-amber-100 text-amber-900",
+                                            ["failed", "cancelled"].includes(response.status) && "bg-rose-100 text-rose-900",
+                                            ["pending", "pending_local"].includes(response.status) && "bg-slate-100 text-slate-700",
+                                          )}
+                                        >
+                                          {isCardLoading && <LoaderCircle className="mr-0.5 h-2 w-2 animate-spin" />}
+                                          {response.status.replaceAll("_", " ")}
+                                        </span>
+                                        {response.status === "failed" && response.error_message ? (
+                                          <div className="pointer-events-none absolute right-0 top-full z-30 hidden w-[22rem] pt-2 group-hover/failed:block">
+                                            <div className="overflow-hidden rounded-2xl border border-rose-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,241,242,0.96))] shadow-[0_24px_60px_-28px_rgba(225,29,72,0.45)] backdrop-blur-sm">
+                                              <div className="border-b border-rose-200/70 px-3 py-2">
+                                                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-rose-700">Execution Error</p>
+                                              </div>
+                                              <div className="px-3 py-2.5">
+                                                <p className="text-[0.75rem] leading-5 text-slate-700">{response.error_message}</p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    </div>
+
+                                    {/* Compact metrics row */}
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.68rem] text-[hsl(var(--foreground-soft))]">
+                                      <span className="flex items-center gap-0.5">
+                                        <Clock3 className="h-2.5 w-2.5 shrink-0" />
+                                        {formatDuration(response.metric?.duration_ms)}
+                                      </span>
+                                      <span className="flex items-center gap-0.5">
+                                        <span className="font-medium">T</span>
+                                        {response.metric?.total_tokens ?? "—"}
+                                      </span>
+                                      <span className="flex items-center gap-0.5">
+                                        <DollarSign className="h-2.5 w-2.5 shrink-0" />
+                                        {formatCost(response.metric?.estimated_cost)}
+                                      </span>
+                                      {(response.retry_count ?? 0) > 0 && (
+                                        <span className="flex items-center gap-0.5">
+                                          <RefreshCw className="h-2.5 w-2.5 shrink-0" />
+                                          {response.retry_count}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Retry button */}
+                                    {["failed", "cancelled"].includes(response.status) && (
+                                      <Button
+                                        className="mt-1.5 h-5 w-full px-2 text-[0.65rem]"
+                                        disabled={retryingResponseIds.includes(response.id)}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          void handleRetryResponse(response.id);
+                                        }}
+                                        size="sm"
+                                        type="button"
+                                        variant="secondary"
+                                      >
+                                        Retry
+                                      </Button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()
+                  )}
                 </div>
               </Card>
             </div>

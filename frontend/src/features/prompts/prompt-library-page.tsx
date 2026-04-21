@@ -31,7 +31,6 @@ import { Input } from "@/components/ui/input";
 import { LoadErrorState } from "@/components/ui/load-error-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import { queryClient } from "@/lib/query-client";
@@ -287,6 +286,7 @@ export function PromptLibraryPage() {
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [isTagsMenuOpen, setIsTagsMenuOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
+  const [formTagInput, setFormTagInput] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [tagsPopoverId, setTagsPopoverId] = useState<number | null>(null);
@@ -461,6 +461,7 @@ export function PromptLibraryPage() {
           (categoriesQuery.data?.[0] ? String(categoriesQuery.data[0].id) : ""),
       }));
     });
+    setFormTagInput("");
     setIsEditorOpen(true);
   };
 
@@ -469,6 +470,7 @@ export function PromptLibraryPage() {
       setSelectedPrompt(prompt);
       setFeedback(null);
     });
+    setFormTagInput("");
     setIsEditorOpen(true);
   };
 
@@ -490,6 +492,31 @@ export function PromptLibraryPage() {
   const removeTag = (tag: string) => {
     setSelectedTags((current) => current.filter((item) => item !== tag));
   };
+
+  const addFormTag = (tag: string) => {
+    const existing = formState.tags.split(",").map((item) => item.trim()).filter(Boolean);
+    if (!existing.some((item) => item.toLowerCase() === tag.toLowerCase())) {
+      updateForm((current) => ({ ...current, tags: [...existing, tag].join(", ") }));
+    }
+  };
+
+  const removeFormTag = (tag: string) => {
+    const next = formState.tags
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item !== tag);
+    updateForm((current) => ({ ...current, tags: next.join(", ") }));
+  };
+
+  const formTagList = formState.tags.split(",").map((item) => item.trim()).filter(Boolean);
+  const formTagSuggestions = promptTags.filter(
+    (tag) => !formTagList.some((item) => item.toLowerCase() === tag.toLowerCase()),
+  );
+  const formTagFiltered = formTagSuggestions
+    .filter((tag) =>
+      !formTagInput.trim() || tag.toLowerCase().includes(formTagInput.trim().toLowerCase()),
+    )
+    .slice(0, 3);
 
   const selectedPromptId = selectedPrompt?.id ?? null;
 
@@ -783,34 +810,36 @@ export function PromptLibraryPage() {
 
                 <div className="relative z-40 flex flex-wrap items-center gap-3 xl:justify-end">
                   {availableDifficulties.length > 0 ? (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-col items-center gap-1">
                       <span className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                         Difficulty
                       </span>
-                      {availableDifficulties.map((d) => {
-                        const active = selectedDifficulties.includes(d);
-                        const style = DIFFICULTY_STYLES[d] ?? "bg-slate-500 text-white";
-                        return (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() =>
-                              setSelectedDifficulties((current) =>
-                                current.includes(d)
-                                  ? current.filter((x) => x !== d)
-                                  : [...current, d],
-                              )
-                            }
-                            className={cn(
-                              "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition",
-                              style,
-                              active ? "opacity-100 ring-2 ring-current ring-offset-1" : "opacity-30 hover:opacity-70",
-                            )}
-                          >
-                            {d}
-                          </button>
-                        );
-                      })}
+                      <div className="flex items-center gap-1.5">
+                        {availableDifficulties.map((d) => {
+                          const active = selectedDifficulties.includes(d);
+                          const style = DIFFICULTY_STYLES[d] ?? "bg-slate-500 text-white";
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() =>
+                                setSelectedDifficulties((current) =>
+                                  current.includes(d)
+                                    ? current.filter((x) => x !== d)
+                                    : [...current, d],
+                                )
+                              }
+                              className={cn(
+                                "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition",
+                                style,
+                                active ? "opacity-100 ring-2 ring-current ring-offset-1" : "opacity-30 hover:opacity-70",
+                              )}
+                            >
+                              {d}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : null}
                     <Button
@@ -874,20 +903,20 @@ export function PromptLibraryPage() {
 
             <div
               className={cn(
-                "relative z-10 overflow-x-auto",
+                "relative z-10",
                 showArchived &&
                   "border-l-4 border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-muted)/0.56)] pl-0",
               )}
             >
-              <table className="min-w-full text-left">
+              <table className="w-full table-fixed text-left">
                 <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                   <tr>
-                    <th className="w-6 px-3 py-2 font-semibold lg:px-3.5" />
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colName")}</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colCategory")}</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colTags")}</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colUpdated")}</th>
-                    <th className="px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colActions")}</th>
+                    <th className="w-8 px-3 py-2 font-semibold lg:px-3.5" />
+                    <th className="w-[28%] px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colName")}</th>
+                    <th className="w-36 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colCategory")}</th>
+                    <th className="w-48 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colTags")}</th>
+                    <th className="w-20 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colUpdated")}</th>
+                    <th className="w-16 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colActions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -921,27 +950,25 @@ export function PromptLibraryPage() {
                           <td className="w-6 px-3 py-2.5 align-middle lg:px-3.5">
                             <DifficultyDot level={prompt.difficulty} />
                           </td>
-                          <td className="px-3 py-2.5 align-middle lg:px-3.5">
+                          <td className="min-w-0 px-3 py-2.5 align-middle lg:px-3.5">
                             <p
-                              className="text-[0.9rem] font-semibold text-foreground"
-                              title={prompt.description ?? t("prompts.noDescription")}
+                              className="truncate text-[0.9rem] font-semibold text-foreground"
+                              title={prompt.name}
                             >
                               {prompt.name}
                             </p>
                           </td>
-                          <td className="px-3 py-2.5 align-top lg:px-3.5">
-                            <Badge variant="accent">{prompt.category.name}</Badge>
+                          <td className="px-3 py-2.5 align-middle lg:px-3.5">
+                            <Badge variant="accent" className="whitespace-nowrap">{prompt.category.name}</Badge>
                           </td>
-                          <td className="px-3 py-2.5 align-top lg:px-3.5">
-                            <div className="flex flex-nowrap gap-2 items-center">
+                          <td className="overflow-hidden px-3 py-2.5 align-middle lg:px-3.5">
+                            <div className="flex flex-nowrap gap-1.5 items-center">
                               {prompt.tags.length > 0 ? (
                                 <>
-                                  {prompt.tags.slice(0, 3).map((tag) => (
-                                    <Badge key={tag} variant="neutral">
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                  {prompt.tags.length > 3 && (
+                                  <Badge variant="neutral" className="shrink-0 max-w-[7rem] truncate whitespace-nowrap">
+                                    {prompt.tags[0]}
+                                  </Badge>
+                                  {prompt.tags.length > 1 && (
                                     <div className="relative">
                                       <button
                                         type="button"
@@ -951,7 +978,7 @@ export function PromptLibraryPage() {
                                           setTagsPopoverId(tagsPopoverId === prompt.id ? null : prompt.id);
                                         }}
                                       >
-                                        +{prompt.tags.length - 3}
+                                        +{prompt.tags.length - 1}
                                       </button>
                                       {tagsPopoverId === prompt.id && (
                                         <div
@@ -959,7 +986,7 @@ export function PromptLibraryPage() {
                                           onClick={(e) => e.stopPropagation()}
                                         >
                                           <div className="flex flex-wrap gap-1.5">
-                                            {prompt.tags.slice(3).map((tag) => (
+                                            {prompt.tags.slice(1).map((tag) => (
                                               <Badge key={tag} variant="neutral">
                                                 {tag}
                                               </Badge>
@@ -975,12 +1002,12 @@ export function PromptLibraryPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 align-top text-[0.84rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
+                          <td className="px-3 py-2.5 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                             <span title={formatDateFull(prompt.updated_at)}>
                               {formatDateShort(prompt.updated_at)}
                             </span>
                           </td>
-                          <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
+                          <td className="px-3 py-2.5 align-middle lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                             <div className="flex justify-end gap-1.5">
                               <Button
                                 aria-label={`Archive ${prompt.name}`}
@@ -1006,21 +1033,18 @@ export function PromptLibraryPage() {
       </div>
 
       <Modal
-        description={t("prompts.modal.description")}
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
         title={selectedPrompt ? t("prompts.editModal.title") : t("prompts.createModal.title")}
       >
-        <form className="space-y-5">
+        <form className="space-y-3.5">
           {loadError ? (
             <LoadErrorState compact message={loadError} resourceLabel={t("prompts.pageTitle")} />
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              hint={t("prompts.form.nameHint")}
-              label={t("prompts.form.name")}
-            >
+          {/* Name + Category */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PromptModalField label={t("prompts.form.name")}>
               <Input
                 placeholder={t("prompts.form.namePlaceholder")}
                 value={formState.name}
@@ -1028,109 +1052,156 @@ export function PromptLibraryPage() {
                   updateForm((current) => ({ ...current, name: event.target.value }))
                 }
               />
-            </Field>
+            </PromptModalField>
 
-            <Field
-              hint={t("prompts.form.categoryHint")}
-              label={t("prompts.form.category")}
-            >
-              <Select
-                value={formState.categoryId}
-                onChange={(event) =>
-                  updateForm((current) => ({ ...current, categoryId: event.target.value }))
-                }
-              >
-                {(categoriesQuery.data ?? []).map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            <PromptModalField label={t("prompts.form.category")}>
+              <div className="flex flex-wrap gap-1">
+                {(categoriesQuery.data ?? []).map((category) => {
+                  const isSelected = formState.categoryId === String(category.id);
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() =>
+                        updateForm((current) => ({ ...current, categoryId: String(category.id) }))
+                      }
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all",
+                        isSelected
+                          ? "border-amber-300 bg-amber-50 text-amber-700"
+                          : "border-border bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
+                      )}
+                    >
+                      {category.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </PromptModalField>
           </div>
 
-          <Field
-            hint={t("prompts.form.descriptionHint")}
-            label={t("prompts.form.description")}
-          >
+          {/* Tags + Difficulty */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PromptModalField label={t("prompts.form.tags")}>
+              {/* Active tags + free-type input */}
+              <div className="flex min-h-9 flex-wrap items-center gap-1 rounded-lg border border-border bg-white px-2 py-1.5">
+                {formTagList.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      className="text-amber-400 hover:text-amber-700"
+                      onClick={() => removeFormTag(tag)}
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  className="min-w-[5rem] flex-1 bg-transparent text-[11px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
+                  placeholder={formTagList.length === 0 ? t("prompts.form.tagsPlaceholder") : ""}
+                  value={formTagInput}
+                  onChange={(event) => setFormTagInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === ",") {
+                      event.preventDefault();
+                      const value = formTagInput.trim();
+                      if (value) {
+                        addFormTag(value);
+                        setFormTagInput("");
+                      }
+                    } else if (event.key === "Backspace" && formTagInput === "") {
+                      if (formTagList.length > 0) {
+                        removeFormTag(formTagList[formTagList.length - 1]);
+                      }
+                    }
+                  }}
+                />
+              </div>
+              {/* Smart suggestions — filtered by what's typed, max 3 */}
+              <div className="mt-1.5 flex min-h-[1.5rem] items-center gap-1.5">
+                {formTagFiltered.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => { addFormTag(tag); setFormTagInput(""); }}
+                    className="rounded-full border border-dashed border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                  >
+                    + {tag}
+                  </button>
+                ))}
+                {formTagFiltered.length === 0 && formTagInput.trim() ? (
+                  <span className="text-[11px] text-slate-400">
+                    Entrée pour créer <span className="font-semibold text-amber-600">«&nbsp;{formTagInput.trim()}&nbsp;»</span>
+                  </span>
+                ) : null}
+              </div>
+            </PromptModalField>
+
+            <PromptModalField label={t("prompts.form.difficulty")}>
+              <div className="flex gap-1.5">
+                {([1, 2, 3, 4, 5] as const).map((level) => {
+                  const isSelected = formState.difficulty === level;
+                  const activeStyle: Record<number, string> = {
+                    1: "bg-emerald-400 border-emerald-400 text-white",
+                    2: "bg-lime-400 border-lime-400 text-white",
+                    3: "bg-amber-400 border-amber-400 text-white",
+                    4: "bg-orange-500 border-orange-500 text-white",
+                    5: "bg-red-500 border-red-500 text-white",
+                  };
+                  const hoverStyle: Record<number, string> = {
+                    1: "hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700",
+                    2: "hover:bg-lime-50 hover:border-lime-300 hover:text-lime-700",
+                    3: "hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700",
+                    4: "hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700",
+                    5: "hover:bg-red-50 hover:border-red-300 hover:text-red-700",
+                  };
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      title={DIFFICULTY_LABELS[level]}
+                      className={cn(
+                        "flex flex-1 flex-col items-center justify-center rounded-lg border px-1 py-2 text-xs font-bold transition-all",
+                        isSelected
+                          ? activeStyle[level]
+                          : cn("border-border bg-white text-slate-400", hoverStyle[level]),
+                      )}
+                      onClick={() =>
+                        updateForm((current) => ({
+                          ...current,
+                          difficulty: current.difficulty === level ? null : level,
+                        }))
+                      }
+                    >
+                      {level}
+                      <span className="mt-0.5 text-[9px] font-medium leading-none opacity-70">
+                        {DIFFICULTY_LABELS[level]?.split(" ").pop()}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </PromptModalField>
+          </div>
+
+          {/* Description */}
+          <PromptModalField label={t("prompts.form.description")}>
             <Textarea
-              className="min-h-20"
+              className="min-h-16"
               placeholder={t("prompts.form.descriptionPlaceholder")}
               value={formState.description}
               onChange={(event) =>
                 updateForm((current) => ({ ...current, description: event.target.value }))
               }
             />
-          </Field>
+          </PromptModalField>
 
-          <Field
-            hint={t("prompts.form.tagsHint")}
-            label={t("prompts.form.tags")}
-          >
-            <Input
-              placeholder={t("prompts.form.tagsPlaceholder")}
-              value={formState.tags}
-              onChange={(event) =>
-                updateForm((current) => ({ ...current, tags: event.target.value }))
-              }
-            />
-          </Field>
-
-          <div className="space-y-2">
-            <span className="block text-sm font-medium text-slate-700">{t("prompts.form.difficulty")}</span>
-            <div className="flex gap-2">
-              {([1, 2, 3, 4, 5] as const).map((level) => {
-                const isSelected = formState.difficulty === level;
-                const borderColors: Record<number, string> = {
-                  1: "border-l-emerald-400",
-                  2: "border-l-lime-400",
-                  3: "border-l-amber-400",
-                  4: "border-l-orange-500",
-                  5: "border-l-red-500",
-                };
-                const hoverBg: Record<number, string> = {
-                  1: "hover:bg-emerald-400 hover:border-emerald-400 hover:text-white",
-                  2: "hover:bg-lime-400 hover:border-lime-400 hover:text-white",
-                  3: "hover:bg-amber-400 hover:border-amber-400 hover:text-white",
-                  4: "hover:bg-orange-500 hover:border-orange-500 hover:text-white",
-                  5: "hover:bg-red-500 hover:border-red-500 hover:text-white",
-                };
-                const activeBg: Record<number, string> = {
-                  1: "bg-emerald-400 border-emerald-400 text-white",
-                  2: "bg-lime-400 border-lime-400 text-white",
-                  3: "bg-amber-400 border-amber-400 text-white",
-                  4: "bg-orange-500 border-orange-500 text-white",
-                  5: "bg-red-500 border-red-500 text-white",
-                };
-                return (
-                  <button
-                    key={level}
-                    type="button"
-                    title={DIFFICULTY_LABELS[level]}
-                    className={cn(
-                      "flex h-9 flex-1 items-center justify-center rounded-xl border border-l-4 text-sm font-semibold transition-all",
-                      isSelected
-                        ? activeBg[level]
-                        : cn("border-border bg-[hsl(var(--surface))] text-foreground", borderColors[level], hoverBg[level]),
-                    )}
-                    onClick={() =>
-                      updateForm((current) => ({
-                        ...current,
-                        difficulty: current.difficulty === level ? null : level,
-                      }))
-                    }
-                  >
-                    {level}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <Field
-            hint={t("prompts.form.systemPromptHint")}
-            label={t("prompts.form.systemPrompt")}
-          >
+          {/* System Prompt */}
+          <PromptModalField label={t("prompts.form.systemPrompt")}>
             <Textarea
               placeholder={t("prompts.form.systemPromptPlaceholder")}
               value={formState.systemPromptText}
@@ -1138,26 +1209,22 @@ export function PromptLibraryPage() {
                 updateForm((current) => ({ ...current, systemPromptText: event.target.value }))
               }
             />
-          </Field>
+          </PromptModalField>
 
-          <Field
-            hint={t("prompts.form.userPromptHint")}
-            label={t("prompts.form.userPrompt")}
-          >
+          {/* User Prompt */}
+          <PromptModalField label={t("prompts.form.userPrompt")}>
             <Textarea
-              className="min-h-40"
+              className="min-h-36"
               placeholder={t("prompts.form.userPromptPlaceholder")}
               value={formState.userPromptText}
               onChange={(event) =>
                 updateForm((current) => ({ ...current, userPromptText: event.target.value }))
               }
             />
-          </Field>
+          </PromptModalField>
 
-          <Field
-            hint={t("prompts.form.evaluationNotesHint")}
-            label={t("prompts.form.evaluationNotes")}
-          >
+          {/* Evaluation Notes */}
+          <PromptModalField label={t("prompts.form.evaluationNotes")}>
             <Textarea
               placeholder={t("prompts.form.evaluationNotesPlaceholder")}
               value={formState.evaluationNotes}
@@ -1165,9 +1232,10 @@ export function PromptLibraryPage() {
                 updateForm((current) => ({ ...current, evaluationNotes: event.target.value }))
               }
             />
-          </Field>
+          </PromptModalField>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-border/80 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {/* Active toggle */}
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-slate-50 px-3 py-2 text-sm text-slate-700">
             <input
               checked={formState.isActive}
               className="h-4 w-4 rounded border-border"
@@ -1178,12 +1246,9 @@ export function PromptLibraryPage() {
             />
             {t("prompts.form.isActive")}
           </label>
-          <p className="-mt-2 text-xs leading-5 text-slate-500">
-            {t("prompts.form.isActiveNote")}
-          </p>
 
           {feedback ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               {feedback}
             </div>
           ) : null}
@@ -1203,24 +1268,13 @@ function TableEmptyRow({ message }: { message: string }) {
   );
 }
 
-function Field({
-  children,
-  hint,
-  label,
-}: {
-  children: ReactNode;
-  hint?: string;
-  label: string;
-}) {
+function PromptModalField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block space-y-2">
-      <span className="block">
-        <span className="text-sm font-medium text-slate-700">{label}</span>
-        {hint ? (
-          <span className="mt-1 block text-xs leading-5 text-slate-500">{hint}</span>
-        ) : null}
+    <div className="space-y-1.5">
+      <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        {label}
       </span>
       {children}
-    </label>
+    </div>
   );
 }

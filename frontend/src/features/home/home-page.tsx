@@ -118,7 +118,7 @@ export function HomePage({
   ];
 
   return (
-    <div className="relative isolate overflow-hidden px-4 pb-8 pt-4 lg:px-8 lg:pt-5">
+    <div className="relative isolate overflow-hidden px-4 pb-8 pt-2 lg:px-8 lg:pt-3">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-8rem] top-[-8rem] h-72 w-72 rounded-full bg-amber-200/35 blur-3xl" />
         <div className="absolute right-[-7rem] top-32 h-80 w-80 rounded-full bg-sky-200/30 blur-3xl" />
@@ -126,7 +126,7 @@ export function HomePage({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.08),_transparent_30%)]" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl space-y-6">
+      <div className="relative mx-auto max-w-7xl space-y-5">
         <header className="flex flex-col gap-3 rounded-[1.6rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] px-4 py-3 shadow-[0_18px_70px_-40px_rgba(15,23,42,0.22)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="group inline-flex min-h-12 items-center rounded-full border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface))] px-3 py-1.5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)] transition-transform duration-200 hover:-translate-y-0.5">
@@ -167,12 +167,13 @@ export function HomePage({
               {t("home.credits")}
             </Button>
             <Button
-              className="rounded-full"
+              className="animate-btn-glow-amber group relative overflow-hidden rounded-full"
               onClick={onNavigateToPrompts}
               variant="secondary"
             >
+              <span className="animate-btn-shimmer pointer-events-none absolute inset-[-20%] w-[140%] bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
               {t("home.startWithPrompts")}
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
             </Button>
           </div>
         </header>
@@ -184,7 +185,7 @@ export function HomePage({
             </Badge>
 
             <div className="max-w-3xl space-y-3">
-              <h1 className="font-display text-[2.85rem] font-semibold tracking-tight text-foreground sm:text-[3.5rem]">
+              <h1 className="font-display text-[2.4rem] font-semibold tracking-tight text-foreground sm:text-[3rem]">
                 {t("home.mainHeading")}
               </h1>
               <p className="max-w-2xl text-[1rem] leading-7 text-[hsl(var(--foreground-soft))]">
@@ -193,15 +194,17 @@ export function HomePage({
             </div>
 
             <div className="flex flex-wrap gap-2.5">
-              <Button className="rounded-full" onClick={onNavigateToSessions}>
+              <Button className="animate-btn-glow-emerald group relative overflow-hidden rounded-full" onClick={onNavigateToSessions}>
+                <span className="animate-btn-shimmer pointer-events-none absolute inset-[-20%] w-[140%] bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
                 {t("home.exploreSessions")}
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
               </Button>
               <Button
-                className="rounded-full"
+                className="animate-btn-glow-rose group relative overflow-hidden rounded-full"
                 onClick={onNavigateToRuns}
                 variant="secondary"
               >
+                <span className="animate-btn-shimmer pointer-events-none absolute inset-[-20%] w-[140%] bg-gradient-to-r from-transparent via-rose-300/70 to-transparent" />
                 {t("home.viewRuns")}
                 <Activity className="h-4 w-4" />
               </Button>
@@ -237,7 +240,7 @@ export function HomePage({
             </div>
           </div>
 
-          <Card className="relative overflow-hidden border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-4 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.24)]">
+          <Card className="relative overflow-hidden border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface-overlay))] p-3 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.24)]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.1),_transparent_45%)]" />
             <div className="relative space-y-4">
               <div className="flex items-start justify-between gap-3">
@@ -259,7 +262,7 @@ export function HomePage({
                 </div>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {flowSteps.map((step, index) => {
                   const Icon = step.icon;
                   const tone = toneClasses[step.tone];
@@ -268,7 +271,7 @@ export function HomePage({
                       {index < flowSteps.length - 1 ? (
                         <div className="absolute left-5 top-[3.85rem] h-7 w-px bg-gradient-to-b from-[hsl(var(--border))] to-transparent" />
                       ) : null}
-                      <div className="flex gap-3 rounded-[1.35rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface))] p-3 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.22)]">
+                      <div className="flex gap-3 rounded-[1.35rem] border border-[hsl(var(--border)/0.8)] bg-[hsl(var(--surface))] p-2.5 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.22)]">
                         <div
                           className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] ring-1",
@@ -320,10 +323,11 @@ export function HomePage({
                   {t("home.simplePathHeading")}
                 </h2>
               </div>
-              <Button className="rounded-full" onClick={onNavigateToModels} variant="secondary">
-              {t("home.configureModels")}
-              <Workflow className="h-4 w-4" />
-            </Button>
+              <Button className="animate-btn-glow-sky group relative overflow-hidden rounded-full" onClick={onNavigateToModels} variant="secondary">
+                <span className="animate-btn-shimmer pointer-events-none absolute inset-[-20%] w-[140%] bg-gradient-to-r from-transparent via-sky-300/70 to-transparent" />
+                {t("home.configureModels")}
+                <Workflow className="h-4 w-4" />
+              </Button>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-4">
@@ -401,15 +405,18 @@ export function HomePage({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button className="rounded-full" onClick={onNavigateToPrompts} variant="secondary">
+            <Button className="animate-btn-glow-amber group relative overflow-hidden rounded-full" onClick={onNavigateToPrompts} variant="secondary">
+              <span className="animate-btn-shimmer pointer-events-none absolute inset-[-20%] w-[140%] bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
               {t("home.browsePrompts")}
             </Button>
-            <Button className="rounded-full" onClick={onNavigateToSessions}>
+            <Button className="animate-btn-glow-emerald group relative overflow-hidden rounded-full" onClick={onNavigateToSessions}>
+              <span className="animate-btn-shimmer pointer-events-none absolute inset-[-20%] w-[140%] bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
               {t("home.openSessions")}
             </Button>
           </div>
         </section>
       </div>
+      <div className="pointer-events-none sticky bottom-0 -mt-20 h-20 bg-gradient-to-t from-background to-transparent" />
     </div>
   );
 }
