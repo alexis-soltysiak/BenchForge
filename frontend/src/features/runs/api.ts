@@ -121,31 +121,48 @@ export function generateRunReport(runId: number): Promise<{ html_report_path: st
   });
 }
 
-export async function downloadRunReportPdf(runId: number): Promise<void> {
+async function downloadFromUrl(url: string, filename: string, errorMessage: string): Promise<void> {
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/runs/${runId}/report/pdf`);
+    response = await fetch(url);
   } catch {
     throw new ApiError(buildNetworkErrorMessage(API_URL), 0);
   }
-
   if (!response.ok) {
-    const errorBody = (await response.json().catch(() => null)) as
-      | { detail?: string }
-      | null;
-    throw new ApiError(
-      errorBody?.detail ?? "Unable to download PDF report.",
-      response.status,
-    );
+    const errorBody = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new ApiError(errorBody?.detail ?? errorMessage, response.status);
   }
-
   const blob = await response.blob();
   const objectUrl = window.URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;
-  anchor.download = `run-${runId}.pdf`;
+  anchor.download = filename;
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
   window.URL.revokeObjectURL(objectUrl);
+}
+
+export function downloadRunReportPdf(runId: number): Promise<void> {
+  return downloadFromUrl(`${API_URL}/runs/${runId}/report/pdf`, `run-${runId}.pdf`, "Unable to download PDF report.");
+}
+
+export function downloadRunReportHtml(runId: number): Promise<void> {
+  return downloadFromUrl(`${API_URL}/runs/${runId}/report/html`, `run-${runId}.html`, "Unable to download HTML report.");
+}
+
+export function downloadRunReportSvg(runId: number): Promise<void> {
+  return downloadFromUrl(`${API_URL}/runs/${runId}/report/svg`, `run-${runId}-charts.zip`, "Unable to download SVG charts.");
+}
+
+export function downloadRunReportSummarySvg(runId: number): Promise<void> {
+  return downloadFromUrl(`${API_URL}/runs/${runId}/report/summary-svg`, `run-${runId}-summary.svg`, "Unable to download summary SVG.");
+}
+
+export async function generateAndDownloadAll(runId: number): Promise<void> {
+  await generateRunReport(runId);
+  await Promise.all([
+    downloadRunReportPdf(runId),
+    downloadRunReportSvg(runId),
+  ]);
 }

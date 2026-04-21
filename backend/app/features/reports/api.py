@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
@@ -81,6 +81,50 @@ async def get_run_report_pdf(
         return FileResponse(
             path=pdf_path,
             media_type="application/pdf",
+        )
+    except ReportError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in detail.lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@router.get("/runs/{run_id}/report/summary-svg", response_class=Response)
+async def get_run_report_summary_svg(
+    run_id: int,
+    service: ReportsService = reports_service_dependency,
+) -> Response:
+    try:
+        svg = await service.get_summary_svg(run_id)
+        return Response(
+            content=svg,
+            media_type="image/svg+xml",
+            headers={"Content-Disposition": f"inline; filename=run-{run_id}-summary.svg"},
+        )
+    except ReportError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in detail.lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@router.get("/runs/{run_id}/report/svg")
+async def get_run_report_svg(
+    run_id: int,
+    service: ReportsService = reports_service_dependency,
+) -> Response:
+    try:
+        zip_bytes = await service.get_report_svg_zip(run_id)
+        return Response(
+            content=zip_bytes,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=run-{run_id}-charts.zip"},
         )
     except ReportError as exc:
         detail = str(exc)

@@ -10,6 +10,9 @@ import {
   DollarSign,
   Download,
   Eye,
+  FileCode,
+  FileImage,
+  FileText,
   Gavel,
   LoaderCircle,
   Play,
@@ -30,13 +33,16 @@ import { Modal } from "@/components/ui/modal";
 import {
   clearRunJudging,
   confirmLocalReady,
+  downloadRunReportHtml,
   downloadRunReportPdf,
+  downloadRunReportSvg,
+  downloadRunReportSummarySvg,
   fetchLocalNext,
   fetchRun,
   fetchRunJudging,
   fetchRunResponses,
   fetchRuns,
-  generateRunReport,
+  generateAndDownloadAll,
   restartRunJudging,
   resumeRun,
   retryCandidateResponse,
@@ -531,21 +537,42 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     },
   });
 
-  const generateReportMutation = useMutation({
-    mutationFn: () => generateRunReport(runId),
+  const downloadPdfMutation = useMutation({
+    mutationFn: () => downloadRunReportPdf(runId),
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to download PDF report.");
+    },
+  });
+
+  const downloadHtmlMutation = useMutation({
+    mutationFn: () => downloadRunReportHtml(runId),
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to download HTML report.");
+    },
+  });
+
+  const downloadSvgMutation = useMutation({
+    mutationFn: () => downloadRunReportSvg(runId),
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to download SVG charts.");
+    },
+  });
+
+  const downloadSummarySvgMutation = useMutation({
+    mutationFn: () => downloadRunReportSummarySvg(runId),
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : "Unable to download summary SVG.");
+    },
+  });
+
+  const generateAllMutation = useMutation({
+    mutationFn: () => generateAndDownloadAll(runId),
     onSuccess: async () => {
       setFeedback(null);
       await refreshRunData();
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to generate report.");
-    },
-  });
-
-  const downloadPdfMutation = useMutation({
-    mutationFn: () => downloadRunReportPdf(runId),
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to download PDF report.");
+      setFeedback(error instanceof ApiError ? error.message : "Unable to generate all reports.");
     },
   });
 
@@ -727,7 +754,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <SectionHeading
                     title="Phase 1 · Candidate Execution"
-                    description="Chaque LLM candidat exécute toute la liste de prompts. Les modèles endpoint tournent directement, les modèles locaux passent par un handoff LM Studio."
+                    description=""
                   />
                   <div className="grid gap-3 sm:grid-cols-3">
                     <SummaryStat label="Candidates" value={String(candidateSnapshots.length)} />
@@ -739,86 +766,88 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                  {candidateSnapshots.map((candidate) => (
-                    <CandidateExecutionCard
-                      key={candidate.id}
-                      candidate={candidate}
-                      localState={localNextQuery.data}
-                      onConfirmReady={() => confirmLocalMutation.mutate()}
-                      onStartCurrent={() => startLocalMutation.mutate()}
-                      onStartEndpoint={() => handleStartRemoteCandidate(candidate.id)}
-                      promptCount={selectedRun.prompt_snapshots.length}
-                      responses={effectiveResponses.filter(
-                        (item) => item.model_snapshot_id === candidate.id,
-                      )}
-                      runStatus={selectedRun.status}
-                      isConfirming={confirmLocalMutation.isPending}
-                      isStartingEndpoint={startingRemoteIds.includes(candidate.id)}
-                      isStarting={startLocalMutation.isPending}
-                    />
-                  ))}
-                </div>
-              </Card>
-
-              <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
-                <SectionHeading
-                  title="Phase 1 · Responses By Prompt"
-                  description="Une ligne = un prompt exécuté par un candidat. Clique une réponse pour ouvrir son inspection détaillée dans un grand modal."
-                />
                 <div className="mt-5 flex flex-col divide-y divide-border/60">
                   {responsesQuery.isLoading ? (
                     <p className="py-6 text-[0.86rem] text-[hsl(var(--foreground-soft))]">Loading candidate responses...</p>
-                  ) : effectiveResponses.length === 0 ? (
-                    <p className="py-6 text-[0.86rem] text-[hsl(var(--foreground-soft))]">No responses recorded yet. Candidate execution has not produced persisted outputs yet.</p>
                   ) : (
-                    (() => {
-                      // Group responses by prompt_snapshot_id
-                      const promptGroups = Array.from(
-                        effectiveResponses.reduce((map, response) => {
-                          const key = response.prompt_snapshot_id;
-                          if (!map.has(key)) map.set(key, []);
-                          map.get(key)!.push(response);
-                          return map;
-                        }, new Map<number, typeof effectiveResponses>()),
+                    candidateSnapshots.map((candidate) => {
+                      const candidateResponses = effectiveResponses.filter(
+                        (r) => r.model_snapshot_id === candidate.id,
                       );
+                      const promptCount = selectedRun.prompt_snapshots.length;
+                      const completedCount = candidateResponses.filter((r) => r.status === "completed").length;
+                      const runningCount = candidateResponses.filter((r) => r.status === "running").length;
+                      const failedCount = candidateResponses.filter((r) => ["failed", "cancelled"].includes(r.status)).length;
+                      const pendingCount = candidateResponses.filter((r) => ["pending", "pending_local"].includes(r.status)).length;
+                      const isLocal = candidate.runtime_type === "local";
+                      const localState = localNextQuery.data;
+                      const isCurrentLocal = localState?.model_snapshot_id === candidate.id;
+                      const pct = promptCount > 0 ? Math.round((completedCount / promptCount) * 100) : 0;
 
-                      return promptGroups.map(([promptSnapshotId, responses]) => {
-                        const prompt = promptById(selectedRun.prompt_snapshots, promptSnapshotId);
-                        const completedCount = responses.filter((r) => r.status === "completed").length;
-                        const pct = responses.length > 0 ? Math.round((completedCount / responses.length) * 100) : 0;
-
-                        return (
-                          <div key={promptSnapshotId} className="py-3 first:pt-0 last:pb-0">
-                            {/* Prompt header row */}
-                            <div className="flex items-center gap-3 px-1">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-baseline gap-2">
-                                  <p className="truncate text-[0.88rem] font-semibold text-foreground">{prompt?.name ?? "Unknown prompt"}</p>
-                                  <span className="shrink-0 text-[0.72rem] text-[hsl(var(--foreground-soft))]">{prompt?.category_name ?? ""}</span>
-                                </div>
-                                {/* Progress bar */}
-                                <div className="mt-1.5 flex items-center gap-2">
-                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[hsl(var(--surface-muted))]">
-                                    <div
-                                      className={cn(
-                                        "h-full rounded-full transition-all duration-500",
-                                        pct === 100 ? "bg-emerald-500" : "bg-amber-400",
-                                      )}
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                  <span className="shrink-0 text-[0.7rem] tabular-nums text-[hsl(var(--foreground-soft))]">
-                                    {completedCount}/{responses.length}
-                                  </span>
-                                </div>
+                      return (
+                        <div key={candidate.id} className="py-3 first:pt-0 last:pb-0">
+                          {/* Model header row */}
+                          <div className="flex items-center gap-2 px-1">
+                            <p className="shrink-0 text-[0.88rem] font-semibold text-foreground">{candidate.display_name}</p>
+                            <span className="shrink-0 rounded-full bg-[hsl(var(--surface-muted))] px-2 py-0.5 text-[0.65rem] text-[hsl(var(--foreground-soft))]">
+                              {candidate.provider_type} / {candidate.runtime_type}
+                            </span>
+                            {failedCount > 0 && (
+                              <span className="shrink-0 text-[0.65rem] font-medium text-rose-500">{failedCount} failed</span>
+                            )}
+                            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                              <div className="h-1.5 min-w-[3rem] flex-1 overflow-hidden rounded-full bg-[hsl(var(--surface-muted))]">
+                                <div
+                                  className={cn(
+                                    "h-full rounded-full transition-all duration-500",
+                                    pct === 100 ? "bg-emerald-500" : runningCount > 0 ? "bg-amber-400" : "bg-slate-300",
+                                  )}
+                                  style={{ width: `${pct}%` }}
+                                />
                               </div>
+                              <span className="shrink-0 text-[0.7rem] tabular-nums text-[hsl(var(--foreground-soft))]">
+                                {completedCount}/{promptCount}
+                              </span>
                             </div>
 
-                            {/* Model cards grid — max 5 per row */}
-                            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 px-1">
-                              {responses.map((response) => {
-                                const model = modelById(selectedRun.model_snapshots, response.model_snapshot_id);
+                            {isLocal && isCurrentLocal ? (
+                              <div className="flex shrink-0 gap-1.5">
+                                <Button
+                                  className="h-7 px-3 text-[0.75rem]"
+                                  disabled={confirmLocalMutation.isPending}
+                                  onClick={() => confirmLocalMutation.mutate()}
+                                  size="sm"
+                                  variant="secondary"
+                                >
+                                  Ready
+                                </Button>
+                                <Button
+                                  className="h-7 px-3 text-[0.75rem]"
+                                  disabled={!localState?.confirmed_ready || startLocalMutation.isPending}
+                                  onClick={() => startLocalMutation.mutate()}
+                                  size="sm"
+                                >
+                                  {startLocalMutation.isPending ? "Starting..." : "Start"}
+                                </Button>
+                              </div>
+                            ) : !isLocal ? (
+                              <Button
+                                className="h-7 shrink-0 px-3 text-[0.75rem]"
+                                disabled={startingRemoteIds.includes(candidate.id) || completedCount === promptCount}
+                                onClick={() => handleStartRemoteCandidate(candidate.id)}
+                                size="sm"
+                                variant="secondary"
+                              >
+                                {completedCount === promptCount ? "Completed" : startingRemoteIds.includes(candidate.id) ? "Starting..." : "Start"}
+                              </Button>
+                            ) : null}
+                          </div>
+
+                          {/* Prompt response cards grid */}
+                          {candidateResponses.length > 0 && (
+                            <div className="mt-2 grid grid-cols-2 gap-1.5 px-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                              {candidateResponses.map((response) => {
+                                const prompt = promptById(selectedRun.prompt_snapshots, response.prompt_snapshot_id);
                                 const isCardLoading =
                                   retryingResponseIds.includes(response.id) ||
                                   response.status === "pending" ||
@@ -828,20 +857,20 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                   <div
                                     key={response.id}
                                     className={cn(
-                                      "group/card relative cursor-pointer rounded-lg border border-border/60 bg-[hsl(var(--surface-muted))] px-2.5 py-2 transition hover:border-border hover:bg-[hsl(var(--surface-overlay))]",
+                                      "group/card relative cursor-pointer rounded-md border border-border/60 bg-[hsl(var(--surface-muted))] px-2 py-1.5 transition hover:border-border hover:bg-[hsl(var(--surface-overlay))]",
                                       selectedResponseId === response.id && "border-border bg-[hsl(var(--surface-overlay))] ring-1 ring-inset ring-border",
                                     )}
                                     onClick={() => openResponseInspector(response.id)}
                                   >
-                                    {/* Model name + badge top-right */}
-                                    <div className="flex items-center justify-between gap-1">
-                                      <p className="truncate text-[0.76rem] font-semibold leading-tight text-foreground">
-                                        {model?.display_name ?? "Unknown"}
+                                    {/* Prompt name + status badge */}
+                                    <div className="flex items-baseline justify-between gap-1">
+                                      <p className="truncate text-[0.72rem] font-semibold leading-tight text-foreground">
+                                        {prompt?.name ?? "Unknown"}
                                       </p>
                                       <div className="group/failed relative shrink-0">
                                         <span
                                           className={cn(
-                                            "inline-flex items-center whitespace-nowrap rounded-full px-1.5 py-[0.15rem] text-[0.6rem] font-semibold capitalize",
+                                            "inline-flex items-center whitespace-nowrap rounded-full px-1.5 py-[0.1rem] text-[0.58rem] font-semibold capitalize",
                                             response.status === "completed" && "bg-emerald-100 text-emerald-900",
                                             ["running", "running_candidates", "waiting_local", "ready_for_judging", "judging", "aggregating", "reporting"].includes(response.status) && "bg-amber-100 text-amber-900",
                                             ["failed", "cancelled"].includes(response.status) && "bg-rose-100 text-rose-900",
@@ -866,23 +895,20 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                       </div>
                                     </div>
 
-                                    {/* Compact metrics row */}
-                                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.68rem] text-[hsl(var(--foreground-soft))]">
-                                      <span className="flex items-center gap-0.5">
-                                        <Clock3 className="h-2.5 w-2.5 shrink-0" />
+                                    {/* Metrics — single line, no wrap */}
+                                    <div className="mt-1 flex items-center gap-x-1.5 overflow-hidden text-[0.63rem] text-[hsl(var(--foreground-soft))]">
+                                      <span className="flex shrink-0 items-center gap-0.5">
+                                        <Clock3 className="h-2 w-2 shrink-0 text-sky-400" />
                                         {formatDuration(response.metric?.duration_ms)}
                                       </span>
-                                      <span className="flex items-center gap-0.5">
-                                        <span className="font-medium">T</span>
-                                        {response.metric?.total_tokens ?? "—"}
-                                      </span>
-                                      <span className="flex items-center gap-0.5">
-                                        <DollarSign className="h-2.5 w-2.5 shrink-0" />
+                                      <span className="shrink-0">T{response.metric?.total_tokens ?? "—"}</span>
+                                      <span className="flex shrink-0 items-center gap-0.5">
+                                        <DollarSign className="h-2 w-2 shrink-0 text-emerald-400" />
                                         {formatCost(response.metric?.estimated_cost)}
                                       </span>
                                       {(response.retry_count ?? 0) > 0 && (
-                                        <span className="flex items-center gap-0.5">
-                                          <RefreshCw className="h-2.5 w-2.5 shrink-0" />
+                                        <span className="flex shrink-0 items-center gap-0.5">
+                                          <RefreshCw className="h-2 w-2 shrink-0 text-amber-400" />
                                           {response.retry_count}
                                         </span>
                                       )}
@@ -891,7 +917,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                     {/* Retry button */}
                                     {["failed", "cancelled"].includes(response.status) && (
                                       <Button
-                                        className="mt-1.5 h-5 w-full px-2 text-[0.65rem]"
+                                        className="mt-1 h-4 w-full px-1.5 text-[0.6rem]"
                                         disabled={retryingResponseIds.includes(response.id)}
                                         onClick={(event) => {
                                           event.stopPropagation();
@@ -908,10 +934,10 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                                 );
                               })}
                             </div>
-                          </div>
-                        );
-                      });
-                    })()
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </Card>
@@ -975,7 +1001,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
             <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
               <SectionHeading
                 title="Phase 3 · Aggregation And Report"
-                description="Après les jugements, tu peux agréger les scores finaux puis générer les artefacts HTML et PDF."
+                description=""
               />
               {!judgingReady && selectedRun.report_status !== "completed" ? (
                 <div className="mt-5">
@@ -986,25 +1012,58 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 </div>
               ) : (
                 <div className="mt-5 space-y-6">
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      disabled={generateReportMutation.isPending}
-                      onClick={() => generateReportMutation.mutate()}
-                      variant="secondary"
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <button
+                      disabled={downloadHtmlMutation.isPending}
+                      onClick={() => downloadHtmlMutation.mutate()}
+                      className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-white px-4 py-3.5 shadow-sm transition-all hover:border-border hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Generate report artifacts
-                    </Button>
-                    <Button
+                      {downloadHtmlMutation.isPending ? (
+                        <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <FileCode className="h-6 w-6 text-sky-500 transition-transform group-hover:scale-110" />
+                      )}
+                      <span className="text-sm font-medium text-foreground">Generate HTML</span>
+                    </button>
+
+                    <button
                       disabled={downloadPdfMutation.isPending}
                       onClick={() => downloadPdfMutation.mutate()}
-                      variant="secondary"
+                      className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-white px-4 py-3.5 shadow-sm transition-all hover:border-border hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download PDF
-                    </Button>
-                    <ReportRow label="Report status" value={selectedRun.report_status} />
-                    <ReportRow label="HTML path" value={selectedRun.html_report_path ?? "Pending"} />
-                    <ReportRow label="PDF path" value={selectedRun.pdf_report_path ?? "Pending"} />
+                      {downloadPdfMutation.isPending ? (
+                        <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <FileText className="h-6 w-6 text-rose-500 transition-transform group-hover:scale-110" />
+                      )}
+                      <span className="text-sm font-medium text-foreground">Generate PDF</span>
+                    </button>
+
+                    <button
+                      disabled={downloadSummarySvgMutation.isPending}
+                      onClick={() => downloadSummarySvgMutation.mutate()}
+                      className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-white px-4 py-3.5 shadow-sm transition-all hover:border-border hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {downloadSummarySvgMutation.isPending ? (
+                        <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <FileImage className="h-6 w-6 text-violet-500 transition-transform group-hover:scale-110" />
+                      )}
+                      <span className="text-sm font-medium text-foreground">Export SVG</span>
+                    </button>
+
+                    <button
+                      disabled={generateAllMutation.isPending}
+                      onClick={() => generateAllMutation.mutate()}
+                      className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-white px-4 py-3.5 shadow-sm transition-all hover:border-border hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {generateAllMutation.isPending ? (
+                        <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Download className="h-6 w-6 text-emerald-500 transition-transform group-hover:scale-110" />
+                      )}
+                      <span className="text-sm font-medium text-foreground">Generate All</span>
+                    </button>
                   </div>
                   <PromptRankingMatrix
                     judging={judging}
@@ -1434,9 +1493,9 @@ function CandidateExecutionCard({
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1.2rem] border border-border/80 bg-slate-50 px-4 py-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-medium text-slate-950">{value}</p>
+    <div className="rounded-xl border border-border/80 bg-slate-50 px-3 py-2">
+      <p className="text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
@@ -2027,11 +2086,9 @@ function PromptRankingMatrix({
       }
 
       const availableWidth = viewport.clientWidth;
-      const availableHeight = viewport.clientHeight;
       const contentWidth = content.scrollWidth;
-      const contentHeight = content.scrollHeight;
 
-      if (!availableWidth || !availableHeight || !contentWidth || !contentHeight) {
+      if (!availableWidth || !contentWidth) {
         setMatrixScale(1);
         return;
       }
@@ -2039,7 +2096,6 @@ function PromptRankingMatrix({
       const nextScale = Math.min(
         1,
         availableWidth / contentWidth,
-        availableHeight / contentHeight,
       );
 
       setMatrixScale(nextScale);
@@ -2079,12 +2135,10 @@ function PromptRankingMatrix({
     <div className="space-y-4">
       <SectionHeading
         title="Prompt Ranking Matrix"
-        description="Vue compacte ajustée automatiquement pour garder toute la matrice visible à l’écran."
       />
       <div
         ref={viewportRef}
-        className="overflow-hidden rounded-[1.25rem] border border-border/80 bg-white p-3"
-        style={{ height: "calc(100vh - 16rem)" }}
+        className="overflow-x-hidden rounded-[1.25rem] border border-border/80 bg-white p-3"
       >
         <div
           ref={contentRef}
@@ -2100,21 +2154,6 @@ function PromptRankingMatrix({
                 <th className="w-[8.5rem] px-2 py-2 font-semibold">Model</th>
                 {columns.map(({ promptId }, index) => {
                   const prompt = promptById(run.prompt_snapshots, promptId);
-                  const promptBatches = completedBatches.filter(
-                    (b) => b.prompt_snapshot_id === promptId,
-                  );
-                  // Average score per candidate, then take max across candidates
-                  const candidateAvgScores = candidates.map((cand) => {
-                    const scores = promptBatches.flatMap((b) => {
-                      const ec = b.evaluation?.candidates.find((c) => {
-                        const r = responses.find((r) => r.id === c.candidate_response_id);
-                        return r?.model_snapshot_id === cand.id;
-                      });
-                      return ec ? [Number(ec.overall_score) || 0] : [];
-                    });
-                    return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
-                  }).filter((s): s is number => s !== null);
-                  const topScore = candidateAvgScores.length > 0 ? Math.max(...candidateAvgScores) : null;
                   return (
                     <th key={promptId} className="px-1.5 py-2 font-semibold">
                       <div className="space-y-0.5 text-center">
@@ -2124,11 +2163,6 @@ function PromptRankingMatrix({
                         <p className="truncate text-[11px] text-slate-700">
                           {prompt?.name ?? `Prompt #${promptId}`}
                         </p>
-                        {topScore !== null ? (
-                          <p className="text-[10px] text-slate-400">
-                            Top {formatScore(String(Math.round(topScore)))}
-                          </p>
-                        ) : null}
                       </div>
                     </th>
                   );
@@ -2179,33 +2213,49 @@ function PromptRankingMatrix({
                     );
 
                     const rank = promptRankings.get(promptId)?.get(candidate.id) ?? candidates.length;
-                    const isBest = rank === 1;
+                    const isFirst = rank === 1;
+                    const isSecond = rank === 2;
+                    const isThird = rank === 3;
                     const displayScore = Math.round(avgScore);
 
                     return (
                       <td key={`${candidate.id}-${promptId}`} className="px-1.5 py-1.5 align-middle">
                         <div
                           className={cn(
-                            "flex items-center justify-center gap-2 rounded-xl border px-2 py-2",
-                            isBest
-                              ? "border-emerald-200 bg-emerald-50 shadow-[0_12px_30px_-26px_rgba(16,185,129,0.7)]"
-                              : "border-border/80 bg-slate-50",
+                            "flex items-center justify-center gap-2 rounded-xl border px-2",
+                            isFirst
+                              ? "border-blue-400 bg-gradient-to-b from-blue-500 to-blue-600 py-3 shadow-[0_10px_28px_-8px_rgba(59,130,246,0.65)]"
+                              : isSecond
+                              ? "border-violet-200 bg-gradient-to-b from-violet-50 to-violet-100/60 py-2"
+                              : isThird
+                              ? "border-teal-200 bg-gradient-to-b from-teal-50/80 to-cyan-50/60 py-2"
+                              : "border-border/60 bg-slate-50 py-2",
                           )}
                         >
                           <span
                             className={cn(
                               "shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold",
-                              isBest
-                                ? "bg-emerald-100 text-emerald-900"
-                                : "bg-slate-100 text-slate-600",
+                              isFirst
+                                ? "bg-blue-400/50 text-white"
+                                : isSecond
+                                ? "bg-violet-100 text-violet-700"
+                                : isThird
+                                ? "bg-teal-100 text-teal-700"
+                                : "bg-slate-100 text-slate-400",
                             )}
                           >
                             #{rank}
                           </span>
                           <p
                             className={cn(
-                              "text-3xl font-bold leading-none tracking-tight",
-                              isBest ? "text-emerald-950" : "text-slate-950",
+                              "font-bold leading-none tracking-tight",
+                              isFirst
+                                ? "text-[2.2rem] text-white"
+                                : isSecond
+                                ? "text-3xl text-violet-900"
+                                : isThird
+                                ? "text-3xl text-teal-800"
+                                : "text-3xl text-slate-300",
                             )}
                           >
                             {formatScore(String(displayScore))}
@@ -3030,15 +3080,6 @@ function CandidateFeedbackAccordion({
           </div>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function ReportRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[1.2rem] border border-border/80 bg-slate-50 px-4 py-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-2 break-words text-sm font-medium text-slate-950">{value}</p>
     </div>
   );
 }
