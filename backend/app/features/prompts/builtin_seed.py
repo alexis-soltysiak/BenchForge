@@ -17,39 +17,7 @@ class BuiltinPromptSeed:
 
 
 BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
-    BuiltinPromptSeed(
-        slug="summarize-board-notes-with-conflicts",
-        name="summarize_board_notes_with_conflicts",
-        category_slug="summarization",
-        description="Summarize board notes containing confirmed decisions, tentative statements, and unresolved strategic disagreements.",
-        system_prompt_text=(
-            "You are a precise executive summarizer. Separate confirmed decisions from unresolved matters, "
-            "preserve uncertainty, and do not infer missing facts."
-        ),
-        user_prompt_text=(
-            "Summarize the notes below in exactly 4 bullet points.\n\n"
-            "Constraints:\n"
-            "- The first 2 bullets must be confirmed decisions.\n"
-            "- The last 2 bullets must be unresolved issues or risks.\n"
-            "- Mention owners only if explicitly named.\n"
-            "- Do not quote the notes.\n\n"
-            "Notes:\n"
-            "- The board agreed to prioritize profitability over user growth for the next two quarters.\n"
-            "- The CFO said a hiring freeze is likely, but it was not formally approved.\n"
-            "- Maya will deliver a revised operating plan on Thursday.\n"
-            "- Expansion into Italy was discussed, but legal flagged tax-registration complexity.\n"
-            "- The pricing redesign was approved for Q3.\n"
-            "- Some members argued for accelerating enterprise sales hiring, though no decision was reached.\n"
-            "- The CEO asked for a downside scenario if churn worsens.\n"
-            "- No one challenged delaying the mobile redesign to Q4."
-        ),
-        evaluation_notes=(
-            "Reward exact 4-bullet structure, correct separation of decisions vs unresolved issues, "
-            "and careful treatment of tentative items such as the likely-but-unapproved hiring freeze."
-        ),
-        tags=("benchmark", "summarization", "executive", "ambiguity", "decision-making", "instruction-following"),
-        difficulty=3,
-    ),
+    # ── Summarization ─────────────────────────────────────────────────────────
     BuiltinPromptSeed(
         slug="summarize-policy-with-exception-hierarchy",
         name="summarize-policy-with-exception-hierarchy",
@@ -101,6 +69,8 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         tags=("benchmark", "summarization", "policy", "compliance", "nested-exceptions", "role-scoped", "structured-summary"),
         difficulty=5,
     ),
+
+    # ── Structured Output ─────────────────────────────────────────────────────
     BuiltinPromptSeed(
         slug="extract-incident-records-with-rule-collisions",
         name="extract_incident_records_with_rule_collisions",
@@ -135,7 +105,7 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "correct masking of all private ranges including 172.20.x.x, null ticket handling, and strict schema compliance."
         ),
         tags=("benchmark", "structured-output", "json", "logs", "normalization", "validation", "rule-conflict"),
-        difficulty=4,
+        difficulty=3,
     ),
     BuiltinPromptSeed(
         slug="transform-contract-clauses-to-strict-json",
@@ -173,8 +143,10 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "trigger conditions, and exceptions; and exclusion of definitional, permissive, and consequence-only clauses."
         ),
         tags=("benchmark", "structured-output", "json", "legal", "information-extraction", "schema-discipline"),
-        difficulty=5,
+        difficulty=4,
     ),
+
+    # ── Reasoning ─────────────────────────────────────────────────────────────
     BuiltinPromptSeed(
         slug="reasoning-multi-rule-approval-matrix",
         name="reasoning_multi_rule_approval_matrix",
@@ -212,7 +184,7 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "Penalize treating rule 5 as broader than written."
         ),
         tags=("benchmark", "reasoning", "logic", "rule-application", "precedence", "exceptions"),
-        difficulty=5,
+        difficulty=4,
     ),
     BuiltinPromptSeed(
         slug="reasoning-policy-precedence-nested-exceptions",
@@ -248,37 +220,72 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "instead of the explicit waiver."
         ),
         tags=("benchmark", "reasoning", "policy", "precedence", "nested-rules", "logic"),
-        difficulty=5,
+        difficulty=4,
     ),
     BuiltinPromptSeed(
-        slug="rewrite-exec-email-with-selective-preservation",
-        name="rewrite_exec_email_with_selective_preservation",
-        category_slug="writing",
-        description="Rewrite a messy internal escalation into an executive-ready email while preserving only actionable facts and omitting noise.",
-        system_prompt_text="Write for a senior business stakeholder. Be calm, concise, and action-oriented. Preserve facts but remove emotional noise and unsupported blame.",
+        slug="reasoning-multi-entity-permission-with-delegation",
+        name="reasoning_multi_entity_permission_with_delegation",
+        category_slug="reasoning",
+        description="Compute effective system access for five principals across roles, individual exceptions, admin grants, emergency suspensions, time-window restrictions, and single-hop delegation chains.",
+        system_prompt_text=(
+            "Apply rules strictly in precedence order. Delegation transfers only role-based and individual-exception permissions — "
+            "never admin grants, suspensions, or time-window restrictions. Do not extend any rule beyond what is explicitly stated."
+        ),
         user_prompt_text=(
-            "Rewrite the message below as a professional email to an executive sponsor.\n\n"
-            "Constraints:\n"
-            "- Maximum 120 words\n"
-            "- Include exactly 3 short paragraphs\n"
-            "- Preserve the concrete blockers\n"
-            "- Preserve the schedule risk\n"
-            "- Include one explicit ask for intervention\n"
-            "- Do not mention frustration, blame, or internal politics\n"
-            "- Do not use bullet points\n\n"
-            "Original message:\n"
-            "\"Quick heads-up, we're still blocked by procurement and it's dragging everything. The vendor docs are "
-            "half-ready, legal has comments, security still hasn't signed off, and now the pilot date is looking "
-            "shaky for the end of month. Honestly every team says it's someone else's problem and we're going in "
-            "circles. Can you please step in because this will slip unless one owner is assigned right away.\""
+            "A permission system applies rules in this precedence order (1 = highest):\n"
+            "1. Emergency suspension — denies ALL access with no exception.\n"
+            "2. Admin grant — grants access to ALL systems.\n"
+            "3. Role-based — grants access to the systems listed for that role.\n"
+            "4. Individual exception — adds (+) or removes (−) exactly one named system from the role-based set.\n"
+            "5. Delegation — the recipient gains the delegator's role+exception permissions as a union with their own; "
+            "delegation does NOT transfer admin grants, suspensions, or time-window restrictions.\n"
+            "6. Time-window restriction — restricts ALL of a principal's effective permissions (own + delegated) "
+            "to the specified hours; outside the window the principal has no access.\n\n"
+            "Available systems: code_repo, build_system, staging_db, dev_tools, monitoring, "
+            "infra_console, incident_board, data_warehouse, reporting_tool, read_only_db, "
+            "contract_db, legal_docs, payroll\n\n"
+            "Roles:\n"
+            "- DEV: code_repo, build_system, staging_db, dev_tools\n"
+            "- OPS: monitoring, infra_console, build_system, incident_board\n"
+            "- ANALYST: data_warehouse, reporting_tool, read_only_db\n"
+            "- LEGAL: contract_db, legal_docs, reporting_tool\n\n"
+            "Principals:\n"
+            "- Alice: role=DEV, exception +payroll, exception −build_system, time-window 09:00–18:00\n"
+            "- Bob: role=OPS, exception +code_repo, admin grant\n"
+            "- Carlos: role=ANALYST, delegation from Alice (no other modifications)\n"
+            "- Diana: role=LEGAL, emergency suspension\n"
+            "- Eve: role=DEV, delegation from Diana (no other modifications)\n\n"
+            "List each principal's accessible systems as a comma-separated set (or `none`). "
+            "Answer in exactly this format:\n"
+            "`Alice (inside window): [systems]`\n"
+            "`Alice (outside window): [systems]`\n"
+            "`Bob: [systems]`\n"
+            "`Carlos: [systems]`\n"
+            "`Diana: [systems]`\n"
+            "`Eve: [systems]`"
         ),
         evaluation_notes=(
-            "Reward exact structural compliance, preservation of real blockers and timeline risk, "
-            "and a clean executive tone without emotional language or blame."
+            "Correct answers:\n"
+            "Alice (inside window): code_repo, staging_db, dev_tools, payroll "
+            "(DEV base minus build_system plus payroll, within window).\n"
+            "Alice (outside window): none (time-window restriction).\n"
+            "Bob: all 13 systems (admin grant supersedes role; +code_repo exception is irrelevant but harmless).\n"
+            "Carlos: code_repo, staging_db, dev_tools, payroll, data_warehouse, reporting_tool, read_only_db "
+            "(ANALYST own + Alice's delegated role+exceptions without time restriction; build_system excluded because "
+            "Alice's −build_system exception IS part of the delegated set).\n"
+            "Diana: none (emergency suspension).\n"
+            "Eve: code_repo, build_system, staging_db, dev_tools, contract_db, legal_docs, reporting_tool "
+            "(DEV own + LEGAL delegated from Diana; Diana's suspension is NOT transferred).\n"
+            "Key traps: (1) Carlos does NOT inherit Alice's time restriction; (2) Carlos does NOT get build_system "
+            "because the removal exception is delegated; (3) Carlos DOES get payroll because the add exception is "
+            "delegated; (4) Eve DOES inherit Diana's LEGAL permissions because suspensions are not delegated; "
+            "(5) Bob gets payroll via admin grant even though OPS has no payroll access."
         ),
-        tags=("benchmark", "writing", "email", "business", "constraint-following", "style-control"),
-        difficulty=3,
+        tags=("benchmark", "reasoning", "permissions", "delegation", "precedence", "multi-entity", "access-control"),
+        difficulty=5,
     ),
+
+    # ── Writing ───────────────────────────────────────────────────────────────
     BuiltinPromptSeed(
         slug="write-customer-response-with-hidden-conflict-constraints",
         name="write_customer_response_with_hidden_conflict_constraints",
@@ -305,8 +312,10 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "while still sounding natural and empathetic. Penalize accidental carrier blame, blunt refusal language, or implicit refund promises."
         ),
         tags=("benchmark", "writing", "customer-support", "constraint-following", "tone-control", "precision"),
-        difficulty=5,
+        difficulty=4,
     ),
+
+    # ── Coding ────────────────────────────────────────────────────────────────
     BuiltinPromptSeed(
         slug="coding-rate-limiter-out-of-order-requests",
         name="coding_rate_limiter_out_of_order_requests",
@@ -381,6 +390,75 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "Penalize: any recency corruption from peek or put_if_absent, stats counting puts, nested locks, or O(n) operations."
         ),
         tags=("benchmark", "coding", "python", "data-structures", "lru-cache", "concurrency", "invariants", "algorithm"),
+        difficulty=5,
+    ),
+    BuiltinPromptSeed(
+        slug="coding-transactional-key-value-store",
+        name="coding_transactional_key_value_store",
+        category_slug="coding",
+        description="Implement a thread-safe transactional key-value store with snapshot isolation, last-writer-wins commit semantics, and point-in-time reads.",
+        system_prompt_text=(
+            "Write correct, concise Python. Every isolation and ordering invariant must hold exactly under concurrent access. "
+            "Do not sacrifice correctness for brevity. Handle all error cases explicitly."
+        ),
+        user_prompt_text=(
+            "Implement a Python class `TxnStore` with the following interface:\n\n"
+            "- `begin()` → int: starts a new transaction; returns a unique monotonically increasing transaction ID\n"
+            "- `write(txn_id, key, value)` — writes key-value within the transaction, isolated from other open transactions; "
+            "raises `KeyError` if txn_id is invalid, already committed, or already rolled back\n"
+            "- `read(txn_id, key)` — returns the value visible to this transaction: own writes shadow the committed state; "
+            "raises `KeyError` if key not found in own writes OR committed state; "
+            "raises `KeyError` if txn_id is invalid\n"
+            "- `commit(txn_id)` — makes all writes from this transaction visible to subsequent committed reads; "
+            "if another transaction already committed a write to the same key after this transaction began, "
+            "this commit still wins (last commit wins); raises `KeyError` if txn_id is invalid\n"
+            "- `rollback(txn_id)` — discards all writes; raises `KeyError` if txn_id is invalid\n"
+            "- `read_committed(key)` — returns the current committed value; raises `KeyError` if key has no committed value\n"
+            "- `snapshot()` → int: captures the current committed state; returns a unique monotonically increasing snapshot ID\n"
+            "- `read_snapshot(snapshot_id, key)` — returns the value at snapshot capture time; "
+            "raises `KeyError` if snapshot_id is invalid or key had no committed value at that time\n\n"
+            "Additional constraints:\n"
+            "- All operations must be thread-safe using only `threading.Lock` — no higher-level primitives\n"
+            "- A committed or rolled-back transaction must reject further writes/reads with `KeyError`\n"
+            "- Snapshots are immutable: subsequent commits must not alter snapshot state\n"
+            "- Transaction IDs and snapshot IDs are globally unique integers (separate counters are fine)\n"
+            "- Do not use any external libraries\n\n"
+            "The following sequence must evaluate correctly:\n"
+            "`s = TxnStore()`\n"
+            "`t1 = s.begin()`                   # t1 = 1\n"
+            "`t2 = s.begin()`                   # t2 = 2\n"
+            "`s.write(t1, 'x', 10)`\n"
+            "`s.write(t2, 'x', 20)`\n"
+            "`s.read(t1, 'x')` → 10             # own write shadows committed state\n"
+            "`s.read(t2, 'x')` → 20             # own write, isolated from t1\n"
+            "`s.read_committed('x')` → KeyError  # nothing committed yet\n"
+            "`s.commit(t1)`                      # x=10 now committed\n"
+            "`s.read_committed('x')` → 10\n"
+            "`snap = s.snapshot()`               # captures x=10\n"
+            "`s.commit(t2)`                      # x=20 (last commit wins)\n"
+            "`s.read_committed('x')` → 20\n"
+            "`s.read_snapshot(snap, 'x')` → 10  # snapshot is immutable\n"
+            "`t3 = s.begin()`\n"
+            "`s.write(t3, 'x', 30)`\n"
+            "`s.rollback(t3)`\n"
+            "`s.read_committed('x')` → 20        # rollback had no effect\n"
+            "`s.write(t3, 'x', 99)` → KeyError  # t3 already rolled back\n\n"
+            "After the code, explain in exactly 3 sentences: (1) how snapshot immutability is guaranteed after "
+            "subsequent commits, (2) how last-writer-wins is implemented without a global write lock held across "
+            "the entire commit, and (3) why a rolled-back transaction correctly raises KeyError on further operations."
+        ),
+        evaluation_notes=(
+            "Correct sequence outputs: read(t1,'x')=10, read(t2,'x')=20, read_committed('x') raises KeyError before any commit, "
+            "read_committed('x')=10 after t1 commit, read_committed('x')=20 after t2 commit (last wins), "
+            "read_snapshot(snap,'x')=10 (snapshot captured before t2 commit), read_committed('x')=20 after t3 rollback, "
+            "write(t3,'x',99) raises KeyError. "
+            "Reward: proper snapshot copy-on-capture so later commits don't mutate it; correct isolation (t2 read does not see t1's uncommitted write); "
+            "rollback removing all trace of t3; thread safety with a single Lock per critical section; "
+            "distinct monotonic counters for txn IDs and snapshot IDs. "
+            "Penalize: snapshots referencing shared mutable state, incorrect last-writer-wins behavior, "
+            "cross-transaction visibility of uncommitted writes, or accepting operations on finalized transactions."
+        ),
+        tags=("benchmark", "coding", "python", "transactions", "snapshot-isolation", "concurrency", "invariants", "key-value"),
         difficulty=5,
     ),
 )

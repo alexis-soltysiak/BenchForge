@@ -127,6 +127,30 @@ class ReportsService:
             raise ReportError("PDF report path is unavailable.")
         return artifact.pdf_report_path
 
+    async def get_report_svg_zip(self, run_id: int) -> bytes:
+        import io
+        import zipfile
+
+        html, _ = await self.get_report_html(run_id)
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.set_content(html, wait_until="networkidle")
+            await page.wait_for_function(
+                "() => document.querySelectorAll('.js-plotly-plot .main-svg').length > 0",
+                timeout=20_000,
+            )
+            svgs: list[str] = await page.evaluate(
+                "() => Array.from(document.querySelectorAll('.js-plotly-plot .main-svg')).map(s => s.outerHTML)"
+            )
+            await browser.close()
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for i, svg_content in enumerate(svgs):
+                zf.writestr(f"chart-{i + 1}.svg", svg_content)
+        return buf.getvalue()
+
     def _build_report_view_model(self, run: SessionRun) -> RunReportRead:
         candidate_snapshots = [
             snapshot
@@ -971,6 +995,79 @@ class ReportsService:
             config={"responsive": True, "displayModeBar": False},
         )
 
+    @staticmethod
+    def _scatter_label_offsets(
+        coords: list[tuple[float, float]],
+    ) -> list[tuple[float, float]]:
+        """Return (ax, ay) Plotly annotation offsets with iterative repulsion."""
+        n = len(coords)
+        if n == 0:
+            return []
+
+        xs = [c[0] for c in coords]
+        ys = [c[1] for c in coords]
+        x_lo, x_hi = min(xs), max(xs)
+        y_lo, y_hi = min(ys), max(ys)
+        xspan = x_hi - x_lo or 1.0
+        yspan = y_hi - y_lo or 1.0
+
+        # Map data coords → screen pixels (y-axis flipped: high quality = top = low screen-y)
+        # Chart drawing area: height=370, margins t=20 b=80 l=55 r=20 → ~700×270 px
+        CW, CH = 700.0, 270.0
+
+        def to_px(x: float, y: float) -> tuple[float, float]:
+            return (x - x_lo) / xspan * CW, (1.0 - (y - y_lo) / yspan) * CH
+
+        pts = [to_px(x, y) for x, y in coords]
+        cx = sum(p[0] for p in pts) / n
+        cy = sum(p[1] for p in pts) / n
+
+        # Initial offset: push each label away from the cluster centroid
+        ring = [i * 2 * math.pi / n for i in range(n)]
+        offs: list[list[float]] = []
+        for i, (px, py) in enumerate(pts):
+            dx, dy = px - cx, py - cy
+            d = math.sqrt(dx * dx + dy * dy)
+            if d < 15.0:
+                a = ring[i]
+                dx, dy, d = math.cos(a) * 20, math.sin(a) * 20, 20.0
+            nx, ny = dx / d, dy / d
+            offs.append([nx * 90.0, ny * 60.0])
+
+        # Annotation bounding box (px) — generous estimate
+        LW, LH = 168.0, 54.0
+
+        # Iterative repulsion: push overlapping labels apart
+        for _ in range(150):
+            moved = False
+            for i in range(n):
+                for j in range(i + 1, n):
+                    li_x = pts[i][0] + offs[i][0]
+                    li_y = pts[i][1] + offs[i][1]
+                    lj_x = pts[j][0] + offs[j][0]
+                    lj_y = pts[j][1] + offs[j][1]
+                    ov_x = LW - abs(li_x - lj_x)
+                    ov_y = LH - abs(li_y - lj_y)
+                    if ov_x > 0 and ov_y > 0:
+                        ddx, ddy = li_x - lj_x, li_y - lj_y
+                        d2 = math.sqrt(ddx * ddx + ddy * ddy) or 1.0
+                        push = min(ov_x, ov_y) * 0.65 + 10.0
+                        offs[i][0] += ddx / d2 * push
+                        offs[i][1] += ddy / d2 * push
+                        offs[j][0] -= ddx / d2 * push
+                        offs[j][1] -= ddy / d2 * push
+                        moved = True
+            if not moved:
+                break
+
+        # Keep labels inside chart: don't let them go above the top edge
+        for i in range(n):
+            if pts[i][1] + offs[i][1] < LH * 0.55:
+                offs[i][1] = LH * 0.55 - pts[i][1]
+
+        # Plotly ax/ay: positive ax = right, positive ay = DOWN (same as screen coords)
+        return [(off[0], off[1]) for off in offs]
+
     def _render_scatter_plotly(self, report: RunReportRead) -> str:
         data = [
             (s.candidate_name, s.avg_duration_ms, float(s.average_overall_score or "0"))
@@ -987,21 +1084,46 @@ class ReportsService:
             fig.add_trace(go.Scatter(
                 x=[lat],
                 y=[qual],
-                mode="markers+text",
+                mode="markers",
                 marker=dict(
-                    size=14,
+                    size=18,
                     color=color,
-                    line=dict(color="white", width=2),
-                    opacity=0.9,
+                    line=dict(color="white", width=2.5),
+                    opacity=0.92,
                 ),
-                text=[name],
-                textposition="top center",
-                textfont=dict(size=10.5, color=color, family="Manrope, sans-serif"),
                 name=name,
                 hovertemplate="<b>%{fullData.name}</b><br>Latency: %{x:.0f} ms<br>Quality: %{y:.1f}<extra></extra>",
             ))
 
+        offsets = self._scatter_label_offsets([(lat, qual) for _, lat, qual in data])
+        annotations = []
+        for ci, ((name, lat, qual), (ax, ay)) in enumerate(zip(data, offsets)):
+            color = _CHART_PALETTE[ci % len(_CHART_PALETTE)]
+            annotations.append(dict(
+                x=lat,
+                y=qual,
+                xref="x",
+                yref="y",
+                text=f"<b>{escape(name)}</b><br><span style='color:#64748b;font-size:9px'>{lat:,} ms &nbsp;·&nbsp; q={qual:.1f}</span>",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=0.8,
+                arrowwidth=1.4,
+                arrowcolor=color,
+                ax=ax,
+                ay=ay,
+                axref="pixel",
+                ayref="pixel",
+                font=dict(size=10, color="#1e293b", family="Manrope, sans-serif"),
+                bgcolor="rgba(255,255,255,0.94)",
+                bordercolor=color,
+                borderwidth=1.5,
+                borderpad=5,
+                align="left",
+            ))
+
         fig.update_layout(
+            annotations=annotations,
             xaxis=dict(
                 title=dict(
                     text="Latency (ms) — lower is faster →",
@@ -1021,6 +1143,7 @@ class ReportsService:
                 linecolor="#e2e8f0",
                 tickfont=dict(size=9.5, color="#94a3b8", family="Manrope, sans-serif"),
                 zeroline=False,
+                range=[0, 100],
             ),
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(248,250,252,0.6)",
@@ -1031,13 +1154,13 @@ class ReportsService:
                 borderwidth=1,
                 orientation="h",
                 yanchor="bottom",
-                y=-0.28,
+                y=-0.30,
                 xanchor="center",
                 x=0.5,
             ),
             showlegend=True,
-            margin=dict(l=55, r=20, t=15, b=70),
-            height=310,
+            margin=dict(l=55, r=20, t=20, b=80),
+            height=370,
             font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
         )
 
@@ -1047,6 +1170,139 @@ class ReportsService:
             include_plotlyjs=False,
             config={"responsive": True, "displayModeBar": False},
         )
+
+    def generate_summary_svg(self, report: RunReportRead) -> str:
+        """Generate a 1200×630 LinkedIn-ready summary card SVG."""
+        FONT = "Helvetica Neue, Helvetica, Arial, sans-serif"
+        W, H = 1200, 630
+        COLORS = _CHART_PALETTE
+
+        sorted_cands = sorted(
+            report.candidate_sections,
+            key=lambda s: float(s.final_global_score or "0"),
+            reverse=True,
+        )
+
+        def _e(v: object) -> str:
+            return escape(str(v))
+
+        def _score_bar(x: int, y: int, w: int, h: int, score: float, color: str, bg: str = "#e2e8f0") -> str:
+            fill = max(0, min(int(score / 100 * w), w))
+            parts = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" fill="{bg}"/>']
+            if fill > 2:
+                parts.append(f'<rect x="{x}" y="{y}" width="{fill}" height="{h}" rx="4" fill="{color}"/>')
+            return "".join(parts)
+
+        lines: list[str] = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
+            "<defs>",
+            '  <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0">',
+            '    <stop offset="0%" stop-color="#1e293b"/>',
+            '    <stop offset="100%" stop-color="#0f172a"/>',
+            "  </linearGradient>",
+            '  <filter id="cs" x="-4%" y="-4%" width="108%" height="120%">',
+            '    <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.10"/>',
+            "  </filter>",
+            "</defs>",
+            # Background
+            f'<rect width="{W}" height="{H}" fill="#f8fafc"/>',
+            # Header
+            f'<rect width="{W}" height="80" fill="url(#hdr)"/>',
+            f'<text x="40" y="51" font-family="{FONT}" font-size="27" font-weight="800" fill="#3b82f6">Bench</text>',
+            f'<text x="135" y="51" font-family="{FONT}" font-size="27" font-weight="800" fill="#f1f5f9">Forge</text>',
+            f'<circle cx="214" cy="44" r="3" fill="#3b82f6"/>',
+            f'<text x="228" y="51" font-family="{FONT}" font-size="16" font-weight="600" fill="#cbd5e1">{_e(report.report_title[:56])}</text>',
+            f'<text x="{W - 40}" y="33" font-family="{FONT}" font-size="12" fill="#64748b" text-anchor="end">{_e(report.launched_at.strftime("%b %d, %Y"))}</text>',
+            f'<text x="{W - 40}" y="51" font-family="{FONT}" font-size="12" fill="#64748b" text-anchor="end">Judge: {_e(report.judge_name)}</text>',
+            f'<text x="{W - 40}" y="69" font-family="{FONT}" font-size="12" fill="#475569" text-anchor="end">{report.prompt_count} prompts · {report.candidate_count} models</text>',
+            # Session name subtitle
+            f'<text x="40" y="105" font-family="{FONT}" font-size="13" fill="#94a3b8">{_e(report.benchmark_session_name)}</text>',
+        ]
+
+        # ── Top-N cards ──
+        top_n = min(3, len(sorted_cands))
+        gap = 20
+        card_w = (W - 80 - gap * (top_n - 1)) // top_n
+        card_y = 118
+        card_h = 262
+
+        for i, cand in enumerate(sorted_cands[:top_n]):
+            cx = 40 + i * (card_w + gap)
+            color = COLORS[i % len(COLORS)]
+            hdr_h = 58
+
+            lines += [
+                f'<rect x="{cx}" y="{card_y}" width="{card_w}" height="{card_h}" rx="12" fill="white" filter="url(#cs)"/>',
+                f'<rect x="{cx}" y="{card_y}" width="{card_w}" height="{hdr_h}" rx="12" fill="{color}"/>',
+                f'<rect x="{cx}" y="{card_y + hdr_h - 12}" width="{card_w}" height="12" fill="{color}"/>',
+                # Rank badge
+                f'<circle cx="{cx + card_w - 28}" cy="{card_y + 29}" r="17" fill="rgba(0,0,0,0.18)"/>',
+                f'<text x="{cx + card_w - 28}" y="{card_y + 35}" font-family="{FONT}" font-size="14" font-weight="800" fill="white" text-anchor="middle">#{i + 1}</text>',
+                # Model name
+                f'<text x="{cx + 18}" y="{card_y + 38}" font-family="{FONT}" font-size="14" font-weight="700" fill="white">{_e(cand.candidate_name[:21])}</text>',
+            ]
+
+            global_score = cand.final_global_score or "—"
+            quality = float(cand.average_overall_score or "0")
+            latency = f"{cand.avg_duration_ms:,} ms" if cand.avg_duration_ms else "—"
+            cost_raw = cand.total_estimated_cost
+            cost = f"${float(cost_raw):.4f}" if cost_raw else "—"
+
+            metrics = [
+                ("Global Score", global_score, color),
+                ("Quality", f"{quality:.1f} / 100", "#10b981"),
+                ("Latency", latency, "#f97316"),
+                ("Cost", cost, "#a855f7"),
+            ]
+            for j, (label, value, mc) in enumerate(metrics):
+                my = card_y + hdr_h + 12 + j * 48
+                lines += [
+                    f'<text x="{cx + 18}" y="{my}" font-family="{FONT}" font-size="11" fill="#94a3b8">{_e(label)}</text>',
+                    f'<text x="{cx + 18}" y="{my + 21}" font-family="{FONT}" font-size="16" font-weight="700" fill="{mc}">{_e(value)}</text>',
+                ]
+
+        # ── All-models quality bar chart ──
+        bar_section_y = card_y + card_h + 18
+        lines.append(
+            f'<text x="40" y="{bar_section_y + 4}" font-family="{FONT}" font-size="12" font-weight="700"'
+            f' fill="#475569" letter-spacing="0.8">ALL MODELS — QUALITY SCORE</text>'
+        )
+
+        label_w = 220
+        bar_x0 = 40 + label_w
+        bar_max_w = W - bar_x0 - 70
+        bar_h_each, bar_gap = 16, 7
+        show_n = min(len(sorted_cands), 8)
+        bar_start_y = bar_section_y + 18
+
+        for i, cand in enumerate(sorted_cands[:show_n]):
+            color = COLORS[i % len(COLORS)]
+            score = float(cand.average_overall_score or "0")
+            by = bar_start_y + i * (bar_h_each + bar_gap)
+            name = cand.candidate_name[:25] + ("…" if len(cand.candidate_name) > 25 else "")
+            lines += [
+                f'<text x="40" y="{by + 12}" font-family="{FONT}" font-size="11" fill="#475569">{_e(name)}</text>',
+                _score_bar(bar_x0, by, bar_max_w, bar_h_each, score, color),
+                f'<text x="{bar_x0 + bar_max_w + 10}" y="{by + 12}" font-family="{FONT}" font-size="12" font-weight="700" fill="{color}">{score:.1f}</text>',
+            ]
+
+        # ── Footer ──
+        footer_y = H - 42
+        lines += [
+            f'<rect y="{footer_y}" width="{W}" height="42" fill="#1e293b"/>',
+            f'<circle cx="44" cy="{footer_y + 21}" r="6" fill="#3b82f6"/>',
+            f'<text x="58" y="{footer_y + 26}" font-family="{FONT}" font-size="13" font-weight="700" fill="#f1f5f9">BenchForge</text>',
+            f'<text x="{W // 2}" y="{footer_y + 26}" font-family="{FONT}" font-size="12" fill="#64748b" text-anchor="middle">'
+            "Open-source LLM benchmarking · github.com/alexis-soltysiak/BenchForge"
+            "</text>",
+        ]
+
+        lines.append("</svg>")
+        return "\n".join(lines)
+
+    async def get_summary_svg(self, run_id: int) -> str:
+        report = await self.get_report(run_id)
+        return self.generate_summary_svg(report)
 
     def _render_category_radar_plotly(self, report: RunReportRead) -> str:
         by_cat: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))

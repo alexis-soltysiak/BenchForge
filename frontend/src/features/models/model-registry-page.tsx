@@ -1334,6 +1334,12 @@ export function ModelRegistryPage() {
                 {(["candidate", "judge", "both"] as const).map((r) => {
                   const isSelected = formState.role === r;
                   const label = r === "candidate" ? t("models.role.candidate") : r === "judge" ? t("models.role.judge") : t("models.role.both");
+                  const selectedCls =
+                    r === "candidate"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm"
+                      : r === "judge"
+                        ? "border-slate-300 bg-slate-100 text-slate-700 shadow-sm"
+                        : "border-sky-300 bg-sky-50 text-sky-700 shadow-sm";
                   return (
                     <button
                       key={r}
@@ -1342,7 +1348,7 @@ export function ModelRegistryPage() {
                       className={cn(
                         "flex flex-1 items-center justify-center rounded-lg border px-2 py-2 text-xs font-medium transition-all",
                         isSelected
-                          ? "border-sky-300 bg-sky-50 text-sky-700 shadow-sm"
+                          ? selectedCls
                           : "border-border bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600",
                       )}
                     >

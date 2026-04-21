@@ -4,82 +4,263 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>New juges Run Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <style>
       :root {
         --ink: #0f172a;
-        --muted: #475569;
-        --line: #dbe4ee;
+        --ink-soft: #334155;
+        --muted: #64748b;
+        --line: #e2e8f0;
         --panel: #f8fafc;
-        --accent: #0f766e;
-        --accent-light: #eef6f4;
-        --green: #166534;
+        --primary: #3b82f6;
+        --primary-light: #eff6ff;
+        --primary-border: #bfdbfe;
+        --accent-light: #f0f9ff;
         --green-bg: #dcfce7;
-        --red: #991b1b;
         --red-bg: #fee2e2;
-        --yellow-bg: #fef9c3;
+        --yellow-bg: #fefce8;
+        --radius: 8px;
+        --shadow: 0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+        --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
-        padding: 40px;
-        font-family: Georgia, "Times New Roman", serif;
+        padding: 40px 48px;
+        font-family: 'Manrope', system-ui, -apple-system, sans-serif;
         color: var(--ink);
-        background: white;
-        line-height: 1.6;
+        background: #f1f5f9;
+        line-height: 1.65;
         font-size: 14px;
       }
-      h1 { font-size: 1.8rem; margin-bottom: 4px; }
-      h2 { font-size: 1.2rem; margin: 32px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
-      h3 { font-size: 1.05rem; margin-bottom: 8px; }
-      h4 { font-size: 0.95rem; margin-bottom: 6px; color: var(--accent); }
+      h1 {
+        font-family: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
+        font-size: 1.9rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+        letter-spacing: -0.025em;
+      }
+      h2 {
+        font-family: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        margin: 36px 0 14px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 8px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+      h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; color: var(--primary); }
       p { margin-bottom: 8px; }
-      .muted { color: var(--muted); font-size: 0.88rem; margin-bottom: 12px; }
-      .hero { border-bottom: 2px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
-      .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
-      .meta div { border: 1px solid var(--line); background: var(--panel); padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; }
-      table { width: 100%; border-collapse: collapse; margin: 14px 0 24px; font-size: 0.9rem; }
-      th, td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; }
-      th { background: var(--accent-light); font-family: Helvetica, Arial, sans-serif; font-size: 0.82rem; letter-spacing: 0.03em; }
-      tr:nth-child(even) td { background: var(--panel); }
+      .muted { color: var(--muted); font-size: 0.85rem; margin-bottom: 12px; }
+      .hero {
+        background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 28px 32px;
+        margin-bottom: 32px;
+        box-shadow: var(--shadow-md);
+      }
+      .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }
+      .meta div {
+        border: 1px solid var(--line);
+        background: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+      }
+      .meta div strong {
+        color: var(--muted);
+        font-weight: 600;
+        display: block;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 3px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0 24px;
+        font-size: 0.875rem;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: white;
+        box-shadow: var(--shadow);
+      }
+      th, td { border-bottom: 1px solid var(--line); padding: 10px 14px; text-align: left; }
+      th {
+        background: var(--panel);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      tr:last-child td { border-bottom: none; }
+      tbody tr:hover td { background: #f8fafc; }
       .winner-row td { background: var(--yellow-bg) !important; }
+      .winner-row td:first-child { border-left: 3px solid #eab308; padding-left: 11px; }
       .delta-zero { color: var(--muted); }
-      .delta-neg { color: #b91c1c; font-weight: bold; }
+      .delta-neg { color: #dc2626; font-weight: 600; }
       .candidate-grid, .prompt-grid { display: grid; gap: 20px; }
-      .candidate { border: 1px solid var(--line); background: var(--panel); padding: 20px; border-radius: 6px; }
-      .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }
-      .stat-box { background: white; border: 1px solid var(--line); border-radius: 4px; padding: 10px 14px; text-align: center; }
-      .stat-val { display: block; font-size: 1.15rem; font-weight: bold; color: var(--accent); }
-      .stat-lbl { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 2px; font-family: Helvetica, Arial, sans-serif; }
-      table.sub-scores { margin: 0 0 14px; }
-      table.sub-scores td:first-child { color: var(--muted); font-family: Helvetica, Arial, sans-serif; font-size: 0.85rem; }
-      .patterns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-      .pattern-block { padding: 12px 14px; border-radius: 4px; font-size: 0.9rem; }
-      .strengths-block { background: var(--green-bg); border-left: 3px solid #16a34a; }
-      .weaknesses-block { background: var(--red-bg); border-left: 3px solid #dc2626; }
-      .pattern-block strong { display: block; margin-bottom: 4px; font-family: Helvetica, Arial, sans-serif; font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; }
-      .prompt { border: 1px solid var(--line); background: white; padding: 20px; border-radius: 6px; }
-      .badge { display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 0.78rem; font-family: Helvetica, Arial, sans-serif; padding: 2px 10px; border-radius: 12px; margin-bottom: 12px; }
-      .prompt-label { font-family: Helvetica, Arial, sans-serif; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
-      pre { white-space: pre-wrap; word-break: break-word; background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 12px; }
-      pre.sys-pre { background: #fffbeb; border-color: #fbbf24; }
-      .eval-notes { font-size: 0.88rem; color: var(--muted); margin-bottom: 10px; }
-      table.comparison { margin: 10px 0 18px; }
-      .response { border: 1px solid var(--line); padding: 16px; margin-top: 12px; border-radius: 4px; }
+      .candidate {
+        border: 1px solid var(--line);
+        background: white;
+        padding: 24px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+      .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+      .stat-box {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 12px 14px;
+        text-align: center;
+      }
+      .stat-val {
+        display: block;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary);
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+      }
+      .stat-lbl {
+        display: block;
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-top: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+      }
+      table.sub-scores { margin: 0 0 14px; box-shadow: none; }
+      table.sub-scores td:first-child { color: var(--muted); font-size: 0.85rem; font-weight: 500; }
+      .patterns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+      .pattern-block { padding: 14px 16px; border-radius: 6px; font-size: 0.875rem; }
+      .strengths-block { background: var(--green-bg); border-left: 3px solid #22c55e; }
+      .weaknesses-block { background: var(--red-bg); border-left: 3px solid #ef4444; }
+      .pattern-block strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .prompt {
+        border: 1px solid var(--line);
+        background: white;
+        padding: 24px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+      .badge {
+        display: inline-block;
+        background: var(--accent-light);
+        color: #0369a1;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 2px 10px;
+        border-radius: 20px;
+        margin-bottom: 12px;
+        border: 1px solid #bae6fd;
+      }
+      .prompt-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        margin-bottom: 12px;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        line-height: 1.55;
+      }
+      pre.sys-pre { background: #fffbeb; border-color: #fde68a; }
+      .eval-notes { font-size: 0.875rem; color: var(--muted); margin-bottom: 10px; }
+      table.comparison { margin: 12px 0 18px; }
+      .response {
+        border: 1px solid var(--line);
+        padding: 18px;
+        margin-top: 12px;
+        border-radius: 6px;
+        background: white;
+      }
       .response h4 { margin-bottom: 10px; }
-      p.strengths { background: var(--green-bg); padding: 8px 12px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 6px; }
-      p.weaknesses { background: var(--red-bg); padding: 8px 12px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 6px; }
-      p.feedback { font-size: 0.88rem; color: var(--muted); margin-top: 8px; }
-      .bias-notice { background: #fffbeb; border: 1px solid #fbbf24; border-left: 4px solid #f59e0b; padding: 10px 14px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 14px; }
-      .weighting-legend { background: var(--panel); border: 1px solid var(--line); padding: 10px 16px; border-radius: 4px; font-size: 0.88rem; margin-bottom: 16px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
-      .weighting-legend span { font-family: Helvetica, Arial, sans-serif; }
-      .weight-pill { background: var(--accent-light); color: var(--accent); font-weight: bold; padding: 2px 8px; border-radius: 10px; font-size: 0.82rem; }
-      .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 10px; }
-      .chart-box { border: 1px solid var(--line); background: var(--panel); padding: 16px; border-radius: 6px; }
-      .chart-box h3 { font-size: 0.95rem; margin-bottom: 10px; }
+      p.strengths { background: var(--green-bg); border-left: 3px solid #22c55e; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; margin-bottom: 6px; }
+      p.weaknesses { background: var(--red-bg); border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; margin-bottom: 6px; }
+      p.feedback { font-size: 0.875rem; color: var(--muted); margin-top: 8px; }
+      .bias-notice {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-left: 4px solid #f59e0b;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        margin-bottom: 16px;
+      }
+      .weighting-legend {
+        background: white;
+        border: 1px solid var(--line);
+        padding: 12px 18px;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        margin-bottom: 18px;
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        align-items: center;
+        box-shadow: var(--shadow);
+      }
+      .weight-pill {
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 700;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        border: 1px solid var(--primary-border);
+      }
+      .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 14px;
+      }
+      .chart-box {
+        border: 1px solid var(--line);
+        background: white;
+        padding: 20px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+      .chart-box h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
       @media print {
-        body { padding: 0; }
+        body { padding: 0; background: white; font-size: 13px; }
+        .hero { background: white; box-shadow: none; border-radius: 0; border: none; border-bottom: 2px solid var(--line); padding: 20px 0; margin-bottom: 20px; }
+        .candidate, .prompt { box-shadow: none; }
+        table { box-shadow: none; }
+        h2 { margin: 24px 0 10px; }
+        .charts-grid { grid-template-columns: 1fr; gap: 16px; }
         .prompt { page-break-inside: avoid; }
-        .prompt-grid { page-break-before: always; }
-        .charts-grid { grid-template-columns: 1fr; }
+        .candidate { page-break-inside: avoid; }
       }
     </style>
   </head>
@@ -88,10 +269,10 @@
       <h1>New juges Run Report</h1>
       <p class="muted">New juges Run</p>
       <div class="meta">
-        <div><strong>Run timestamp:</strong> 2026-04-20T14:29:21.506779+00:00</div>
-        <div><strong>Judge:</strong> Claude Opus 4.7</div>
-        <div><strong>Prompts:</strong> 8</div>
-        <div><strong>Candidates:</strong> 7</div>
+        <div><strong>Run timestamp</strong>2026-04-20T14:29:21.506779+00:00</div>
+        <div><strong>Judge</strong>Claude Opus 4.7</div>
+        <div><strong>Prompts</strong>8</div>
+        <div><strong>Candidates</strong>7</div>
       </div>
     </section>
     <p class='bias-notice'>⚠ <strong>Potential judge bias:</strong> The judge (<strong>Claude Opus 4.7</strong>) appears to share a model family with candidate(s) <strong>Claude Opus 4.7</strong>. LLMs are known to exhibit self-preference bias. Consider re-running with a different-family judge for an independent baseline.</p>
@@ -119,256 +300,31 @@
         </thead>
         <tbody><tr  class="winner-row"><td>★ <strong>gpt-5.4-mini</strong></td><td>87.81</td><td>93.16</td><td>$0.01</td><td>1913 ms</td><td><strong>85.79</strong></td><td class='delta-zero'>—</td></tr><tr><td><strong>gpt-5.4-nano</strong></td><td>83.19</td><td>88.94</td><td>$0.00</td><td>3232 ms</td><td><strong>82.74</strong></td><td class='delta-neg'>-3.05</td></tr><tr><td><strong>gpt-5.4</strong></td><td>87.62</td><td>93.50</td><td>$0.03</td><td>4282 ms</td><td><strong>82.26</strong></td><td class='delta-neg'>-3.53</td></tr><tr><td><strong>Claude Sonnet 4.6</strong></td><td>83.19</td><td>88.59</td><td>$0.07</td><td>9497 ms</td><td><strong>76.57</strong></td><td class='delta-neg'>-9.22</td></tr><tr><td><strong>OVH gpt-oss-120b</strong></td><td>88.62</td><td>93.69</td><td>$0.00</td><td>56939 ms</td><td><strong>76.51</strong></td><td class='delta-neg'>-9.28</td></tr><tr><td><strong>Claude Opus 4.7</strong></td><td>88.81</td><td>91.86</td><td>$0.29</td><td>8197 ms</td><td><strong>69.74</strong></td><td class='delta-neg'>-16.05</td></tr><tr><td><strong>SmolLM2 135M</strong></td><td>7.06</td><td>11.64</td><td>$0.00</td><td>873 ms</td><td><strong>39.24</strong></td><td class='delta-neg'>-46.55</td></tr></tbody>
       </table>
-      <h3 style="font-size:0.95rem;margin:20px 0 8px">Score by Category</h3><table class='comparison'><thead><tr><th>Category</th><th>gpt-5.4-mini</th><th>gpt-5.4-nano</th><th>gpt-5.4</th><th>Claude Sonnet 4.6</th><th>OVH gpt-oss-120b</th><th>Claude Opus 4.7</th><th>SmolLM2 135M</th></tr></thead><tbody><tr><td><strong>Coding</strong></td><td>96.0</td><td>87.0</td><td>86.5</td><td>88.5</td><td>92.0</td><td>95.0</td><td>2.0</td></tr><tr><td><strong>Reasoning</strong></td><td>76.5</td><td>67.5</td><td>70.5</td><td>78.5</td><td>75.0</td><td>75.0</td><td>4.5</td></tr><tr><td><strong>Structured Output</strong></td><td>98.5</td><td>88.0</td><td>98.5</td><td>98.0</td><td>96.5</td><td>95.0</td><td>4.0</td></tr><tr><td><strong>Summarization</strong></td><td>96.0</td><td>100.0</td><td>99.0</td><td>95.0</td><td>99.0</td><td>99.0</td><td>34.0</td></tr><tr><td><strong>Writing</strong></td><td>55.0</td><td>62.0</td><td>60.0</td><td>52.0</td><td>62.0</td><td>90.0</td><td>8.0</td></tr></tbody></table>
+      <h3 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin:20px 0 8px">Score by Category</h3><table class='comparison'><thead><tr><th>Category</th><th>gpt-5.4-mini</th><th>gpt-5.4-nano</th><th>gpt-5.4</th><th>Claude Sonnet 4.6</th><th>OVH gpt-oss-120b</th><th>Claude Opus 4.7</th><th>SmolLM2 135M</th></tr></thead><tbody><tr><td><strong>Coding</strong></td><td>96.0</td><td>87.0</td><td>86.5</td><td>88.5</td><td>92.0</td><td>95.0</td><td>2.0</td></tr><tr><td><strong>Reasoning</strong></td><td>76.5</td><td>67.5</td><td>70.5</td><td>78.5</td><td>75.0</td><td>75.0</td><td>4.5</td></tr><tr><td><strong>Structured Output</strong></td><td>98.5</td><td>88.0</td><td>98.5</td><td>98.0</td><td>96.5</td><td>95.0</td><td>4.0</td></tr><tr><td><strong>Summarization</strong></td><td>96.0</td><td>100.0</td><td>99.0</td><td>95.0</td><td>99.0</td><td>99.0</td><td>34.0</td></tr><tr><td><strong>Writing</strong></td><td>55.0</td><td>62.0</td><td>60.0</td><td>52.0</td><td>62.0</td><td>90.0</td><td>8.0</td></tr></tbody></table>
     </section>
     <section>
       <h2>Visual Analysis</h2>
       <div class="charts-grid">
         <div class="chart-box">
           <h3>Sub-Score Radar</h3>
-          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Dimension-level averages across all prompts — shows the "personality" of each model.</p>
-          <svg viewBox="0 0 500 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">
-<polygon points="185.0,152.5 215.9,175.0 204.1,211.3 165.9,211.3 154.1,175.0" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
-<text x="188.0" y="152.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">25</text>
-<polygon points="185.0,120.0 246.8,164.9 223.2,237.6 146.8,237.6 123.2,164.9" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
-<text x="188.0" y="120.0" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">50</text>
-<polygon points="185.0,87.5 277.7,154.9 242.3,263.9 127.7,263.9 92.3,154.9" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
-<text x="188.0" y="87.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">75</text>
-<polygon points="185.0,55.0 308.6,144.8 261.4,290.2 108.6,290.2 61.4,144.8" fill="none" stroke="#dbe4ee" stroke-width="1.5"/>
-<line x1="185" y1="185" x2="185.0" y2="55.0" stroke="#dbe4ee" stroke-width="1"/>
-<text x="185.0" y="35.6" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Relevance</text>
-<line x1="185" y1="185" x2="308.6" y2="144.8" stroke="#dbe4ee" stroke-width="1"/>
-<text x="330.9" y="141.6" text-anchor="start" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Accuracy</text>
-<line x1="185" y1="185" x2="261.4" y2="290.2" stroke="#dbe4ee" stroke-width="1"/>
-<text x="275.2" y="313.1" text-anchor="start" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Completeness</text>
-<line x1="185" y1="185" x2="108.6" y2="290.2" stroke="#dbe4ee" stroke-width="1"/>
-<text x="94.8" y="313.1" text-anchor="end" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Clarity</text>
-<line x1="185" y1="185" x2="61.4" y2="144.8" stroke="#dbe4ee" stroke-width="1"/>
-<text x="39.1" y="141.6" text-anchor="end" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Instr. Following</text>
-<polygon points="185.0,58.2 293.7,149.7 255.3,281.7 112.6,284.7 69.3,147.4" fill="#0f766e" fill-opacity="0.12" stroke="#0f766e" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="58.2" r="4" fill="#0f766e"/>
-<circle cx="293.7" cy="149.7" r="4" fill="#0f766e"/>
-<circle cx="255.3" cy="281.7" r="4" fill="#0f766e"/>
-<circle cx="112.6" cy="284.7" r="4" fill="#0f766e"/>
-<circle cx="69.3" cy="147.4" r="4" fill="#0f766e"/>
-<polygon points="185.0,59.9 287.9,151.6 252.9,278.5 116.6,279.1 77.6,150.1" fill="#f97316" fill-opacity="0.12" stroke="#f97316" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="59.9" r="4" fill="#f97316"/>
-<circle cx="287.9" cy="151.6" r="4" fill="#f97316"/>
-<circle cx="252.9" cy="278.5" r="4" fill="#f97316"/>
-<circle cx="116.6" cy="279.1" r="4" fill="#f97316"/>
-<circle cx="77.6" cy="150.1" r="4" fill="#f97316"/>
-<polygon points="185.0,57.8 293.0,149.9 255.8,282.5 113.1,284.0 67.0,146.7" fill="#3b82f6" fill-opacity="0.12" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="57.8" r="4" fill="#3b82f6"/>
-<circle cx="293.0" cy="149.9" r="4" fill="#3b82f6"/>
-<circle cx="255.8" cy="282.5" r="4" fill="#3b82f6"/>
-<circle cx="113.1" cy="284.0" r="4" fill="#3b82f6"/>
-<circle cx="67.0" cy="146.7" r="4" fill="#3b82f6"/>
-<polygon points="185.0,59.3 287.9,151.6 253.9,279.8 114.8,281.6 84.8,152.4" fill="#a855f7" fill-opacity="0.12" stroke="#a855f7" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="59.3" r="4" fill="#a855f7"/>
-<circle cx="287.9" cy="151.6" r="4" fill="#a855f7"/>
-<circle cx="253.9" cy="279.8" r="4" fill="#a855f7"/>
-<circle cx="114.8" cy="281.6" r="4" fill="#a855f7"/>
-<circle cx="84.8" cy="152.4" r="4" fill="#a855f7"/>
-<polygon points="185.0,57.9 295.0,149.3 255.7,282.3 112.6,284.7 68.2,147.1" fill="#0f766e" fill-opacity="0.12" stroke="#0f766e" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="57.9" r="4" fill="#0f766e"/>
-<circle cx="295.0" cy="149.3" r="4" fill="#0f766e"/>
-<circle cx="255.7" cy="282.3" r="4" fill="#0f766e"/>
-<circle cx="112.6" cy="284.7" r="4" fill="#0f766e"/>
-<circle cx="68.2" cy="147.1" r="4" fill="#0f766e"/>
-<polygon points="185.0,59.1 295.6,149.1 256.0,282.7 115.8,280.3 74.3,149.0" fill="#f97316" fill-opacity="0.12" stroke="#f97316" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="59.1" r="4" fill="#f97316"/>
-<circle cx="295.6" cy="149.1" r="4" fill="#f97316"/>
-<circle cx="256.0" cy="282.7" r="4" fill="#f97316"/>
-<circle cx="115.8" cy="280.3" r="4" fill="#f97316"/>
-<circle cx="74.3" cy="149.0" r="4" fill="#f97316"/>
-<polygon points="185.0,157.7 196.6,181.2 190.2,192.2 171.1,204.2 181.6,183.9" fill="#3b82f6" fill-opacity="0.12" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="157.7" r="4" fill="#3b82f6"/>
-<circle cx="196.6" cy="181.2" r="4" fill="#3b82f6"/>
-<circle cx="190.2" cy="192.2" r="4" fill="#3b82f6"/>
-<circle cx="171.1" cy="204.2" r="4" fill="#3b82f6"/>
-<circle cx="181.6" cy="183.9" r="4" fill="#3b82f6"/>
-<rect x="390" y="50" width="13" height="13" fill="#0f766e" fill-opacity="0.7" rx="2"/>
-<text x="407" y="60" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">gpt-5.4-mini</text>
-<rect x="390" y="76" width="13" height="13" fill="#f97316" fill-opacity="0.7" rx="2"/>
-<text x="407" y="86" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">gpt-5.4-nano</text>
-<rect x="390" y="102" width="13" height="13" fill="#3b82f6" fill-opacity="0.7" rx="2"/>
-<text x="407" y="112" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">gpt-5.4</text>
-<rect x="390" y="128" width="13" height="13" fill="#a855f7" fill-opacity="0.7" rx="2"/>
-<text x="407" y="138" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">Claude Sonnet 4.6</text>
-<rect x="390" y="154" width="13" height="13" fill="#0f766e" fill-opacity="0.7" rx="2"/>
-<text x="407" y="164" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">OVH gpt-oss-120b</text>
-<rect x="390" y="180" width="13" height="13" fill="#f97316" fill-opacity="0.7" rx="2"/>
-<text x="407" y="190" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">Claude Opus 4.7</text>
-<rect x="390" y="206" width="13" height="13" fill="#3b82f6" fill-opacity="0.7" rx="2"/>
-<text x="407" y="216" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">SmolLM2 135M</text>
-</svg>
+          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Dimension-level averages — shows the "personality" of each model.</p>
+          <div>                            <div id="0e02a58b-e2d6-4f75-80d5-79ff99d5c2fa" class="plotly-graph-div" style="height:310px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("0e02a58b-e2d6-4f75-80d5-79ff99d5c2fa")) {                    Plotly.newPlot(                        "0e02a58b-e2d6-4f75-80d5-79ff99d5c2fa",                        [{"fill":"toself","fillcolor":"rgba(59,130,246,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#3b82f6","width":2.5},"name":"gpt-5.4-mini","r":[97.5,87.94,91.94,94.81,93.62,97.5],"theta":["Relevance","Accuracy","Completeness","Clarity","Instr. Following","Relevance"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(249,115,22,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#f97316","width":2.5},"name":"gpt-5.4-nano","r":[96.25,83.19,88.88,89.5,86.88,96.25],"theta":["Relevance","Accuracy","Completeness","Clarity","Instr. Following","Relevance"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(16,185,129,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#10b981","width":2.5},"name":"gpt-5.4","r":[97.88,87.38,92.69,94.12,95.44,97.88],"theta":["Relevance","Accuracy","Completeness","Clarity","Instr. Following","Relevance"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(168,85,247,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#a855f7","width":2.5},"name":"Claude Sonnet 4.6","r":[96.69,83.19,90.12,91.88,81.06,96.69],"theta":["Relevance","Accuracy","Completeness","Clarity","Instr. Following","Relevance"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(239,68,68,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#ef4444","width":2.5},"name":"OVH gpt-oss-120b","r":[97.75,88.94,92.5,94.81,94.44,97.75],"theta":["Relevance","Accuracy","Completeness","Clarity","Instr. Following","Relevance"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(245,158,11,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#f59e0b","width":2.5},"name":"Claude Opus 4.7","r":[96.88,89.44,92.88,90.62,89.5,96.88],"theta":["Relevance","Accuracy","Completeness","Clarity","Instr. Following","Relevance"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(6,182,212,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#06b6d4","width":2.5},"name":"SmolLM2 135M","r":[21.0,9.38,6.81,18.25,2.75,21.0],"theta":["Relevance","Accuracy","Completeness","Clarity","Instr. Following","Relevance"],"type":"scatterpolar"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"polar":{"radialaxis":{"tickfont":{"size":9,"color":"#94a3b8","family":"Manrope, sans-serif"},"range":[0,100],"gridcolor":"#e2e8f0","linecolor":"#e2e8f0","tickmode":"linear","tick0":0,"dtick":25},"angularaxis":{"tickfont":{"size":10.5,"color":"#475569","family":"Manrope, sans-serif"},"gridcolor":"#e2e8f0","linecolor":"#cbd5e1"},"bgcolor":"rgba(0,0,0,0)"},"legend":{"font":{"family":"Manrope, sans-serif","size":10.5,"color":"#334155"},"bgcolor":"rgba(255,255,255,0.9)","bordercolor":"#e2e8f0","borderwidth":1,"orientation":"h","yanchor":"bottom","y":-0.22,"xanchor":"center","x":0.5},"margin":{"l":30,"r":30,"t":10,"b":55},"font":{"family":"Manrope, system-ui, sans-serif","color":"#334155"},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","height":310},                        {"responsive": true, "displayModeBar": false}                    )                };            </script>        </div>
         </div>
         <div class="chart-box">
           <h3>Efficiency Frontier — Latency vs Quality</h3>
-          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Upper-left is ideal: high quality at low latency. The Global Score may penalise a slow but accurate model — use this to judge the trade-off yourself.</p>
-          <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">
-<line x1="65" y1="30" x2="65" y2="250" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="65" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="203" y1="30" x2="203" y2="250" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="65" y1="103" x2="480" y2="103" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="342" y1="30" x2="342" y2="250" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="65" y1="177" x2="480" y2="177" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="480" y1="30" x2="480" y2="250" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="65" y1="250" x2="480" y2="250" stroke="#f1f5f9" stroke-width="1"/>
-<line x1="65" y1="30" x2="65" y2="250" stroke="#94a3b8" stroke-width="1.5"/>
-<line x1="65" y1="250" x2="480" y2="250" stroke="#94a3b8" stroke-width="1.5"/>
-<text x="272" y="292" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Latency (ms) — lower is faster →</text>
-<text x="13" y="140" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif" transform="rotate(-90,13,140)">Quality score ↑</text>
-<text x="65" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">-15947</text>
-<text x="59" y="34" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">100</text>
-<text x="203" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">13955</text>
-<text x="59" y="107" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">67</text>
-<text x="342" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">43857</text>
-<text x="59" y="181" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">33</text>
-<text x="480" y="266" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">73759</text>
-<text x="59" y="254" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">0</text>
-<circle cx="147.6" cy="56.8" r="8" fill="#0f766e" fill-opacity="0.85"/>
-<text x="147.6" y="76.8" text-anchor="middle" font-size="10" fill="#0f766e" font-weight="bold" font-family="Helvetica,Arial,sans-serif">gpt-5.4-mini</text>
-<text x="147.6" y="88.8" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">1913ms / q=87.8</text>
-<circle cx="153.7" cy="67.0" r="8" fill="#f97316" fill-opacity="0.85"/>
-<text x="153.7" y="53.0" text-anchor="middle" font-size="10" fill="#f97316" font-weight="bold" font-family="Helvetica,Arial,sans-serif">gpt-5.4-nano</text>
-<text x="153.7" y="65.0" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">3232ms / q=83.2</text>
-<circle cx="158.6" cy="57.2" r="8" fill="#3b82f6" fill-opacity="0.85"/>
-<text x="158.6" y="77.2" text-anchor="middle" font-size="10" fill="#3b82f6" font-weight="bold" font-family="Helvetica,Arial,sans-serif">gpt-5.4</text>
-<text x="158.6" y="89.2" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">4282ms / q=87.6</text>
-<circle cx="182.7" cy="67.0" r="8" fill="#a855f7" fill-opacity="0.85"/>
-<text x="182.7" y="53.0" text-anchor="middle" font-size="10" fill="#a855f7" font-weight="bold" font-family="Helvetica,Arial,sans-serif">Claude Sonnet 4.6</text>
-<text x="182.7" y="65.0" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">9497ms / q=83.2</text>
-<circle cx="402.2" cy="55.0" r="8" fill="#0f766e" fill-opacity="0.85"/>
-<text x="402.2" y="75.0" text-anchor="middle" font-size="10" fill="#0f766e" font-weight="bold" font-family="Helvetica,Arial,sans-serif">OVH gpt-oss-120b</text>
-<text x="402.2" y="87.0" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">56939ms / q=88.6</text>
-<circle cx="176.7" cy="54.6" r="8" fill="#f97316" fill-opacity="0.85"/>
-<text x="176.7" y="74.6" text-anchor="middle" font-size="10" fill="#f97316" font-weight="bold" font-family="Helvetica,Arial,sans-serif">Claude Opus 4.7</text>
-<text x="176.7" y="86.6" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">8197ms / q=88.8</text>
-<circle cx="142.8" cy="234.5" r="8" fill="#3b82f6" fill-opacity="0.85"/>
-<text x="142.8" y="220.5" text-anchor="middle" font-size="10" fill="#3b82f6" font-weight="bold" font-family="Helvetica,Arial,sans-serif">SmolLM2 135M</text>
-<text x="142.8" y="232.5" text-anchor="middle" font-size="9" fill="#64748b" font-family="Helvetica,Arial,sans-serif">873ms / q=7.1</text>
-</svg>
+          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Upper-left is ideal: high quality at low latency.</p>
+          <div>                            <div id="18cd84ab-7e36-48ca-95d6-56e16f9bff49" class="plotly-graph-div" style="height:370px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("18cd84ab-7e36-48ca-95d6-56e16f9bff49")) {                    Plotly.newPlot(                        "18cd84ab-7e36-48ca-95d6-56e16f9bff49",                        [{"hovertemplate":"\u003cb\u003e%{fullData.name}\u003c\u002fb\u003e\u003cbr\u003eLatency: %{x:.0f} ms\u003cbr\u003eQuality: %{y:.1f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#3b82f6","line":{"color":"white","width":2.5},"opacity":0.92,"size":18},"mode":"markers","name":"gpt-5.4-mini","x":[1913],"y":[87.81],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{fullData.name}\u003c\u002fb\u003e\u003cbr\u003eLatency: %{x:.0f} ms\u003cbr\u003eQuality: %{y:.1f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#f97316","line":{"color":"white","width":2.5},"opacity":0.92,"size":18},"mode":"markers","name":"gpt-5.4-nano","x":[3232],"y":[83.19],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{fullData.name}\u003c\u002fb\u003e\u003cbr\u003eLatency: %{x:.0f} ms\u003cbr\u003eQuality: %{y:.1f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#10b981","line":{"color":"white","width":2.5},"opacity":0.92,"size":18},"mode":"markers","name":"gpt-5.4","x":[4282],"y":[87.62],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{fullData.name}\u003c\u002fb\u003e\u003cbr\u003eLatency: %{x:.0f} ms\u003cbr\u003eQuality: %{y:.1f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#a855f7","line":{"color":"white","width":2.5},"opacity":0.92,"size":18},"mode":"markers","name":"Claude Sonnet 4.6","x":[9497],"y":[83.19],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{fullData.name}\u003c\u002fb\u003e\u003cbr\u003eLatency: %{x:.0f} ms\u003cbr\u003eQuality: %{y:.1f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#ef4444","line":{"color":"white","width":2.5},"opacity":0.92,"size":18},"mode":"markers","name":"OVH gpt-oss-120b","x":[56939],"y":[88.62],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{fullData.name}\u003c\u002fb\u003e\u003cbr\u003eLatency: %{x:.0f} ms\u003cbr\u003eQuality: %{y:.1f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#f59e0b","line":{"color":"white","width":2.5},"opacity":0.92,"size":18},"mode":"markers","name":"Claude Opus 4.7","x":[8197],"y":[88.81],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{fullData.name}\u003c\u002fb\u003e\u003cbr\u003eLatency: %{x:.0f} ms\u003cbr\u003eQuality: %{y:.1f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#06b6d4","line":{"color":"white","width":2.5},"opacity":0.92,"size":18},"mode":"markers","name":"SmolLM2 135M","x":[873],"y":[7.06],"type":"scatter"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"xaxis":{"title":{"font":{"size":11,"family":"Manrope, sans-serif","color":"#64748b"},"text":"Latency (ms) \u2014 lower is faster \u2192"},"tickfont":{"size":9.5,"color":"#94a3b8","family":"Manrope, sans-serif"},"gridcolor":"#f1f5f9","linecolor":"#e2e8f0","zeroline":false},"yaxis":{"title":{"font":{"size":11,"family":"Manrope, sans-serif","color":"#64748b"},"text":"Quality score \u2191"},"tickfont":{"size":9.5,"color":"#94a3b8","family":"Manrope, sans-serif"},"gridcolor":"#f1f5f9","linecolor":"#e2e8f0","zeroline":false,"range":[0,100]},"legend":{"font":{"family":"Manrope, sans-serif","size":10.5,"color":"#334155"},"bgcolor":"rgba(255,255,255,0.9)","bordercolor":"#e2e8f0","borderwidth":1,"orientation":"h","yanchor":"bottom","y":-0.3,"xanchor":"center","x":0.5},"margin":{"l":55,"r":20,"t":20,"b":80},"font":{"family":"Manrope, system-ui, sans-serif","color":"#334155"},"annotations":[{"align":"left","arrowcolor":"#3b82f6","arrowhead":2,"arrowsize":0.8,"arrowwidth":1.4,"ax":-53.41103805760859,"ay":-31.0262869961297,"bgcolor":"rgba(255,255,255,0.94)","bordercolor":"#3b82f6","borderpad":5,"borderwidth":1.5,"font":{"color":"#1e293b","family":"Manrope, sans-serif","size":10},"showarrow":true,"text":"\u003cb\u003egpt-5.4-mini\u003c\u002fb\u003e\u003cbr\u003e\u003cspan style='color:#64748b;font-size:9px'\u003e1,913 ms &nbsp;\u00b7&nbsp; q=87.8\u003c\u002fspan\u003e","x":1913,"xref":"x","y":87.81,"yref":"y"},{"align":"left","arrowcolor":"#f97316","arrowhead":2,"arrowsize":0.8,"arrowwidth":1.4,"ax":-59.58078234379367,"ay":-25.195968193403157,"bgcolor":"rgba(255,255,255,0.94)","bordercolor":"#f97316","borderpad":5,"borderwidth":1.5,"font":{"color":"#1e293b","family":"Manrope, sans-serif","size":10},"showarrow":true,"text":"\u003cb\u003egpt-5.4-nano\u003c\u002fb\u003e\u003cbr\u003e\u003cspan style='color:#64748b;font-size:9px'\u003e3,232 ms &nbsp;\u00b7&nbsp; q=83.2\u003c\u002fspan\u003e","x":3232,"xref":"x","y":83.19,"yref":"y"},{"align":"left","arrowcolor":"#10b981","arrowhead":2,"arrowsize":0.8,"arrowwidth":1.4,"ax":-47.4128854264976,"ay":-35.312743126589154,"bgcolor":"rgba(255,255,255,0.94)","bordercolor":"#10b981","borderpad":5,"borderwidth":1.5,"font":{"color":"#1e293b","family":"Manrope, sans-serif","size":10},"showarrow":true,"text":"\u003cb\u003egpt-5.4\u003c\u002fb\u003e\u003cbr\u003e\u003cspan style='color:#64748b;font-size:9px'\u003e4,282 ms &nbsp;\u00b7&nbsp; q=87.6\u003c\u002fspan\u003e","x":4282,"xref":"x","y":87.62,"yref":"y"},{"align":"left","arrowcolor":"#a855f7","arrowhead":2,"arrowsize":0.8,"arrowwidth":1.4,"ax":-30.303468429180217,"ay":-43.269059365118444,"bgcolor":"rgba(255,255,255,0.94)","bordercolor":"#a855f7","borderpad":5,"borderwidth":1.5,"font":{"color":"#1e293b","family":"Manrope, sans-serif","size":10},"showarrow":true,"text":"\u003cb\u003eClaude Sonnet 4.6\u003c\u002fb\u003e\u003cbr\u003e\u003cspan style='color:#64748b;font-size:9px'\u003e9,497 ms &nbsp;\u00b7&nbsp; q=83.2\u003c\u002fspan\u003e","x":9497,"xref":"x","y":83.19,"yref":"y"},{"align":"left","arrowcolor":"#ef4444","arrowhead":2,"arrowsize":0.8,"arrowwidth":1.4,"ax":68.56536677477385,"ay":-28.0,"bgcolor":"rgba(255,255,255,0.94)","bordercolor":"#ef4444","borderpad":5,"borderwidth":1.5,"font":{"color":"#1e293b","family":"Manrope, sans-serif","size":10},"showarrow":true,"text":"\u003cb\u003eOVH gpt-oss-120b\u003c\u002fb\u003e\u003cbr\u003e\u003cspan style='color:#64748b;font-size:9px'\u003e56,939 ms &nbsp;\u00b7&nbsp; q=88.6\u003c\u002fspan\u003e","x":56939,"xref":"x","y":88.62,"yref":"y"},{"align":"left","arrowcolor":"#f59e0b","arrowhead":2,"arrowsize":0.8,"arrowwidth":1.4,"ax":-27.175928290554015,"ay":-44.23505027123488,"bgcolor":"rgba(255,255,255,0.94)","bordercolor":"#f59e0b","borderpad":5,"borderwidth":1.5,"font":{"color":"#1e293b","family":"Manrope, sans-serif","size":10},"showarrow":true,"text":"\u003cb\u003eClaude Opus 4.7\u003c\u002fb\u003e\u003cbr\u003e\u003cspan style='color:#64748b;font-size:9px'\u003e8,197 ms &nbsp;\u00b7&nbsp; q=88.8\u003c\u002fspan\u003e","x":8197,"xref":"x","y":88.81,"yref":"y"},{"align":"left","arrowcolor":"#06b6d4","arrowhead":2,"arrowsize":0.8,"arrowwidth":1.4,"ax":-18.0,"ay":46.66392427488781,"bgcolor":"rgba(255,255,255,0.94)","bordercolor":"#06b6d4","borderpad":5,"borderwidth":1.5,"font":{"color":"#1e293b","family":"Manrope, sans-serif","size":10},"showarrow":true,"text":"\u003cb\u003eSmolLM2 135M\u003c\u002fb\u003e\u003cbr\u003e\u003cspan style='color:#64748b;font-size:9px'\u003e873 ms &nbsp;\u00b7&nbsp; q=7.1\u003c\u002fspan\u003e","x":873,"xref":"x","y":7.06,"yref":"y"}],"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(248,250,252,0.6)","showlegend":true,"height":370},                        {"responsive": true, "displayModeBar": false}                    )                };            </script>        </div>
         </div>
         <div class="chart-box">
           <h3>Category Efficiency Radar</h3>
-          <p class="muted" style="font-size:0.82rem;margin-bottom:8px">Average judge score per prompt category. Shows where each model excels or struggles by task type.</p>
-          <svg viewBox="0 0 500 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block">
-<polygon points="185.0,152.5 215.9,175.0 204.1,211.3 165.9,211.3 154.1,175.0" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
-<text x="188.0" y="152.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">25</text>
-<polygon points="185.0,120.0 246.8,164.9 223.2,237.6 146.8,237.6 123.2,164.9" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
-<text x="188.0" y="120.0" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">50</text>
-<polygon points="185.0,87.5 277.7,154.9 242.3,263.9 127.7,263.9 92.3,154.9" fill="none" stroke="#dbe4ee" stroke-width="0.8"/>
-<text x="188.0" y="87.5" font-size="8" fill="#94a3b8" font-family="Helvetica,Arial,sans-serif">75</text>
-<polygon points="185.0,55.0 308.6,144.8 261.4,290.2 108.6,290.2 61.4,144.8" fill="none" stroke="#dbe4ee" stroke-width="1.5"/>
-<line x1="185" y1="185" x2="185.0" y2="55.0" stroke="#dbe4ee" stroke-width="1"/>
-<text x="185.0" y="35.6" text-anchor="middle" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Coding</text>
-<line x1="185" y1="185" x2="308.6" y2="144.8" stroke="#dbe4ee" stroke-width="1"/>
-<text x="330.9" y="141.6" text-anchor="start" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Reasoning</text>
-<line x1="185" y1="185" x2="261.4" y2="290.2" stroke="#dbe4ee" stroke-width="1"/>
-<text x="275.2" y="313.1" text-anchor="start" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Structured Output</text>
-<line x1="185" y1="185" x2="108.6" y2="290.2" stroke="#dbe4ee" stroke-width="1"/>
-<text x="94.8" y="313.1" text-anchor="end" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Summarization</text>
-<line x1="185" y1="185" x2="61.4" y2="144.8" stroke="#dbe4ee" stroke-width="1"/>
-<text x="39.1" y="141.6" text-anchor="end" font-size="11" fill="#475569" font-family="Helvetica,Arial,sans-serif">Writing</text>
-<polygon points="185.0,60.2 279.6,154.3 260.3,288.6 111.6,286.0 117.0,162.9" fill="#0f766e" fill-opacity="0.12" stroke="#0f766e" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="60.2" r="4" fill="#0f766e"/>
-<text x="190.0" y="64.2" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">96</text>
-<circle cx="279.6" cy="154.3" r="4" fill="#0f766e"/>
-<text x="284.6" y="158.3" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">76</text>
-<circle cx="260.3" cy="288.6" r="4" fill="#0f766e"/>
-<text x="265.3" y="292.6" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">98</text>
-<circle cx="111.6" cy="286.0" r="4" fill="#0f766e"/>
-<text x="116.6" y="290.0" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">96</text>
-<circle cx="117.0" cy="162.9" r="4" fill="#0f766e"/>
-<text x="122.0" y="166.9" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">55</text>
-<polygon points="185.0,71.9 268.5,157.9 252.2,277.6 108.6,290.2 108.3,160.1" fill="#f97316" fill-opacity="0.12" stroke="#f97316" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="71.9" r="4" fill="#f97316"/>
-<text x="190.0" y="75.9" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">87</text>
-<circle cx="268.5" cy="157.9" r="4" fill="#f97316"/>
-<text x="273.5" y="161.9" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">68</text>
-<circle cx="252.2" cy="277.6" r="4" fill="#f97316"/>
-<text x="257.2" y="281.6" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">88</text>
-<circle cx="108.6" cy="290.2" r="4" fill="#f97316"/>
-<text x="113.6" y="294.2" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">100</text>
-<circle cx="108.3" cy="160.1" r="4" fill="#f97316"/>
-<text x="113.3" y="164.1" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">62</text>
-<polygon points="185.0,72.5 272.2,156.7 260.3,288.6 109.4,289.1 110.8,160.9" fill="#3b82f6" fill-opacity="0.12" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="72.5" r="4" fill="#3b82f6"/>
-<text x="190.0" y="76.5" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">86</text>
-<circle cx="272.2" cy="156.7" r="4" fill="#3b82f6"/>
-<text x="277.2" y="160.7" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">70</text>
-<circle cx="260.3" cy="288.6" r="4" fill="#3b82f6"/>
-<text x="265.3" y="292.6" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">98</text>
-<circle cx="109.4" cy="289.1" r="4" fill="#3b82f6"/>
-<text x="114.4" y="293.1" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">99</text>
-<circle cx="110.8" cy="160.9" r="4" fill="#3b82f6"/>
-<text x="115.8" y="164.9" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">60</text>
-<polygon points="185.0,70.0 282.1,153.5 259.9,288.1 112.4,284.9 120.7,164.1" fill="#a855f7" fill-opacity="0.12" stroke="#a855f7" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="70.0" r="4" fill="#a855f7"/>
-<text x="190.0" y="74.0" font-size="9" fill="#a855f7" font-family="Helvetica,Arial,sans-serif">88</text>
-<circle cx="282.1" cy="153.5" r="4" fill="#a855f7"/>
-<text x="287.1" y="157.5" font-size="9" fill="#a855f7" font-family="Helvetica,Arial,sans-serif">78</text>
-<circle cx="259.9" cy="288.1" r="4" fill="#a855f7"/>
-<text x="264.9" y="292.1" font-size="9" fill="#a855f7" font-family="Helvetica,Arial,sans-serif">98</text>
-<circle cx="112.4" cy="284.9" r="4" fill="#a855f7"/>
-<text x="117.4" y="288.9" font-size="9" fill="#a855f7" font-family="Helvetica,Arial,sans-serif">95</text>
-<circle cx="120.7" cy="164.1" r="4" fill="#a855f7"/>
-<text x="125.7" y="168.1" font-size="9" fill="#a855f7" font-family="Helvetica,Arial,sans-serif">52</text>
-<polygon points="185.0,65.4 277.7,154.9 258.7,286.5 109.4,289.1 108.3,160.1" fill="#0f766e" fill-opacity="0.12" stroke="#0f766e" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="65.4" r="4" fill="#0f766e"/>
-<text x="190.0" y="69.4" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">92</text>
-<circle cx="277.7" cy="154.9" r="4" fill="#0f766e"/>
-<text x="282.7" y="158.9" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">75</text>
-<circle cx="258.7" cy="286.5" r="4" fill="#0f766e"/>
-<text x="263.7" y="290.5" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">96</text>
-<circle cx="109.4" cy="289.1" r="4" fill="#0f766e"/>
-<text x="114.4" y="293.1" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">99</text>
-<circle cx="108.3" cy="160.1" r="4" fill="#0f766e"/>
-<text x="113.3" y="164.1" font-size="9" fill="#0f766e" font-family="Helvetica,Arial,sans-serif">62</text>
-<polygon points="185.0,61.5 277.7,154.9 257.6,284.9 109.4,289.1 73.7,148.8" fill="#f97316" fill-opacity="0.12" stroke="#f97316" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="61.5" r="4" fill="#f97316"/>
-<text x="190.0" y="65.5" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">95</text>
-<circle cx="277.7" cy="154.9" r="4" fill="#f97316"/>
-<text x="282.7" y="158.9" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">75</text>
-<circle cx="257.6" cy="284.9" r="4" fill="#f97316"/>
-<text x="262.6" y="288.9" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">95</text>
-<circle cx="109.4" cy="289.1" r="4" fill="#f97316"/>
-<text x="114.4" y="293.1" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">99</text>
-<circle cx="73.7" cy="148.8" r="4" fill="#f97316"/>
-<text x="78.7" y="152.8" font-size="9" fill="#f97316" font-family="Helvetica,Arial,sans-serif">90</text>
-<polygon points="185.0,182.4 190.6,183.2 188.1,189.2 159.0,220.8 175.1,181.8" fill="#3b82f6" fill-opacity="0.12" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="185.0" cy="182.4" r="4" fill="#3b82f6"/>
-<text x="190.0" y="186.4" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">2</text>
-<circle cx="190.6" cy="183.2" r="4" fill="#3b82f6"/>
-<text x="195.6" y="187.2" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">4</text>
-<circle cx="188.1" cy="189.2" r="4" fill="#3b82f6"/>
-<text x="193.1" y="193.2" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">4</text>
-<circle cx="159.0" cy="220.8" r="4" fill="#3b82f6"/>
-<text x="164.0" y="224.8" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">34</text>
-<circle cx="175.1" cy="181.8" r="4" fill="#3b82f6"/>
-<text x="180.1" y="185.8" font-size="9" fill="#3b82f6" font-family="Helvetica,Arial,sans-serif">8</text>
-<rect x="390" y="50" width="13" height="13" fill="#0f766e" fill-opacity="0.7" rx="2"/>
-<text x="407" y="60" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">gpt-5.4-mini</text>
-<rect x="390" y="76" width="13" height="13" fill="#f97316" fill-opacity="0.7" rx="2"/>
-<text x="407" y="86" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">gpt-5.4-nano</text>
-<rect x="390" y="102" width="13" height="13" fill="#3b82f6" fill-opacity="0.7" rx="2"/>
-<text x="407" y="112" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">gpt-5.4</text>
-<rect x="390" y="128" width="13" height="13" fill="#a855f7" fill-opacity="0.7" rx="2"/>
-<text x="407" y="138" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">Claude Sonnet 4.6</text>
-<rect x="390" y="154" width="13" height="13" fill="#0f766e" fill-opacity="0.7" rx="2"/>
-<text x="407" y="164" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">OVH gpt-oss-120b</text>
-<rect x="390" y="180" width="13" height="13" fill="#f97316" fill-opacity="0.7" rx="2"/>
-<text x="407" y="190" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">Claude Opus 4.7</text>
-<rect x="390" y="206" width="13" height="13" fill="#3b82f6" fill-opacity="0.7" rx="2"/>
-<text x="407" y="216" font-size="11" fill="#0f172a" font-family="Helvetica,Arial,sans-serif">SmolLM2 135M</text>
-</svg>
+          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Average judge score per prompt category.</p>
+          <div>                            <div id="4016e080-5ba2-4ec8-af6c-71d8eb25d5e1" class="plotly-graph-div" style="height:310px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("4016e080-5ba2-4ec8-af6c-71d8eb25d5e1")) {                    Plotly.newPlot(                        "4016e080-5ba2-4ec8-af6c-71d8eb25d5e1",                        [{"fill":"toself","fillcolor":"rgba(59,130,246,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#3b82f6","width":2.5},"name":"gpt-5.4-mini","r":[96.0,76.5,98.5,96.0,55.0,96.0],"theta":["Coding","Reasoning","Structured Output","Summarization","Writing","Coding"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(249,115,22,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#f97316","width":2.5},"name":"gpt-5.4-nano","r":[87.0,67.5,88.0,100.0,62.0,87.0],"theta":["Coding","Reasoning","Structured Output","Summarization","Writing","Coding"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(16,185,129,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#10b981","width":2.5},"name":"gpt-5.4","r":[86.5,70.5,98.5,99.0,60.0,86.5],"theta":["Coding","Reasoning","Structured Output","Summarization","Writing","Coding"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(168,85,247,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#a855f7","width":2.5},"name":"Claude Sonnet 4.6","r":[88.5,78.5,98.0,95.0,52.0,88.5],"theta":["Coding","Reasoning","Structured Output","Summarization","Writing","Coding"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(239,68,68,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#ef4444","width":2.5},"name":"OVH gpt-oss-120b","r":[92.0,75.0,96.5,99.0,62.0,92.0],"theta":["Coding","Reasoning","Structured Output","Summarization","Writing","Coding"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(245,158,11,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#f59e0b","width":2.5},"name":"Claude Opus 4.7","r":[95.0,75.0,95.0,99.0,90.0,95.0],"theta":["Coding","Reasoning","Structured Output","Summarization","Writing","Coding"],"type":"scatterpolar"},{"fill":"toself","fillcolor":"rgba(6,182,212,0.12)","hovertemplate":"\u003cb\u003e%{theta}\u003c\u002fb\u003e\u003cbr\u003eScore: %{r:.1f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"color":"#06b6d4","width":2.5},"name":"SmolLM2 135M","r":[2.0,4.5,4.0,34.0,8.0,2.0],"theta":["Coding","Reasoning","Structured Output","Summarization","Writing","Coding"],"type":"scatterpolar"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"polar":{"radialaxis":{"tickfont":{"size":9,"color":"#94a3b8","family":"Manrope, sans-serif"},"range":[0,100],"gridcolor":"#e2e8f0","linecolor":"#e2e8f0","tickmode":"linear","tick0":0,"dtick":25},"angularaxis":{"tickfont":{"size":10.5,"color":"#475569","family":"Manrope, sans-serif"},"gridcolor":"#e2e8f0","linecolor":"#cbd5e1"},"bgcolor":"rgba(0,0,0,0)"},"legend":{"font":{"family":"Manrope, sans-serif","size":10.5,"color":"#334155"},"bgcolor":"rgba(255,255,255,0.9)","bordercolor":"#e2e8f0","borderwidth":1,"orientation":"h","yanchor":"bottom","y":-0.22,"xanchor":"center","x":0.5},"margin":{"l":30,"r":30,"t":10,"b":55},"font":{"family":"Manrope, system-ui, sans-serif","color":"#334155"},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","height":310},                        {"responsive": true, "displayModeBar": false}                    )                };            </script>        </div>
         </div>
       </div>
     </section>
     <section>
       <h2>Candidate Sections</h2>
-      <div class="candidate-grid"><section class='candidate'><h3>gpt-5.4-mini</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>85.79</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>1913 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>98.62 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>$0.01</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>97.50</td></tr><tr><td>Accuracy</td><td>87.94</td></tr><tr><td>Completeness</td><td>91.94</td></tr><tr><td>Clarity</td><td>94.81</td></tr><tr><td>Instruction Following</td><td>93.62</td></tr></tbody></table><p>Average overall score 87.81 across 8 prompts with mean latency 1913 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Exact label order preserved; Narrow exception conditions fully retained (incident declared, IC approval, same-day documentation); Clear differentiation between negligence and intentional/concealed consequences</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Minor paraphrase tightening could be even more concise; Uses bold formatting not explicitly requested but not prohibited; Does not validate that capacity is positive, though the prompt states it as a precondition rather than requiring defensive handling.</p></div></div></section><section class='candidate'><h3>gpt-5.4-nano</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>82.74</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>3232 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>72.76 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>$0.00</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>96.25</td></tr><tr><td>Accuracy</td><td>83.19</td></tr><tr><td>Completeness</td><td>88.88</td></tr><tr><td>Clarity</td><td>89.50</td></tr><tr><td>Instruction Following</td><td>86.88</td></tr></tbody></table><p>Average overall score 83.19 across 8 prompts with mean latency 3232 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correctly includes only C1, C4, C6; Proper owner normalization including &#x27;both&#x27; for C4; Captures exceptions in excluded_if</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>applies_if for C1 and C6 misuses the field by repeating the deadline instead of a true condition; should likely be null or a real triggering condition (e.g., &#x27;after written onboarding notice&#x27; for C6); Action for C1 could have stripped the deadline phrasing for consistency</p></div></div></section><section class='candidate'><h3>gpt-5.4</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>82.26</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>4282 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>50.71 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>$0.03</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>97.88</td></tr><tr><td>Accuracy</td><td>87.38</td></tr><tr><td>Completeness</td><td>92.69</td></tr><tr><td>Clarity</td><td>94.12</td></tr><tr><td>Instruction Following</td><td>95.44</td></tr></tbody></table><p>Average overall score 87.62 across 8 prompts with mean latency 4282 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correct hashmap + doubly linked list design with sentinel head/tail; Proper recency update on both get and put (including updates); Update path modifies value without growing size</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Constructor does not validate capacity is positive (minor, not required); No type hints on class-level or docstrings (minor stylistic); Window interpretation [t-9, t] (10 integer seconds inclusive) is a reasonable but debatable choice</p></div></div></section><section class='candidate'><h3>Claude Sonnet 4.6</h3><p class='muted'>anthropic / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>76.57</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>9497 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>51.52 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>$0.07</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>96.69</td></tr><tr><td>Accuracy</td><td>83.19</td></tr><tr><td>Completeness</td><td>90.12</td></tr><tr><td>Clarity</td><td>91.88</td></tr><tr><td>Instruction Following</td><td>81.06</td></tr></tbody></table><p>Average overall score 83.19 across 8 prompts with mean latency 9497 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Exact label order preserved; Narrow exception conditions (incident commander approval + same-day documentation) retained; Differentiates negligence vs intentional/concealed consequences</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Uses &#x27;credential sharing&#x27; in Exception while Prohibited says &#x27;sharing credentials&#x27;—minor paraphrase, but the source specifies &#x27;password sharing&#x27; for the exception, a slight loss of precision; Minor: explanation is slightly long but stays within 4 sentences; Type hints assume int keys though implementation works generally</p></div></div></section><section class='candidate'><h3>OVH gpt-oss-120b</h3><p class='muted'>ovhcloud / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>76.51</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>56939 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>14.53 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>$0.00</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>97.75</td></tr><tr><td>Accuracy</td><td>88.94</td></tr><tr><td>Completeness</td><td>92.50</td></tr><tr><td>Clarity</td><td>94.81</td></tr><tr><td>Instruction Following</td><td>94.44</td></tr></tbody></table><p>Average overall score 88.62 across 8 prompts with mean latency 56939 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correctly included only C1, C4, C6; Proper owner normalization including &#x27;both&#x27; for C4; Accurately extracted deadlines (3 and 5) and exceptions</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>applies_if for C1 (&#x27;security incident occurs&#x27;) is somewhat tautological and could arguably be null; applies_if for C6 could be framed as a trigger condition more precisely, though phrasing is acceptable; Uses type annotations referencing LRUCache._Node inside the class body, which can be slightly version-sensitive stylistically, though not a semantic flaw in the algorithm.</p></div></div></section><section class='candidate'><h3>Claude Opus 4.7</h3><p class='muted'>anthropic / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>69.74</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>8197 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>48.42 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>$0.29</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>96.88</td></tr><tr><td>Accuracy</td><td>89.44</td></tr><tr><td>Completeness</td><td>92.88</td></tr><tr><td>Clarity</td><td>90.62</td></tr><tr><td>Instruction Following</td><td>89.50</td></tr></tbody></table><p>Average overall score 88.81 across 8 prompts with mean latency 8197 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correctly included only C1, C4, C6; Proper owner normalization including &#x27;both&#x27; for C4; Accurately extracted deadlines (3 and 5) and exceptions</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>&#x27;applies_if&#x27; for C4 (&#x27;during the Term&#x27;) is more of a temporal scope than a trigger condition; &#x27;applies_if&#x27; for C1 restates the deadline trigger rather than a distinct precondition; Minor: could note that get on missing key does not affect recency (implicit but fine)</p></div></div></section><section class='candidate'><h3>SmolLM2 135M</h3><p class='muted'>lmstudio / local</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>39.24</span><span class='stat-lbl'>global score</span></div><div class='stat-box'><span class='stat-val'>873 ms</span><span class='stat-lbl'>avg latency</span></div><div class='stat-box'><span class='stat-val'>312.80 tok/s</span><span class='stat-lbl'>throughput</span></div><div class='stat-box'><span class='stat-val'>$0.00</span><span class='stat-lbl'>total cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg score</th></tr></thead><tbody><tr><td>Relevance</td><td>21.00</td></tr><tr><td>Accuracy</td><td>9.38</td></tr><tr><td>Completeness</td><td>6.81</td></tr><tr><td>Clarity</td><td>18.25</td></tr><tr><td>Instruction Following</td><td>2.75</td></tr></tbody></table><p>Average overall score 7.06 across 8 prompts with mean latency 873 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Attempts an apology; Addresses the customer; Attempts to provide a Python class with get and put methods.</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Syntax error: &#x27;classLRUCache&#x27; is not valid Python; Constructor ignores capacity parameter and hardcodes 100; No self.cache initialization - will raise AttributeError</p></div></div></section></div>
+      <div class="candidate-grid"><section class='candidate'><h3>gpt-5.4-mini</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>85.79</span><span class='stat-lbl'>Global Score</span></div><div class='stat-box'><span class='stat-val'>1913 ms</span><span class='stat-lbl'>Avg Latency</span></div><div class='stat-box'><span class='stat-val'>98.62 tok/s</span><span class='stat-lbl'>Throughput</span></div><div class='stat-box'><span class='stat-val'>$0.01</span><span class='stat-lbl'>Total Cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead><tbody><tr><td>Relevance</td><td>97.50</td></tr><tr><td>Accuracy</td><td>87.94</td></tr><tr><td>Completeness</td><td>91.94</td></tr><tr><td>Clarity</td><td>94.81</td></tr><tr><td>Instruction Following</td><td>93.62</td></tr></tbody></table><p>Average overall score 87.81 across 8 prompts with mean latency 1913 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Exact label order preserved; Narrow exception conditions fully retained (incident declared, IC approval, same-day documentation); Clear differentiation between negligence and intentional/concealed consequences</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Minor paraphrase tightening could be even more concise; Uses bold formatting not explicitly requested but not prohibited; Does not validate that capacity is positive, though the prompt states it as a precondition rather than requiring defensive handling.</p></div></div></section><section class='candidate'><h3>gpt-5.4-nano</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>82.74</span><span class='stat-lbl'>Global Score</span></div><div class='stat-box'><span class='stat-val'>3232 ms</span><span class='stat-lbl'>Avg Latency</span></div><div class='stat-box'><span class='stat-val'>72.76 tok/s</span><span class='stat-lbl'>Throughput</span></div><div class='stat-box'><span class='stat-val'>$0.00</span><span class='stat-lbl'>Total Cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead><tbody><tr><td>Relevance</td><td>96.25</td></tr><tr><td>Accuracy</td><td>83.19</td></tr><tr><td>Completeness</td><td>88.88</td></tr><tr><td>Clarity</td><td>89.50</td></tr><tr><td>Instruction Following</td><td>86.88</td></tr></tbody></table><p>Average overall score 83.19 across 8 prompts with mean latency 3232 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correctly includes only C1, C4, C6; Proper owner normalization including &#x27;both&#x27; for C4; Captures exceptions in excluded_if</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>applies_if for C1 and C6 misuses the field by repeating the deadline instead of a true condition; should likely be null or a real triggering condition (e.g., &#x27;after written onboarding notice&#x27; for C6); Action for C1 could have stripped the deadline phrasing for consistency</p></div></div></section><section class='candidate'><h3>gpt-5.4</h3><p class='muted'>openai / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>82.26</span><span class='stat-lbl'>Global Score</span></div><div class='stat-box'><span class='stat-val'>4282 ms</span><span class='stat-lbl'>Avg Latency</span></div><div class='stat-box'><span class='stat-val'>50.71 tok/s</span><span class='stat-lbl'>Throughput</span></div><div class='stat-box'><span class='stat-val'>$0.03</span><span class='stat-lbl'>Total Cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead><tbody><tr><td>Relevance</td><td>97.88</td></tr><tr><td>Accuracy</td><td>87.38</td></tr><tr><td>Completeness</td><td>92.69</td></tr><tr><td>Clarity</td><td>94.12</td></tr><tr><td>Instruction Following</td><td>95.44</td></tr></tbody></table><p>Average overall score 87.62 across 8 prompts with mean latency 4282 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correct hashmap + doubly linked list design with sentinel head/tail; Proper recency update on both get and put (including updates); Update path modifies value without growing size</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Constructor does not validate capacity is positive (minor, not required); No type hints on class-level or docstrings (minor stylistic); Window interpretation [t-9, t] (10 integer seconds inclusive) is a reasonable but debatable choice</p></div></div></section><section class='candidate'><h3>Claude Sonnet 4.6</h3><p class='muted'>anthropic / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>76.57</span><span class='stat-lbl'>Global Score</span></div><div class='stat-box'><span class='stat-val'>9497 ms</span><span class='stat-lbl'>Avg Latency</span></div><div class='stat-box'><span class='stat-val'>51.52 tok/s</span><span class='stat-lbl'>Throughput</span></div><div class='stat-box'><span class='stat-val'>$0.07</span><span class='stat-lbl'>Total Cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead><tbody><tr><td>Relevance</td><td>96.69</td></tr><tr><td>Accuracy</td><td>83.19</td></tr><tr><td>Completeness</td><td>90.12</td></tr><tr><td>Clarity</td><td>91.88</td></tr><tr><td>Instruction Following</td><td>81.06</td></tr></tbody></table><p>Average overall score 83.19 across 8 prompts with mean latency 9497 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Exact label order preserved; Narrow exception conditions (incident commander approval + same-day documentation) retained; Differentiates negligence vs intentional/concealed consequences</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Uses &#x27;credential sharing&#x27; in Exception while Prohibited says &#x27;sharing credentials&#x27;—minor paraphrase, but the source specifies &#x27;password sharing&#x27; for the exception, a slight loss of precision; Minor: explanation is slightly long but stays within 4 sentences; Type hints assume int keys though implementation works generally</p></div></div></section><section class='candidate'><h3>OVH gpt-oss-120b</h3><p class='muted'>ovhcloud / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>76.51</span><span class='stat-lbl'>Global Score</span></div><div class='stat-box'><span class='stat-val'>56939 ms</span><span class='stat-lbl'>Avg Latency</span></div><div class='stat-box'><span class='stat-val'>14.53 tok/s</span><span class='stat-lbl'>Throughput</span></div><div class='stat-box'><span class='stat-val'>$0.00</span><span class='stat-lbl'>Total Cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead><tbody><tr><td>Relevance</td><td>97.75</td></tr><tr><td>Accuracy</td><td>88.94</td></tr><tr><td>Completeness</td><td>92.50</td></tr><tr><td>Clarity</td><td>94.81</td></tr><tr><td>Instruction Following</td><td>94.44</td></tr></tbody></table><p>Average overall score 88.62 across 8 prompts with mean latency 56939 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correctly included only C1, C4, C6; Proper owner normalization including &#x27;both&#x27; for C4; Accurately extracted deadlines (3 and 5) and exceptions</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>applies_if for C1 (&#x27;security incident occurs&#x27;) is somewhat tautological and could arguably be null; applies_if for C6 could be framed as a trigger condition more precisely, though phrasing is acceptable; Uses type annotations referencing LRUCache._Node inside the class body, which can be slightly version-sensitive stylistically, though not a semantic flaw in the algorithm.</p></div></div></section><section class='candidate'><h3>Claude Opus 4.7</h3><p class='muted'>anthropic / remote</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>69.74</span><span class='stat-lbl'>Global Score</span></div><div class='stat-box'><span class='stat-val'>8197 ms</span><span class='stat-lbl'>Avg Latency</span></div><div class='stat-box'><span class='stat-val'>48.42 tok/s</span><span class='stat-lbl'>Throughput</span></div><div class='stat-box'><span class='stat-val'>$0.29</span><span class='stat-lbl'>Total Cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead><tbody><tr><td>Relevance</td><td>96.88</td></tr><tr><td>Accuracy</td><td>89.44</td></tr><tr><td>Completeness</td><td>92.88</td></tr><tr><td>Clarity</td><td>90.62</td></tr><tr><td>Instruction Following</td><td>89.50</td></tr></tbody></table><p>Average overall score 88.81 across 8 prompts with mean latency 8197 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Correctly included only C1, C4, C6; Proper owner normalization including &#x27;both&#x27; for C4; Accurately extracted deadlines (3 and 5) and exceptions</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>&#x27;applies_if&#x27; for C4 (&#x27;during the Term&#x27;) is more of a temporal scope than a trigger condition; &#x27;applies_if&#x27; for C1 restates the deadline trigger rather than a distinct precondition; Minor: could note that get on missing key does not affect recency (implicit but fine)</p></div></div></section><section class='candidate'><h3>SmolLM2 135M</h3><p class='muted'>lmstudio / local</p><div class='stat-row'><div class='stat-box'><span class='stat-val'>39.24</span><span class='stat-lbl'>Global Score</span></div><div class='stat-box'><span class='stat-val'>873 ms</span><span class='stat-lbl'>Avg Latency</span></div><div class='stat-box'><span class='stat-val'>312.80 tok/s</span><span class='stat-lbl'>Throughput</span></div><div class='stat-box'><span class='stat-val'>$0.00</span><span class='stat-lbl'>Total Cost</span></div></div><table class='sub-scores'><thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead><tbody><tr><td>Relevance</td><td>21.00</td></tr><tr><td>Accuracy</td><td>9.38</td></tr><tr><td>Completeness</td><td>6.81</td></tr><tr><td>Clarity</td><td>18.25</td></tr><tr><td>Instruction Following</td><td>2.75</td></tr></tbody></table><p>Average overall score 7.06 across 8 prompts with mean latency 873 ms.</p><div class='patterns'><div class='pattern-block strengths-block'><strong>Strengths</strong><p>Attempts an apology; Addresses the customer; Attempts to provide a Python class with get and put methods.</p></div><div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>Syntax error: &#x27;classLRUCache&#x27; is not valid Python; Constructor ignores capacity parameter and hardcodes 100; No self.cache initialization - will raise AttributeError</p></div></div></section></div>
     </section>
     <section>
       <h2>Prompt Sections</h2>
