@@ -56,6 +56,7 @@ export type RunListItem = {
   report_status: string;
   prompt_count: number;
   model_count: number;
+  judge_count: number;
 };
 
 export type RunListResponse = {

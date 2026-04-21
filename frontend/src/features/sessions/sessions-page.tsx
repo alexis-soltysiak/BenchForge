@@ -1,17 +1,15 @@
-import type { ComponentProps, FormEvent, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import {
+  Archive,
   BadgeInfo,
-  Copy,
   Layers3,
-  PencilLine,
   Plus,
   Rocket,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
   Trash2,
   Users,
 } from "lucide-react";
@@ -32,7 +30,6 @@ import {
   addSessionPrompt,
   archiveSession,
   createSession,
-  duplicateSession,
   fetchSessions,
   launchSessionRun,
   removeSessionCandidate,
@@ -55,14 +52,12 @@ type SessionFormState = {
   name: string;
   description: string;
   status: "draft" | "ready" | "archived";
-  rubricVersion: string;
 };
 
 const emptyForm: SessionFormState = {
   name: "",
   description: "",
   status: "draft",
-  rubricVersion: "mvp-v1",
 };
 
 function toFormState(session: Session): SessionFormState {
@@ -70,7 +65,6 @@ function toFormState(session: Session): SessionFormState {
     name: session.name,
     description: session.description ?? "",
     status: session.status,
-    rubricVersion: session.rubric_version,
   };
 }
 
@@ -79,7 +73,7 @@ function toPayload(state: SessionFormState): SessionPayload {
     name: state.name.trim(),
     description: state.description.trim() || null,
     status: state.status,
-    rubric_version: state.rubricVersion.trim(),
+    rubric_version: "mvp-v1",
   };
 }
 
@@ -111,16 +105,60 @@ function matchesArchiveState(session: Session, showArchived: boolean): boolean {
   return showArchived ? session.status === "archived" : session.status !== "archived";
 }
 
-type SessionSelectionStep = "prompts" | "candidates" | "judges";
+type SessionSelectionStep = "information" | "prompts" | "candidates" | "judges";
+
+const ROCKET_LAUNCH_CSS = `
+@keyframes rocket-launch {
+  0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
+  12%  { transform: translate(-3px, 3px) rotate(-8deg); opacity: 1; }
+  40%  { transform: translate(18px, -18px) rotate(25deg); opacity: 0; }
+  41%  { transform: translate(0,0) rotate(0deg); opacity: 0; }
+  88%  { transform: translate(0,0) rotate(0deg); opacity: 0; }
+  100% { transform: translate(0,0) rotate(0deg); opacity: 1; }
+}
+.rocket-firing {
+  animation: rocket-launch 2s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+`;
+
+function AnimatedRocket({ className }: { className?: string }) {
+  const [key, setKey] = useState(0);
+  const [firing, setFiring] = useState(false);
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+
+    function schedule() {
+      const delay = 4000 + Math.random() * 8000;
+      timeout = setTimeout(() => {
+        setFiring(true);
+        setKey((k) => k + 1);
+        setTimeout(() => {
+          setFiring(false);
+          schedule();
+        }, 2000);
+      }, delay);
+    }
+
+    schedule();
+    return () => clearTimeout(timeout);
+  }, []);
+
+  return (
+    <>
+      <style>{ROCKET_LAUNCH_CSS}</style>
+      <Rocket key={key} className={cn(className, firing && "rocket-firing")} />
+    </>
+  );
+}
 
 export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => void }) {
   const { t } = useTranslation();
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [isSelectionOpen, setIsSelectionOpen] = useState(false);
-  const [selectionStep, setSelectionStep] = useState<SessionSelectionStep>("prompts");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectionStep, setSelectionStep] = useState<SessionSelectionStep>("information");
   const [formState, setFormState] = useState<SessionFormState>(emptyForm);
   const [promptSearch, setPromptSearch] = useState("");
   const [candidateSearch, setCandidateSearch] = useState("");
@@ -128,7 +166,17 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
   const [promptCategoryFilter, setPromptCategoryFilter] = useState<string[]>([]);
   const [promptDifficultyFilter, setPromptDifficultyFilter] = useState<number[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [statusPickerSessionId, setStatusPickerSessionId] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
+  const isDirtyRef = useRef(false);
+  const skipFormResetRef = useRef(false);
+
+  useEffect(() => {
+    if (statusPickerSessionId === null) return;
+    const handler = () => setStatusPickerSessionId(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [statusPickerSessionId]);
 
   const sessionsQuery = useQuery({
     queryKey: ["sessions", showArchived],
@@ -143,6 +191,13 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     queryFn: () => fetchModelProfiles(false),
   });
   useEffect(() => {
+    if (skipFormResetRef.current) {
+      skipFormResetRef.current = false;
+      isDirtyRef.current = false;
+      return;
+    }
+    isDirtyRef.current = false;
+
     if (selectedSession) {
       setFormState(toFormState(selectedSession));
       return;
@@ -209,15 +264,9 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     },
     onSuccess: async (session) => {
       await refreshSessions();
-      setFeedback(
-        selectedSession
-          ? t("sessions.feedback.updated", { name: session.name })
-          : t("sessions.feedback.created", { name: session.name }),
-      );
-      setIsEditorOpen(false);
+      skipFormResetRef.current = true;
       startTransition(() => {
         setSelectedSession(session);
-        setFormState(toFormState(session));
       });
     },
     onError: (error) => {
@@ -230,24 +279,24 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     onSuccess: async (session) => {
       await refreshSessions();
       setFeedback(t("sessions.feedback.archived", { name: session.name }));
-      setIsEditorOpen(false);
+      setIsModalOpen(false);
       startTransition(() => setSelectedSession(showArchived ? session : null));
     },
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
-  const duplicateMutation = useMutation({
-    mutationFn: (sessionId: number) => duplicateSession(sessionId),
-    onSuccess: async (session) => {
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ session, status }: { session: Session; status: SessionFormState["status"] }) =>
+      updateSession(session.id, { ...toPayload(toFormState(session)), status }),
+    onSuccess: async () => {
       await refreshSessions();
-      setFeedback(t("sessions.feedback.duplicated", { name: session.name }));
-      startTransition(() => setSelectedSession(session));
     },
     onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Operation failed.");
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
     },
   });
+
   const addPromptMutation = useMutation({
     mutationFn: ({ sessionId, promptId }: { sessionId: number; promptId: number }) =>
       addSessionPrompt(sessionId, promptId),
@@ -332,6 +381,17 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     },
   });
 
+  useEffect(() => {
+    if (!isDirtyRef.current) return;
+    if (!formState.name.trim()) return;
+
+    const timer = setTimeout(() => {
+      void saveMutation.mutateAsync(toPayload(formState));
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState]);
+
   const scopedSessions = (sessionsQuery.data?.items ?? []).filter((session) =>
     matchesArchiveState(session, showArchived),
   );
@@ -404,22 +464,14 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       setSelectedSession(null);
       setFormState(emptyForm);
       setFeedback(null);
+      setSelectionStep("information");
+      setPromptCategoryFilter([]);
+      setPromptDifficultyFilter([]);
     });
-    setIsEditorOpen(true);
+    setIsModalOpen(true);
   };
 
-  const openEditModal = (session: Session) => {
-    startTransition(() => {
-      setSelectedSession(session);
-      setFeedback(null);
-    });
-    setIsEditorOpen(true);
-  };
-
-  const openSelectionModal = (
-    session: Session,
-    step: SessionSelectionStep = "prompts",
-  ) => {
+  const openModal = (session: Session, step: SessionSelectionStep = "information") => {
     startTransition(() => {
       setSelectedSession(session);
       setSelectionStep(step);
@@ -427,13 +479,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       setPromptCategoryFilter([]);
       setPromptDifficultyFilter([]);
     });
-    setIsSelectionOpen(true);
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setFeedback(null);
-    await saveMutation.mutateAsync(toPayload(formState));
+    setIsModalOpen(true);
   };
 
   const selectedSessionId = selectedSession?.id;
@@ -496,37 +542,30 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       <section className="mt-5 space-y-5">
         <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
           <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">{t("sessions.listTitle")}</h2>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <label className="relative block min-w-64">
-                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
-                    placeholder={t("sessions.searchPlaceholder")}
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <label className="relative block min-w-64 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
+                  placeholder={t("sessions.searchPlaceholder")}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+              <div className="flex gap-3">
                 <Button
-                  className="h-10 rounded-[1rem] px-3.5 text-[0.95rem]"
+                  aria-label={showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
+                  className={cn(
+                    showArchived &&
+                      "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-[0_14px_28px_-18px_rgba(15,23,42,0.18)] hover:brightness-[0.98]",
+                  )}
+                  title={showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
+                  type="button"
                   variant={showArchived ? "secondary" : "ghost"}
+                  size="icon"
                   onClick={() => setShowArchived((current) => !current)}
                 >
-                  {showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
-                </Button>
-                <Button
-                  className="h-10 rounded-[1rem] px-3.5 text-[0.95rem]"
-                  disabled={!selectedSession}
-                  onClick={() =>
-                    selectedSession && openSelectionModal(selectedSession, "prompts")
-                  }
-                  variant="secondary"
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  {t("sessions.configureSelection")}
+                  <Archive className="h-4 w-4" />
                 </Button>
                 <Button className="h-10 rounded-[1rem] px-4 text-[0.95rem]" onClick={openCreateModal}>
                   <Plus className="h-4 w-4" />
@@ -552,8 +591,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
           {(isPending ||
             saveMutation.isPending ||
-            archiveMutation.isPending ||
-            duplicateMutation.isPending) && (
+            archiveMutation.isPending) && (
             <div className="border-b border-border/70 px-5 py-3 text-sm text-[hsl(var(--foreground-soft))]">
               {t("sessions.syncing")}
             </div>
@@ -570,7 +608,6 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                 <tr>
                   <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colSession")}</th>
                   <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colComposition")}</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colRubric")}</th>
                   <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colUpdated")}</th>
                   <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colStatus")}</th>
                   <th className="px-3 py-2 font-semibold text-right lg:px-3.5">{t("sessions.colActions")}</th>
@@ -595,15 +632,10 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                       <tr
                         key={session.id}
                         className={cn(
-                          "cursor-pointer border-t border-border/70 transition-colors",
+                          "cursor-pointer border-t border-border/70 transition-colors hover:bg-[hsl(var(--surface-muted)/0.5)]",
                           isSelected && "bg-[hsl(var(--theme-success-soft)/0.48)]",
                         )}
-                        onClick={() => {
-                          startTransition(() => {
-                            setSelectedSession(session);
-                            setFeedback(null);
-                          });
-                        }}
+                        onClick={() => openModal(session)}
                       >
                         <td className="px-3 py-2.5 align-top lg:px-3.5">
                           <div className="flex items-center gap-3">
@@ -622,7 +654,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                                 launchMutation.mutate(session.id);
                               }}
                             >
-                              <Rocket className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:rotate-12" />
+                              <AnimatedRocket className="h-4 w-4" />
                             </button>
                             <div className="space-y-1">
                               <p className="text-[0.95rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
@@ -644,51 +676,54 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                           </div>
                         </td>
                         <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
-                          {session.rubric_version}
-                        </td>
-                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                           {formatDate(session.updated_at)}
                         </td>
-                        <td className="px-3 py-2.5 align-top lg:px-3.5">
-                          <Badge
-                            variant={session.status === "archived" ? "muted" : "success"}
-                          >
-                            {session.status}
-                          </Badge>
+                        <td
+                          className="px-3 py-2.5 align-top lg:px-3.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStatusPickerSessionId(statusPickerSessionId === session.id ? null : session.id);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Badge
+                                variant={session.status === "archived" ? "muted" : session.status === "ready" ? "success" : "neutral"}
+                              >
+                                {t(`sessions.form.status.${session.status}`)}
+                              </Badge>
+                            </button>
+                            {statusPickerSessionId === session.id ? (
+                              <div className="absolute left-0 top-full z-50 mt-1 min-w-[120px] rounded-xl border border-border bg-[hsl(var(--surface-elevated))] py-1 shadow-lg">
+                                {(["draft", "ready", "archived"] as const).map((s) => (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    className={cn(
+                                      "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-[hsl(var(--surface-muted)/0.7)]",
+                                      session.status === s && "font-semibold text-[hsl(var(--primary))]",
+                                    )}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setStatusPickerSessionId(null);
+                                      if (s !== session.status) {
+                                        updateStatusMutation.mutate({ session, status: s });
+                                      }
+                                    }}
+                                  >
+                                    {t(`sessions.form.status.${s}`)}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
-                            <ActionIconButton
-                              aria-label={`${t("sessions.action.configure")} ${session.name}`}
-                              description={t("sessions.action.configureDesc")}
-                              label={t("sessions.action.configure")}
-                              onClick={() => openSelectionModal(session, "prompts")}
-                              size="iconSm"
-                              variant="soft"
-                            >
-                              <SlidersHorizontal className="h-4 w-4" />
-                            </ActionIconButton>
-                            <ActionIconButton
-                              aria-label={`${t("sessions.action.edit")} ${session.name}`}
-                              description={t("sessions.action.editDesc")}
-                              label={t("sessions.action.edit")}
-                              onClick={() => openEditModal(session)}
-                              size="iconSm"
-                              variant="soft"
-                            >
-                              <PencilLine className="h-4 w-4" />
-                            </ActionIconButton>
-<ActionIconButton
-                              aria-label={`${t("sessions.action.duplicate")} ${session.name}`}
-                              description={t("sessions.action.duplicateDesc")}
-                              disabled={duplicateMutation.isPending}
-                              label={t("sessions.action.duplicate")}
-                              onClick={() => duplicateMutation.mutate(session.id)}
-                              size="iconSm"
-                              variant="secondary"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </ActionIconButton>
                             <ActionIconButton
                               aria-label={`${t("sessions.action.archive")} ${session.name}`}
                               description={t("sessions.action.archiveDesc")}
@@ -715,284 +750,220 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       </section>
 
       <Modal
-        description={t("sessions.modal.description")}
-        onClose={() => setIsEditorOpen(false)}
-        open={isEditorOpen}
-        size="xxl"
-        tone="emerald"
-        title={t(selectedSession ? "sessions.editModal.title" : "sessions.createModal.title")}
-      >
-        <form className="space-y-3" onSubmit={handleSubmit}>
-          {loadError ? (
-            <LoadErrorState compact message={loadError} resourceLabel="sessions" />
-          ) : null}
-
-          <Field
-            hint={t("sessions.form.nameHint")}
-            label={t("sessions.form.name")}
-          >
-            <Input
-              placeholder={t("sessions.form.namePlaceholder")}
-              required
-              value={formState.name}
-              onChange={(event) =>
-                setFormState((current) => ({ ...current, name: event.target.value }))
-              }
-            />
-          </Field>
-
-          <Field
-            hint={t("sessions.form.descriptionHint")}
-            label={t("sessions.form.description")}
-          >
-            <Textarea
-              className="min-h-16"
-              placeholder={t("sessions.form.descriptionPlaceholder")}
-              value={formState.description}
-              onChange={(event) =>
-                setFormState((current) => ({
-                  ...current,
-                  description: event.target.value,
-                }))
-              }
-            />
-          </Field>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field
-              hint={t("sessions.form.statusHint")}
-              label={t("sessions.form.status")}
-            >
-              <Select
-                value={formState.status}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    status: event.target.value as SessionFormState["status"],
-                  }))
-                }
-              >
-                <option value="draft">{t("sessions.form.status.draft")}</option>
-                <option value="ready">{t("sessions.form.status.ready")}</option>
-                <option value="archived">{t("sessions.form.status.archived")}</option>
-              </Select>
-            </Field>
-            <Field
-              hint={t("sessions.form.rubricVersionHint")}
-              label={t("sessions.form.rubricVersion")}
-            >
-              <Input
-                placeholder="mvp-v1"
-                value={formState.rubricVersion}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    rubricVersion: event.target.value,
-                  }))
-                }
-              />
-            </Field>
-          </div>
-
-          {feedback ? (
-            <div className="rounded-2xl border border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] px-4 py-3 text-sm text-[hsl(var(--theme-success-foreground))]">
-              {feedback}
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-3">
-            {selectedSession ? (
-              <Button
-                aria-label={t("common.archive", { name: selectedSession.name })}
-                disabled={archiveMutation.isPending || selectedSession.status === "archived"}
-                onClick={() => archiveMutation.mutate(selectedSession.id)}
-                size="iconSm"
-                title={t("common.archive", { name: selectedSession.name })}
-                type="button"
-                variant="dangerSoft"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <Button onClick={() => setIsEditorOpen(false)} type="button" variant="soft">
-              {t("sessions.form.cancel")}
-            </Button>
-            <Button
-              disabled={!formState.name.trim() || saveMutation.isPending}
-              type="submit"
-            >
-              {t(selectedSession ? "sessions.form.saveSession" : "sessions.form.createSession")}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        onClose={() => setIsSelectionOpen(false)}
-        open={isSelectionOpen}
+        onClose={() => setIsModalOpen(false)}
+        open={isModalOpen}
         size="xl"
         tone="emerald"
         title={selectedSession
           ? t("sessions.configureModal.title", { name: selectedSession.name })
-          : t("sessions.configureModal.defaultTitle")}
+          : t("sessions.createModal.title")}
       >
-        {selectedSession ? (
-          <div className="space-y-4">
-            <SessionStepSwitcher
-              activeStep={selectionStep}
-              onStepChange={setSelectionStep}
-              session={selectedSession}
-            />
+        <div className="space-y-4">
+          <SessionStepSwitcher
+            activeStep={selectionStep}
+            onStepChange={setSelectionStep}
+            session={selectedSession}
+          />
 
-            {selectionStep === "prompts" ? (
-              <SelectionWorkspace
-                description={t("sessions.selection.promptsDesc")}
-                filters={
-                  <PromptFilters
-                    categories={allPromptCategories}
-                    difficulties={allPromptDifficulties}
-                    selectedCategories={promptCategoryFilter}
-                    selectedDifficulties={promptDifficultyFilter}
-                    onCategoriesChange={setPromptCategoryFilter}
-                    onDifficultiesChange={setPromptDifficultyFilter}
-                  />
-                }
-                search={promptSearch}
-                selectedCount={selectedSession.prompts.length}
-                title={t("sessions.selection.prompts")}
-                onSearchChange={setPromptSearch}
-              >
-                <SelectedList
-                  emptyMessage={t("sessions.selection.noPromptsYet")}
-                  items={selectedSession.prompts.map((item) => {
-                    const prompt = promptsQuery.data?.items.find((p) => p.id === item.prompt_id);
-                    return {
-                      id: item.id,
-                      label: item.prompt_name,
-                      meta: prompt?.category.name ?? t("sessions.selection.orderPrefix", { order: item.display_order }),
-                      difficulty: prompt?.difficulty ?? null,
-                    };
-                  })}
-                  onRemove={(itemId) =>
-                    removePromptMutation.mutate({
-                      sessionId: selectedSession.id,
-                      itemId,
-                    })
-                  }
-                />
-                <LibraryList
-                  items={availablePrompts.map((prompt) => ({
-                    id: prompt.id,
-                    label: prompt.name,
-                    meta: prompt.category.name,
-                    difficulty: prompt.difficulty,
-                  }))}
-                  onAdd={(promptId) =>
-                    addPromptMutation.mutate({
-                      sessionId: selectedSession.id,
-                      promptId,
-                    })
-                  }
-                />
-              </SelectionWorkspace>
-            ) : null}
-
-            {selectionStep === "candidates" ? (
-              <SelectionWorkspace
-                description={t("sessions.selection.candidatesDesc")}
-                search={candidateSearch}
-                selectedCount={selectedSession.candidates.length}
-                title={t("sessions.selection.candidates")}
-                onSearchChange={setCandidateSearch}
-              >
-                <SelectedList
-                  emptyMessage={t("sessions.selection.noCandidatesYet")}
-                  items={selectedSession.candidates.map((item) => ({
-                    id: item.id,
-                    label: item.display_name,
-                    meta: `${item.provider_type} / ${item.runtime_type}`,
-                  }))}
-                  onRemove={(itemId) =>
-                    removeCandidateMutation.mutate({
-                      sessionId: selectedSession.id,
-                      itemId,
-                    })
-                  }
-                />
-                <LibraryList
-                  items={availableCandidates.map((model) => ({
-                    id: model.id,
-                    label: model.display_name,
-                    meta: `${model.provider_type} / ${model.runtime_type}`,
-                  }))}
-                  onAdd={(modelId) =>
-                    addCandidateMutation.mutate({
-                      sessionId: selectedSession.id,
-                      modelId,
-                    })
-                  }
-                />
-              </SelectionWorkspace>
-            ) : null}
-
-            {selectionStep === "judges" ? (
-              <SelectionWorkspace
-                description={t("sessions.selection.judgesDesc")}
-                search={judgeSearch}
-                selectedCount={selectedSession.judges.length}
-                title={t("sessions.selection.judges")}
-                onSearchChange={setJudgeSearch}
-              >
-                <SelectedList
-                  emptyMessage={t("sessions.selection.noJudgeYet")}
-                  items={selectedSession.judges.map((item) => ({
-                    id: item.id,
-                    label: item.display_name,
-                    meta: `${item.provider_type} / ${item.runtime_type}`,
-                  }))}
-                  onRemove={(itemId) =>
-                    removeJudgeMutation.mutate({
-                      sessionId: selectedSession.id,
-                      itemId,
-                    })
-                  }
-                />
-                <LibraryList
-                  items={availableJudges.map((model) => ({
-                    id: model.id,
-                    label: model.display_name,
-                    meta: `${model.provider_type} / ${model.runtime_type}`,
-                  }))}
-                  onAdd={(modelId) =>
-                    addJudgeMutation.mutate({
-                      sessionId: selectedSession.id,
-                      modelId,
-                    })
-                  }
-                />
-              </SelectionWorkspace>
-            ) : null}
-
-            <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
-              <Button onClick={() => setIsSelectionOpen(false)} type="button" variant="soft">
-                {t("sessions.selection.close")}
-              </Button>
-              {selectionStep !== "judges" ? (
-                <Button
-                  onClick={() =>
-                    setSelectionStep(
-                      selectionStep === "prompts" ? "candidates" : "judges",
-                    )
-                  }
-                  type="button"
-                  variant="secondary"
-                >
-                  {t("sessions.selection.nextStep")}
-                </Button>
+          {selectionStep === "information" ? (
+            <form className="space-y-3">
+              {loadError ? (
+                <LoadErrorState compact message={loadError} resourceLabel="sessions" />
               ) : null}
+
+              <Field hint={t("sessions.form.nameHint")} label={t("sessions.form.name")}>
+                <Input
+                  placeholder={t("sessions.form.namePlaceholder")}
+                  value={formState.name}
+                  onChange={(event) => {
+                    isDirtyRef.current = true;
+                    setFormState((current) => ({ ...current, name: event.target.value }));
+                  }}
+                />
+              </Field>
+
+              <Field hint={t("sessions.form.descriptionHint")} label={t("sessions.form.description")}>
+                <Textarea
+                  className="min-h-16"
+                  placeholder={t("sessions.form.descriptionPlaceholder")}
+                  value={formState.description}
+                  onChange={(event) => {
+                    isDirtyRef.current = true;
+                    setFormState((current) => ({ ...current, description: event.target.value }));
+                  }}
+                />
+              </Field>
+
+              <Field hint={t("sessions.form.statusHint")} label={t("sessions.form.status")}>
+                <Select
+                  value={formState.status}
+                  onChange={(event) => {
+                    isDirtyRef.current = true;
+                    setFormState((current) => ({
+                      ...current,
+                      status: event.target.value as SessionFormState["status"],
+                    }));
+                  }}
+                >
+                  <option value="draft">{t("sessions.form.status.draft")}</option>
+                  <option value="ready">{t("sessions.form.status.ready")}</option>
+                  <option value="archived">{t("sessions.form.status.archived")}</option>
+                </Select>
+              </Field>
+
+              {feedback ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
+                  {feedback}
+                </div>
+              ) : null}
+
+              {saveMutation.isPending ? (
+                <p className="text-xs text-[hsl(var(--foreground-soft))]">{t("sessions.syncing")}</p>
+              ) : null}
+            </form>
+          ) : null}
+
+          {selectionStep !== "information" && !selectedSession ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+              {t("sessions.form.nameHint")}
             </div>
+          ) : null}
+
+          {selectionStep === "prompts" && selectedSession ? (
+            <SelectionWorkspace
+              description={t("sessions.selection.promptsDesc")}
+              filters={
+                <PromptFilters
+                  categories={allPromptCategories}
+                  difficulties={allPromptDifficulties}
+                  selectedCategories={promptCategoryFilter}
+                  selectedDifficulties={promptDifficultyFilter}
+                  onCategoriesChange={setPromptCategoryFilter}
+                  onDifficultiesChange={setPromptDifficultyFilter}
+                />
+              }
+              search={promptSearch}
+              selectedCount={selectedSession.prompts.length}
+              title={t("sessions.selection.prompts")}
+              onSearchChange={setPromptSearch}
+            >
+              <SelectedList
+                emptyMessage={t("sessions.selection.noPromptsYet")}
+                items={selectedSession.prompts.map((item) => {
+                  const prompt = promptsQuery.data?.items.find((p) => p.id === item.prompt_id);
+                  return {
+                    id: item.id,
+                    label: item.prompt_name,
+                    meta: prompt?.category.name ?? t("sessions.selection.orderPrefix", { order: item.display_order }),
+                    difficulty: prompt?.difficulty ?? null,
+                  };
+                })}
+                onRemove={(itemId) =>
+                  removePromptMutation.mutate({ sessionId: selectedSession.id, itemId })
+                }
+              />
+              <LibraryList
+                items={availablePrompts.map((prompt) => ({
+                  id: prompt.id,
+                  label: prompt.name,
+                  meta: prompt.category.name,
+                  difficulty: prompt.difficulty,
+                }))}
+                onAdd={(promptId) =>
+                  addPromptMutation.mutate({ sessionId: selectedSession.id, promptId })
+                }
+              />
+            </SelectionWorkspace>
+          ) : null}
+
+          {selectionStep === "candidates" && selectedSession ? (
+            <SelectionWorkspace
+              description={t("sessions.selection.candidatesDesc")}
+              search={candidateSearch}
+              selectedCount={selectedSession.candidates.length}
+              title={t("sessions.selection.candidates")}
+              onSearchChange={setCandidateSearch}
+            >
+              <SelectedList
+                emptyMessage={t("sessions.selection.noCandidatesYet")}
+                items={selectedSession.candidates.map((item) => ({
+                  id: item.id,
+                  label: item.display_name,
+                  meta: `${item.provider_type} / ${item.runtime_type}`,
+                }))}
+                onRemove={(itemId) =>
+                  removeCandidateMutation.mutate({ sessionId: selectedSession.id, itemId })
+                }
+              />
+              <LibraryList
+                items={availableCandidates.map((model) => ({
+                  id: model.id,
+                  label: model.display_name,
+                  meta: `${model.provider_type} / ${model.runtime_type}`,
+                }))}
+                onAdd={(modelId) =>
+                  addCandidateMutation.mutate({ sessionId: selectedSession.id, modelId })
+                }
+              />
+            </SelectionWorkspace>
+          ) : null}
+
+          {selectionStep === "judges" && selectedSession ? (
+            <SelectionWorkspace
+              description={t("sessions.selection.judgesDesc")}
+              search={judgeSearch}
+              selectedCount={selectedSession.judges.length}
+              title={t("sessions.selection.judges")}
+              onSearchChange={setJudgeSearch}
+            >
+              <SelectedList
+                emptyMessage={t("sessions.selection.noJudgeYet")}
+                items={selectedSession.judges.map((item) => ({
+                  id: item.id,
+                  label: item.display_name,
+                  meta: `${item.provider_type} / ${item.runtime_type}`,
+                }))}
+                onRemove={(itemId) =>
+                  removeJudgeMutation.mutate({ sessionId: selectedSession.id, itemId })
+                }
+              />
+              <LibraryList
+                items={availableJudges.map((model) => ({
+                  id: model.id,
+                  label: model.display_name,
+                  meta: `${model.provider_type} / ${model.runtime_type}`,
+                }))}
+                onAdd={(modelId) =>
+                  addJudgeMutation.mutate({ sessionId: selectedSession.id, modelId })
+                }
+              />
+            </SelectionWorkspace>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
+            <Button onClick={() => setIsModalOpen(false)} type="button" variant="soft">
+              {t("sessions.selection.close")}
+            </Button>
+            {selectionStep !== "judges" ? (
+              <Button
+                disabled={selectionStep !== "information" && !selectedSession}
+                onClick={() =>
+                  setSelectionStep(
+                    selectionStep === "information"
+                      ? "prompts"
+                      : selectionStep === "prompts"
+                        ? "candidates"
+                        : "judges",
+                  )
+                }
+                type="button"
+                variant="secondary"
+              >
+                {t("sessions.selection.nextStep")}
+              </Button>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </Modal>
     </div>
   );
@@ -1137,15 +1108,30 @@ function SessionStepSwitcher({
 }: {
   activeStep: SessionSelectionStep;
   onStepChange: (step: SessionSelectionStep) => void;
-  session: Session;
+  session: Session | null;
 }) {
   const { t } = useTranslation();
+
   const steps = [
     {
+      key: "information" as const,
+      count: null as number | null,
+      icon: BadgeInfo,
+      label: t("sessions.selection.information"),
+      disabled: false,
+      activeClassName:
+        "border-slate-300 bg-slate-50 text-slate-900 shadow-sm",
+      idleClassName:
+        "border-border/80 bg-[hsl(var(--surface))] text-foreground hover:border-slate-300 hover:bg-slate-50/80",
+      iconClassName: "bg-slate-100 text-slate-600",
+      badgeVariant: "neutral" as const,
+    },
+    {
       key: "prompts" as const,
-      count: session.prompts.length,
+      count: session?.prompts.length ?? null,
       icon: Layers3,
       label: t("sessions.selection.prompts"),
+      disabled: !session,
       activeClassName:
         "border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))] shadow-sm",
       idleClassName:
@@ -1155,9 +1141,10 @@ function SessionStepSwitcher({
     },
     {
       key: "candidates" as const,
-      count: session.candidates.length,
+      count: session?.candidates.length ?? null,
       icon: Users,
       label: t("sessions.selection.candidates"),
+      disabled: !session,
       activeClassName:
         "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-sm",
       idleClassName:
@@ -1167,9 +1154,10 @@ function SessionStepSwitcher({
     },
     {
       key: "judges" as const,
-      count: session.judges.length,
+      count: session?.judges.length ?? null,
       icon: ShieldCheck,
       label: t("sessions.selection.judges"),
+      disabled: !session,
       activeClassName:
         "border-[hsl(var(--theme-warning-border))] bg-[hsl(var(--theme-warning-soft))] text-[hsl(var(--theme-warning-foreground))] shadow-sm",
       idleClassName:
@@ -1180,7 +1168,7 @@ function SessionStepSwitcher({
   ];
 
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       {steps.map((step) => {
         const Icon = step.icon;
         const isActive = step.key === activeStep;
@@ -1188,31 +1176,43 @@ function SessionStepSwitcher({
         return (
           <button
             key={step.key}
+            disabled={step.disabled}
             className={cn(
-              "rounded-[1.5rem] border px-4 py-4 text-left transition",
+              "rounded-[1.25rem] border px-3 py-3 text-left transition",
               isActive ? step.activeClassName : step.idleClassName,
+              step.disabled && "cursor-not-allowed opacity-40",
             )}
-            onClick={() => onStepChange(step.key)}
+            onClick={() => !step.disabled && onStepChange(step.key)}
             type="button"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1.5">
                 <span
                   className={cn(
-                    "inline-flex h-10 w-10 items-center justify-center rounded-2xl shadow-sm",
+                    "inline-flex h-8 w-8 items-center justify-center rounded-xl shadow-sm",
                     step.iconClassName,
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">{step.label}</p>
-                  <p className="text-xs text-[hsl(var(--foreground-soft))]">{t("sessions.selection.count", { count: step.count })}</p>
+                  <p className="text-xs font-semibold">{step.label}</p>
+                  {step.count !== null ? (
+                    <p className="text-[0.7rem] text-[hsl(var(--foreground-soft))]">
+                      {t("sessions.selection.count", { count: step.count })}
+                    </p>
+                  ) : (
+                    <p className="text-[0.7rem] text-[hsl(var(--foreground-soft))]">
+                      {session ? t("sessions.selection.saved") : t("sessions.selection.new")}
+                    </p>
+                  )}
                 </div>
               </div>
-              <Badge variant={isActive ? step.badgeVariant : "neutral"}>
-                {isActive ? t("sessions.selection.current") : t("sessions.selection.open")}
-              </Badge>
+              {isActive ? (
+                <Badge variant={step.badgeVariant} className="shrink-0 text-[0.6rem]">
+                  {t("sessions.selection.current")}
+                </Badge>
+              ) : null}
             </div>
           </button>
         );
@@ -1411,10 +1411,11 @@ function PromptFilters({
       ) : null}
 
       {difficulties.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-1.5">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
             {t("sessions.selection.filterDifficulty")}
           </span>
+          <div className="flex flex-wrap items-center gap-2">
           {difficulties.map((d) => {
             const active = selectedDifficulties.includes(d);
             const style = DIFFICULTY_STYLES[d] ?? "bg-slate-500 text-white";
@@ -1433,6 +1434,7 @@ function PromptFilters({
               </button>
             );
           })}
+          </div>
         </div>
       ) : null}
     </div>

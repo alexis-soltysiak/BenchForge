@@ -1,4 +1,4 @@
-import type { FormEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
@@ -448,6 +448,8 @@ export function ModelRegistryPage() {
   const warningCloseTimerRef = useRef<number | null>(null);
   const toastCloseTimerRef = useRef<number | null>(null);
   const connectionFeedbackCloseTimerRef = useRef<number | null>(null);
+  const isDirtyRef = useRef(false);
+  const skipFormResetRef = useRef(false);
 
   const modelsQuery = useQuery({
     queryKey: ["model-profiles", showArchived],
@@ -459,6 +461,13 @@ export function ModelRegistryPage() {
   });
 
   useEffect(() => {
+    if (skipFormResetRef.current) {
+      skipFormResetRef.current = false;
+      isDirtyRef.current = false;
+      return;
+    }
+    isDirtyRef.current = false;
+
     if (!selectedModel) {
       setFormState(emptyForm);
       lastSuggestedApiStyleRef.current = emptyForm.apiStyle;
@@ -513,6 +522,22 @@ export function ModelRegistryPage() {
     [],
   );
 
+  useEffect(() => {
+    if (!isDirtyRef.current) return;
+    const isValid =
+      formState.displayName.trim() &&
+      formState.endpointUrl.trim() &&
+      formState.modelIdentifier.trim() &&
+      formState.timeoutSeconds.trim();
+    if (!isValid) return;
+
+    const timer = setTimeout(() => {
+      void saveMutation.mutateAsync(toPayload(formState));
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState]);
+
   const showToast = (message: string) => {
     if (toastCloseTimerRef.current !== null) {
       window.clearTimeout(toastCloseTimerRef.current);
@@ -535,6 +560,11 @@ export function ModelRegistryPage() {
     }, 3000);
   };
 
+  const updateForm = (updater: (current: ModelFormState) => ModelFormState) => {
+    isDirtyRef.current = true;
+    setFormState(updater);
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (payload: ModelProfilePayload) => {
       if (selectedModel) {
@@ -545,14 +575,9 @@ export function ModelRegistryPage() {
     onSuccess: async (model) => {
       await queryClient.invalidateQueries({ queryKey: ["model-profiles"] });
       setFeedback(null);
-      showToast(
-        selectedModel
-          ? t("models.feedback.updated", { name: model.display_name })
-          : t("models.feedback.created", { name: model.display_name }),
-      );
+      skipFormResetRef.current = true;
       startTransition(() => {
         setSelectedModel(model);
-        setFormState(toFormState(model));
       });
     },
     onError: (error) => {
@@ -675,6 +700,7 @@ export function ModelRegistryPage() {
       preserveModelIdentifierInput?: boolean;
     },
   ) => {
+    isDirtyRef.current = true;
     setFormState((current) => {
       const draft = updater(current);
       const preset = getProviderPreset(draft.providerType);
@@ -762,12 +788,6 @@ export function ModelRegistryPage() {
       setWarningAnchor(null);
       warningCloseTimerRef.current = null;
     }, 120);
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setFeedback(null);
-    await saveMutation.mutateAsync(toPayload(formState));
   };
 
   const toggleRole = (role: ModelFormState["role"]) => {
@@ -1159,7 +1179,7 @@ export function ModelRegistryPage() {
                           openEditModal(model);
                         }}
                       >
-                        <td className="relative px-3 py-2.5 align-top lg:px-3.5">
+                        <td className="relative px-3 py-2.5 align-middle lg:px-3.5">
                           <div className="flex items-start gap-3">
                             <Button
                               aria-label={t("models.testConnection", { name: model.display_name })}
@@ -1180,7 +1200,7 @@ export function ModelRegistryPage() {
                                 )}
                               />
                             </Button>
-                            <div className="min-w-0 flex-1 space-y-1">
+                            <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 {isUnusable ? (
                                   <button
@@ -1201,56 +1221,51 @@ export function ModelRegistryPage() {
                                   </button>
                                 ) : null}
                                 <p
-                                  className="block w-full truncate text-left text-[0.95rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]"
+                                  className="block w-full truncate text-left text-[0.95rem] font-semibold text-foreground"
                                   title={model.display_name}
                                 >
                                   {model.display_name}
                                 </p>
                               </div>
-                              <div className="relative h-5 w-full overflow-hidden">
-                                <p
-                                  className={cn(
-                                    "absolute inset-0 block w-full truncate transition",
-                                    isTestingConnection
-                                      ? "text-[0.78rem] font-medium text-sky-700"
-                                      : rowConnectionFeedback
-                                        ? cn(
-                                            "text-[0.78rem] font-medium",
-                                            rowConnectionFeedback.ok
-                                              ? "text-emerald-700"
-                                              : "text-rose-700",
-                                          )
-                                        : "text-[0.92rem] text-slate-500",
-                                  )}
-                                  title={
-                                    isTestingConnection
-                                      ? t("models.connection.testing")
-                                      : rowConnectionFeedback
-                                        ? rowConnectionFeedback.status_code
-                                          ? `HTTP ${rowConnectionFeedback.status_code} — ${rowConnectionFeedback.detail}`
-                                          : rowConnectionFeedback.detail
-                                        : model.model_identifier
-                                  }
-                                >
-                                  {connectionFeedbackLabel || model.model_identifier}
-                                </p>
-                              </div>
+                              <p
+                                className={cn(
+                                  "block w-full truncate transition text-[0.78rem] leading-tight",
+                                  isTestingConnection
+                                    ? "font-medium text-sky-700"
+                                    : rowConnectionFeedback
+                                      ? cn(
+                                          "font-medium",
+                                          rowConnectionFeedback.ok
+                                            ? "text-emerald-700"
+                                            : "text-rose-700",
+                                        )
+                                      : "text-slate-400",
+                                )}
+                                title={
+                                  isTestingConnection
+                                    ? t("models.connection.testing")
+                                    : rowConnectionFeedback
+                                      ? rowConnectionFeedback.status_code
+                                        ? `HTTP ${rowConnectionFeedback.status_code} — ${rowConnectionFeedback.detail}`
+                                        : rowConnectionFeedback.detail
+                                      : model.model_identifier
+                                }
+                              >
+                                {connectionFeedbackLabel || model.model_identifier}
+                              </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 align-top lg:px-3.5">
+                        <td className="px-3 py-2.5 align-middle lg:px-3.5">
                           <RoleBadge role={model.role} />
                         </td>
-                        <td className="px-3 py-2.5 align-top lg:px-3.5">
-                          <div className="flex flex-col gap-2">
-                            <Badge variant="accent">{model.provider_type}</Badge>
-                            <Badge variant="neutral">{model.api_style}</Badge>
-                          </div>
+                        <td className="px-3 py-2.5 align-middle lg:px-3.5">
+                          <Badge variant="accent">{model.provider_type}</Badge>
                         </td>
-                        <td className="px-3 py-2.5 align-top lg:px-3.5">
+                        <td className="px-3 py-2.5 align-middle lg:px-3.5">
                           <RuntimeBadge runtimeType={model.runtime_type} />
                         </td>
-                        <td className="px-3 py-2.5 align-top lg:px-3.5">
+                        <td className="px-3 py-2.5 align-middle lg:px-3.5">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant={model.is_archived ? "muted" : "success"}>
                               {model.is_archived ? t("models.statusArchived") : t("models.statusActive")}
@@ -1261,7 +1276,7 @@ export function ModelRegistryPage() {
                             {isUnusable ? <Badge variant="muted">{t("models.statusMissingSecret")}</Badge> : null}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
+                        <td className="px-3 py-2.5 align-middle lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             <Button
                               aria-label={t("common.archive", { name: model.display_name })}
@@ -1295,7 +1310,7 @@ export function ModelRegistryPage() {
         tone="sky"
         title={t(selectedModel ? "models.editModal.title" : "models.createModal.title")}
       >
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5">
           {loadError ? (
             <LoadErrorState compact message={loadError} resourceLabel="the model registry" />
           ) : null}
@@ -1307,10 +1322,9 @@ export function ModelRegistryPage() {
             >
               <Input
                 placeholder={t("models.form.displayNamePlaceholder")}
-                required
                 value={formState.displayName}
                 onChange={(event) =>
-                  setFormState((current) => ({
+                  updateForm((current) => ({
                     ...current,
                     displayName: event.target.value,
                   }))
@@ -1324,7 +1338,7 @@ export function ModelRegistryPage() {
               <Select
                 value={formState.role}
                 onChange={(event) =>
-                  setFormState((current) => ({
+                  updateForm((current) => ({
                     ...current,
                     role: event.target.value as ModelFormState["role"],
                   }))
@@ -1377,25 +1391,42 @@ export function ModelRegistryPage() {
               hint={t("models.form.runtimeTypeHint")}
               label={t("models.form.runtimeType")}
             >
-              <Select
-                value={formState.runtimeType}
-                onChange={(event) =>
-                  setFormState((current) => {
-                    const runtimeType = event.target.value as ModelFormState["runtimeType"];
-                    return {
-                      ...current,
-                      runtimeType,
-                      pricingInputPerMillion:
-                        runtimeType === "local" ? "0" : current.pricingInputPerMillion,
-                      pricingOutputPerMillion:
-                        runtimeType === "local" ? "0" : current.pricingOutputPerMillion,
-                    };
-                  })
-                }
-              >
-                <option value="remote">{t("models.runtime.remote")}</option>
-                <option value="local">{t("models.runtime.local")}</option>
-              </Select>
+              <div className="flex gap-2">
+                {(["remote", "local"] as const).map((rt) => {
+                  const isSelected = formState.runtimeType === rt;
+                  return (
+                    <button
+                      key={rt}
+                      type="button"
+                      onClick={() =>
+                        updateForm((current) => ({
+                          ...current,
+                          runtimeType: rt,
+                          pricingInputPerMillion:
+                            rt === "local" ? "0" : current.pricingInputPerMillion,
+                          pricingOutputPerMillion:
+                            rt === "local" ? "0" : current.pricingOutputPerMillion,
+                        }))
+                      }
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-all",
+                        isSelected && rt === "remote"
+                          ? "border-sky-300 bg-sky-50 text-sky-700 shadow-sm"
+                          : isSelected && rt === "local"
+                            ? "border-slate-300 bg-slate-100 text-slate-700 shadow-sm"
+                            : "border-border bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600",
+                      )}
+                    >
+                      {rt === "remote" ? (
+                        <Cable className="h-3.5 w-3.5" />
+                      ) : (
+                        <HardDrive className="h-3.5 w-3.5" />
+                      )}
+                      {t(`models.runtime.${rt}`)}
+                    </button>
+                  );
+                })}
+              </div>
             </Field>
           </div>
 
@@ -1459,7 +1490,7 @@ export function ModelRegistryPage() {
                 <Select
                   value={formState.secretMode}
                   onChange={(event) =>
-                    setFormState((current) => ({
+                    updateForm((current) => ({
                       ...current,
                       secretMode: event.target.value as ModelFormState["secretMode"],
                       apiKeyPresetId:
@@ -1477,19 +1508,12 @@ export function ModelRegistryPage() {
                   value={formState.apiKeyPresetId}
                   onChange={(event) => {
                     const nextApiKeyPresetId = event.target.value;
-                    const nextState = {
-                      ...formState,
+                    updateForm((current) => ({
+                      ...current,
                       secretMode: "preset" as const,
                       apiKeyPresetId: nextApiKeyPresetId,
                       secret: "",
-                    };
-
-                    setFormState(nextState);
-
-                    if (selectedModel && nextApiKeyPresetId) {
-                      setFeedback(null);
-                      void saveMutation.mutateAsync(toPayload(nextState));
-                    }
+                    }));
                   }}
                 >
                   <option value="">{t("models.form.selectPreset")}</option>
@@ -1500,35 +1524,23 @@ export function ModelRegistryPage() {
                   ))}
                 </Select>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <Input
-                    placeholder={
-                      formState.runtimeType === "local"
-                        ? t("models.form.secretPlaceholder.local")
-                        : hasStoredSecret
-                          ? t("models.form.secretPlaceholder.stored", { preview: selectedModel?.secret_preview ?? "******" })
-                          : t("models.form.secretPlaceholder.bearer")
-                    }
-                    type="password"
-                    value={formState.secret}
-                    onChange={(event) =>
-                      setFormState((current) => ({
-                        ...current,
-                        secret: event.target.value,
-                      }))
-                    }
-                  />
-                  {selectedModel && formState.runtimeType === "remote" ? (
-                    <Button
-                      className="h-10 px-4"
-                      disabled={saveMutation.isPending || !formState.secret.trim()}
-                      type="submit"
-                      variant="secondary"
-                    >
-                      {t("apiKeys.save")}
-                    </Button>
-                  ) : null}
-                </div>
+                <Input
+                  placeholder={
+                    formState.runtimeType === "local"
+                      ? t("models.form.secretPlaceholder.local")
+                      : hasStoredSecret
+                        ? t("models.form.secretPlaceholder.stored", { preview: selectedModel?.secret_preview ?? "******" })
+                        : t("models.form.secretPlaceholder.bearer")
+                  }
+                  type="password"
+                  value={formState.secret}
+                  onChange={(event) =>
+                    updateForm((current) => ({
+                      ...current,
+                      secret: event.target.value,
+                    }))
+                  }
+                />
               )}
               {formState.runtimeType === "local" ? (
                 <p className="text-xs text-slate-500">
@@ -1562,7 +1574,7 @@ export function ModelRegistryPage() {
                 placeholder="60"
                 value={formState.timeoutSeconds}
                 onChange={(event) =>
-                  setFormState((current) => ({
+                  updateForm((current) => ({
                     ...current,
                     timeoutSeconds: event.target.value,
                   }))
@@ -1578,7 +1590,7 @@ export function ModelRegistryPage() {
                 placeholder={t("models.form.contextWindowPlaceholder")}
                 value={formState.contextWindow}
                 onChange={(event) =>
-                  setFormState((current) => ({
+                  updateForm((current) => ({
                     ...current,
                     contextWindow: event.target.value,
                   }))
@@ -1602,7 +1614,7 @@ export function ModelRegistryPage() {
                 disabled={formState.runtimeType === "local"}
                 value={formState.pricingInputPerMillion}
                 onChange={(event) =>
-                  setFormState((current) => ({
+                  updateForm((current) => ({
                     ...current,
                     pricingInputPerMillion: event.target.value,
                   }))
@@ -1623,7 +1635,7 @@ export function ModelRegistryPage() {
                 disabled={formState.runtimeType === "local"}
                 value={formState.pricingOutputPerMillion}
                 onChange={(event) =>
-                  setFormState((current) => ({
+                  updateForm((current) => ({
                     ...current,
                     pricingOutputPerMillion: event.target.value,
                   }))
@@ -1640,7 +1652,7 @@ export function ModelRegistryPage() {
               placeholder={t("models.form.notesPlaceholder")}
               value={formState.notes}
               onChange={(event) =>
-                setFormState((current) => ({
+                updateForm((current) => ({
                   ...current,
                   notes: event.target.value,
                 }))
@@ -1656,7 +1668,7 @@ export function ModelRegistryPage() {
               placeholder={t("models.form.localLoadInstructionsPlaceholder")}
               value={formState.localLoadInstructions}
               onChange={(event) =>
-                setFormState((current) => ({
+                updateForm((current) => ({
                   ...current,
                   localLoadInstructions: event.target.value,
                 }))
@@ -1669,7 +1681,7 @@ export function ModelRegistryPage() {
               checked={formState.isActive}
               className="h-4 w-4 rounded border-border"
               onChange={(event) =>
-                setFormState((current) => ({
+                updateForm((current) => ({
                   ...current,
                   isActive: event.target.checked,
                 }))
@@ -1687,40 +1699,6 @@ export function ModelRegistryPage() {
               {feedback}
             </div>
           ) : null}
-
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
-            {selectedModel ? (
-              <Button
-                aria-label={t("common.archive", { name: selectedModel.display_name })}
-                disabled={archiveMutation.isPending || selectedModel.is_archived}
-                onClick={() => archiveMutation.mutate(selectedModel.id)}
-                size="iconSm"
-                title={t("common.archive", { name: selectedModel.display_name })}
-                type="button"
-                variant="dangerSoft"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <Button onClick={() => setIsEditorOpen(false)} type="button" variant="soft">
-              {t("models.form.cancel")}
-            </Button>
-            <Button
-              disabled={
-                saveMutation.isPending ||
-                !formState.displayName.trim() ||
-                !formState.endpointUrl.trim() ||
-                !formState.modelIdentifier.trim() ||
-                !formState.timeoutSeconds.trim() ||
-                (formState.runtimeType === "remote" &&
-                  formState.secretMode === "preset" &&
-                  !formState.apiKeyPresetId.trim())
-              }
-              type="submit"
-            >
-              {t(selectedModel ? "models.form.saveChanges" : "models.form.createProfile")}
-            </Button>
-          </div>
         </form>
         <datalist id="provider-type-options">
           {providerPresetKeys.map((provider) => (

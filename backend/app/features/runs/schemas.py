@@ -80,6 +80,7 @@ class RunListItem(BaseModel):
     report_status: str
     prompt_count: int
     model_count: int
+    judge_count: int
 
 
 class RunListResponse(BaseModel):

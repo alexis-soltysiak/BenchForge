@@ -159,7 +159,8 @@ class RunService:
                 rubric_version=run.rubric_version,
                 report_status=run.report_status,
                 prompt_count=len(run.prompt_snapshots),
-                model_count=len(run.model_snapshots),
+                model_count=len([s for s in run.model_snapshots if s.role != "judge"]),
+                judge_count=len([s for s in run.model_snapshots if s.role == "judge"]),
             )
             for run in runs
         ], total
