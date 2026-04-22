@@ -16,6 +16,10 @@ running evaluations, scoring outputs with a judge model, and generating reports.
     <td><img src="docs/readme_images/image3.png" alt="BenchForge screenshot 3"></td>
     <td><img src="docs/readme_images/image4.png" alt="BenchForge screenshot 4"></td>
   </tr>
+  <tr>
+    <td><img src="docs/readme_images/image5.png" alt="BenchForge screenshot 5"></td>
+    <td><img src="docs/readme_images/image6.png" alt="BenchForge screenshot 6"></td>
+  </tr>
 </table>
 
 ## Current scope
@@ -24,7 +28,10 @@ running evaluations, scoring outputs with a judge model, and generating reports.
 - Model registry for local and remote providers
 - Session builder with candidates and judge selection
 - Run execution flow for remote and guided local models
-- Judge batches, aggregation, and global summaries
+- Two-phase LLM-as-a-judge scoring:
+  - **Absolute phase** — each candidate is scored individually (0–100) across relevance, accuracy, completeness, clarity, and instruction-following, with strengths/weaknesses and a confidence score (1–5)
+  - **Arena phase** — top-scoring candidates are paired for head-to-head comparisons; pairs are selected from the top 3 absolute scores, with an extra pair when the gap between 1st and 3rd is ≤ 3 points
+- Aggregation and global summaries across all judge batches
 - HTML and PDF report generation
 
 ## Stack
