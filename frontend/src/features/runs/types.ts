@@ -8,6 +8,7 @@ export type RunPromptSnapshot = {
   user_prompt_text: string;
   evaluation_notes: string | null;
   snapshot_order: number;
+  difficulty: number | null;
 };
 
 export type RunModelSnapshot = {
@@ -179,6 +180,7 @@ export type JudgeBatch = {
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
+  estimated_cost: string | null;
   evaluation: JudgeEvaluation | null;
 };
 

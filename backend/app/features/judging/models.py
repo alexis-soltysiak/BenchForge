@@ -56,6 +56,7 @@ class JudgeBatch(Base):
         nullable=True,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estimated_cost: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     run: Mapped["SessionRun"] = relationship(back_populates="judge_batches")
     evaluation: Mapped[JudgeEvaluation | None] = relationship(

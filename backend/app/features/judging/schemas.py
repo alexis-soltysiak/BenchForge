@@ -45,6 +45,7 @@ class JudgeBatchRead(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
+    estimated_cost: str | None
     evaluation: JudgeEvaluationRead | None
 
 

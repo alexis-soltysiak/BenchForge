@@ -289,20 +289,13 @@ export function PromptLibraryPage() {
   const [formTagInput, setFormTagInput] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [tagsPopoverId, setTagsPopoverId] = useState<number | null>(null);
   const [formState, setFormState] = useState<PromptFormState>(emptyForm);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [tagsTooltip, setTagsTooltip] = useState<{ tags: string[]; x: number; y: number } | null>(null);
   const [, startTransition] = useTransition();
 
   const isDirtyRef = useRef(false);
   const skipFormResetRef = useRef(false);
-
-  useEffect(() => {
-    if (tagsPopoverId === null) return;
-    const close = () => setTagsPopoverId(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [tagsPopoverId]);
 
   const updateForm = (updater: (prev: PromptFormState) => PromptFormState) => {
     isDirtyRef.current = true;
@@ -912,9 +905,13 @@ export function PromptLibraryPage() {
                 <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
                   <tr>
                     <th className="w-8 px-3 py-2 font-semibold lg:px-3.5" />
-                    <th className="w-[28%] px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colName")}</th>
+                    <th className="w-[42%] px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colName")}</th>
                     <th className="w-36 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colCategory")}</th>
-                    <th className="w-48 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colTags")}</th>
+                    <th className="w-10 px-3 py-2 font-semibold lg:px-3.5">
+                      <div className="flex justify-center">
+                        <Tag className="h-3.5 w-3.5 text-[hsl(var(--foreground-soft))]" />
+                      </div>
+                    </th>
                     <th className="w-20 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colUpdated")}</th>
                     <th className="w-16 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colActions")}</th>
                   </tr>
@@ -947,10 +944,10 @@ export function PromptLibraryPage() {
                           openEditModal(prompt);
                         }}
                       >
-                          <td className="w-6 px-3 py-2.5 align-middle lg:px-3.5">
+                          <td className="w-6 px-3 py-1.5 align-middle lg:px-3.5">
                             <DifficultyDot level={prompt.difficulty} />
                           </td>
-                          <td className="min-w-0 px-3 py-2.5 align-middle lg:px-3.5">
+                          <td className="min-w-0 px-3 py-1.5 align-middle lg:px-3.5">
                             <p
                               className="truncate text-[0.9rem] font-semibold text-foreground"
                               title={prompt.name}
@@ -958,56 +955,39 @@ export function PromptLibraryPage() {
                               {prompt.name}
                             </p>
                           </td>
-                          <td className="px-3 py-2.5 align-middle lg:px-3.5">
+                          <td className="px-3 py-1.5 align-middle lg:px-3.5">
                             <Badge variant="accent" className="whitespace-nowrap">{prompt.category.name}</Badge>
                           </td>
-                          <td className="overflow-hidden px-3 py-2.5 align-middle lg:px-3.5">
-                            <div className="flex flex-nowrap gap-1.5 items-center">
-                              {prompt.tags.length > 0 ? (
-                                <>
-                                  <Badge variant="neutral" className="shrink-0 max-w-[7rem] truncate whitespace-nowrap">
-                                    {prompt.tags[0]}
-                                  </Badge>
-                                  {prompt.tags.length > 1 && (
-                                    <div className="relative">
-                                      <button
-                                        type="button"
-                                        className="text-xs font-medium text-[hsl(var(--foreground-soft))] hover:text-foreground whitespace-nowrap px-1.5 py-0.5 rounded-md hover:bg-slate-100 transition-colors"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setTagsPopoverId(tagsPopoverId === prompt.id ? null : prompt.id);
-                                        }}
-                                      >
-                                        +{prompt.tags.length - 1}
-                                      </button>
-                                      {tagsPopoverId === prompt.id && (
-                                        <div
-                                          className="absolute z-50 left-0 top-full mt-1.5 w-56 rounded-xl border border-slate-200 bg-white shadow-lg p-3"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <div className="flex flex-wrap gap-1.5">
-                                            {prompt.tags.slice(1).map((tag) => (
-                                              <Badge key={tag} variant="neutral">
-                                                {tag}
-                                              </Badge>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </>
-                              ) : (
-                                <span className="text-[0.84rem] text-[hsl(var(--foreground-soft))]">{t("prompts.noTags")}</span>
-                              )}
-                            </div>
+                          <td className="px-3 py-1.5 align-middle lg:px-3.5" onClick={(e) => e.stopPropagation()}>
+                            {prompt.tags.length > 0 ? (
+                              <div className="flex justify-center">
+                                <button
+                                  type="button"
+                                  className="relative flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 bg-[hsl(var(--surface-muted))] text-[hsl(var(--foreground-soft))] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))] hover:text-[hsl(var(--theme-accent-soft-foreground))]"
+                                  onMouseEnter={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setTagsTooltip({ tags: prompt.tags, x: rect.left + rect.width / 2, y: rect.top });
+                                  }}
+                                  onMouseLeave={() => setTagsTooltip(null)}
+                                >
+                                  <Tag className="h-3 w-3" />
+                                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 text-[8px] font-bold leading-none text-white">
+                                    {prompt.tags.length}
+                                  </span>
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="flex justify-center text-[hsl(var(--foreground-soft))] opacity-30">
+                                <Tag className="h-3 w-3" />
+                              </span>
+                            )}
                           </td>
-                          <td className="px-3 py-2.5 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
+                          <td className="px-3 py-1.5 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                             <span title={formatDateFull(prompt.updated_at)}>
                               {formatDateShort(prompt.updated_at)}
                             </span>
                           </td>
-                          <td className="px-3 py-2.5 align-middle lg:px-3.5" onClick={(event) => event.stopPropagation()}>
+                          <td className="px-3 py-1.5 align-middle lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                             <div className="flex justify-end gap-1.5">
                               <Button
                                 aria-label={`Archive ${prompt.name}`}
@@ -1254,6 +1234,25 @@ export function PromptLibraryPage() {
           ) : null}
         </form>
       </Modal>
+
+      {tagsTooltip && (
+        <div
+          className="pointer-events-none fixed z-[9999] w-56 rounded-2xl border border-border/80 bg-[hsl(var(--surface-elevated))] p-3 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.22)]"
+          style={{ left: tagsTooltip.x, top: tagsTooltip.y, transform: "translate(-50%, calc(-100% - 10px))" }}
+        >
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
+            Tags
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {tagsTooltip.tags.map((tag) => (
+              <Badge key={tag} variant="neutral" className="text-[10px]">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+          <div className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-border/80 bg-[hsl(var(--surface-elevated))]" />
+        </div>
+      )}
     </div>
   );
 }

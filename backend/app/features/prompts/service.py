@@ -206,7 +206,7 @@ class PromptService:
         assert refreshed is not None
         return serialize_prompt(refreshed)
 
-    async def ensure_builtin_prompts(self) -> int:
+    async def ensure_builtin_prompts(self, force_reset: bool = False) -> int:
         seed_slugs = {seed.slug for seed in BUILTIN_PROMPT_SEEDS}
 
         all_prompts, _ = await self.repository.list_prompts(include_archived=True)
@@ -220,8 +220,10 @@ class PromptService:
         for seed in BUILTIN_PROMPT_SEEDS:
             existing = await self.repository.get_prompt_by_slug(seed.slug)
             if existing is not None:
-                existing.is_archived = False
-                existing.is_active = True
+                if force_reset:
+                    existing.is_archived = False
+                    existing.is_active = True
+                    created_count += 1
                 existing.name = seed.name
                 existing.description = seed.description
                 existing.system_prompt_text = seed.system_prompt_text
@@ -253,3 +255,7 @@ class PromptService:
 
         await self.repository.commit()
         return created_count
+
+    async def wipe_and_reset_builtin_prompts(self) -> int:
+        await self.repository.delete_all_prompts()
+        return await self.ensure_builtin_prompts(force_reset=True)

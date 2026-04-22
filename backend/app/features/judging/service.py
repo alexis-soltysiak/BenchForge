@@ -38,7 +38,7 @@ JUDGE_SCHEMA_VERSION = "mvp-v1"
 ANONYMIZED_LABELS = ["A", "B", "C", "D", "E"]
 ABSOLUTE_BATCH_TYPE = "absolute"
 ARENA_BATCH_TYPE = "arena"
-JUDGING_MAX_CONCURRENCY = 8
+JUDGING_MAX_CONCURRENCY = 5
 
 
 class JudgingError(ValueError):
@@ -104,6 +104,7 @@ def serialize_judge_batch(batch: JudgeBatch) -> JudgeBatchRead:
         started_at=batch.started_at,
         completed_at=batch.completed_at,
         error_message=batch.error_message,
+        estimated_cost=batch.estimated_cost,
         evaluation=(
             serialize_judge_evaluation(batch.evaluation)
             if batch.evaluation
@@ -154,7 +155,31 @@ class JudgingService:
         if run is None:
             raise JudgingError(f"Run {run_id} not found.")
 
-        return await self._run_judging(run)
+        batches = list(await self.repository.list_batches(run_id))
+        for batch in batches:
+            if batch.status == "failed":
+                batch.status = "pending"
+                batch.error_message = None
+                batch.completed_at = None
+
+        run.status = "judging"
+        await self.repository.commit()
+
+        absolute_failed = await self._run_pending_batches(run, ABSOLUTE_BATCH_TYPE)
+
+        if absolute_failed:
+            run.status = "failed"
+            await self.repository.commit()
+        else:
+            refreshed = list(await self.repository.list_batches(run.id))
+            await self._ensure_arena_batches(run, refreshed)
+            await self._run_pending_batches(run, ARENA_BATCH_TYPE)
+            run.status = "aggregating"
+            await self.repository.commit()
+            await self._run_aggregation_stage(run.id)
+
+        refreshed_batches = list(await self.repository.list_batches(run.id))
+        return self._serialize_run_judging(run, refreshed_batches)
 
     async def clear_judging(self, run_id: int) -> RunJudgingRead:
         run = await self.repository.get_run(run_id)
@@ -210,27 +235,34 @@ class JudgingService:
             for item in refreshed
             if item.batch_type == ABSOLUTE_BATCH_TYPE
         )
-        if absolute_jobs_complete:
+        if absolute_jobs_complete and batch.batch_type == ABSOLUTE_BATCH_TYPE:
             await self._ensure_arena_batches(run, refreshed)
-            arena_failed = await self._run_pending_batches(run, ARENA_BATCH_TYPE)
-            pending_arena = [
-                item
-                for item in await self.repository.list_batches(run.id)
-                if item.batch_type == ARENA_BATCH_TYPE and item.status != "completed"
-            ]
-            if arena_failed:
-                run.status = "failed"
-                await self.repository.commit()
-            elif pending_arena:
-                run.status = "judging"
-                await self.repository.commit()
-            else:
+            await self._run_pending_batches(run, ARENA_BATCH_TYPE)
+            run.status = "aggregating"
+            await self.repository.commit()
+            await self._run_aggregation_stage(run.id)
+        else:
+            all_batches = list(await self.repository.list_batches(run.id))
+            absolute_any_failed = any(
+                item.status == "failed"
+                for item in all_batches
+                if item.batch_type == ABSOLUTE_BATCH_TYPE
+            )
+            all_absolute_complete = all(
+                item.status == "completed"
+                for item in all_batches
+                if item.batch_type == ABSOLUTE_BATCH_TYPE
+            )
+            if all_absolute_complete:
                 run.status = "aggregating"
                 await self.repository.commit()
                 await self._run_aggregation_stage(run.id)
-        else:
-            run.status = "judging"
-            await self.repository.commit()
+            elif absolute_any_failed:
+                run.status = "failed"
+                await self.repository.commit()
+            else:
+                run.status = "judging"
+                await self.repository.commit()
 
         refreshed_batches = list(await self.repository.list_batches(run.id))
         return self._serialize_run_judging(run, refreshed_batches)
@@ -282,17 +314,15 @@ class JudgingService:
         run.status = "judging"
         await self.repository.commit()
         await self._ensure_absolute_batches(run)
-        failed = await self._run_pending_batches(run, ABSOLUTE_BATCH_TYPE)
+        absolute_failed = await self._run_pending_batches(run, ABSOLUTE_BATCH_TYPE)
 
-        if not failed:
-            batches = list(await self.repository.list_batches(run.id))
-            await self._ensure_arena_batches(run, batches)
-            failed = await self._run_pending_batches(run, ARENA_BATCH_TYPE)
-
-        if failed:
+        if absolute_failed:
             run.status = "failed"
             await self.repository.commit()
         else:
+            batches = list(await self.repository.list_batches(run.id))
+            await self._ensure_arena_batches(run, batches)
+            await self._run_pending_batches(run, ARENA_BATCH_TYPE)
             run.status = "aggregating"
             await self.repository.commit()
             await self._run_aggregation_stage(run.id)
@@ -575,6 +605,7 @@ class JudgingService:
         batch.request_payload_jsonb = json.dumps(result.request_payload)
         batch.raw_response_text = result.raw_response_text
         batch.raw_response_jsonb = json.dumps(result.raw_response_json)
+        batch.estimated_cost = str(result.estimated_cost) if result.estimated_cost is not None else None
 
         parsed_payload = self._parse_judge_output(
             result.normalized_response_text,
@@ -774,6 +805,7 @@ class JudgingService:
         labels = set(anonymized)
         seen_labels: set[str] = set()
         rankings: set[int] = set()
+        has_duplicate_ranking = False
         normalized_candidates: list[dict[str, Any]] = []
         for candidate in candidates:
             if not isinstance(candidate, dict):
@@ -789,7 +821,7 @@ class JudgingService:
             if ranking < 1 or ranking > len(anonymized):
                 raise JudgingError("ranking_in_batch is out of bounds.")
             if ranking in rankings:
-                raise JudgingError("ranking_in_batch must be unique within a batch.")
+                has_duplicate_ranking = True
             seen_labels.add(label)
             rankings.add(ranking)
             normalized_candidates.append(
@@ -827,6 +859,15 @@ class JudgingService:
                     ),
                 }
             )
+
+        if has_duplicate_ranking:
+            sorted_by_score = sorted(
+                normalized_candidates,
+                key=lambda c: float(c["overall_score"]),
+                reverse=True,
+            )
+            for rank, c in enumerate(sorted_by_score, start=1):
+                c["ranking_in_batch"] = rank
 
         return {
             "prompt_assessment": {

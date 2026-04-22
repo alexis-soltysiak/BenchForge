@@ -49,7 +49,9 @@ async def create_prompt(
     try:
         return await service.create_prompt(payload)
     except PromptCategoryNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
 @router.get("/prompts/{prompt_id}", response_model=PromptRead)
@@ -60,7 +62,9 @@ async def get_prompt(
     try:
         return await service.get_prompt(prompt_id)
     except PromptNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
 @router.patch("/prompts/{prompt_id}", response_model=PromptRead)
@@ -72,9 +76,13 @@ async def update_prompt(
     try:
         return await service.update_prompt(prompt_id, payload)
     except PromptNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
     except PromptCategoryNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
 @router.post("/prompts/{prompt_id}/archive", response_model=PromptRead)
@@ -85,4 +93,14 @@ async def archive_prompt(
     try:
         return await service.archive_prompt(prompt_id)
     except PromptNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+
+@router.post("/prompts/reset-builtin", response_model=dict)
+async def reset_builtin_prompts(
+    service: PromptService = Depends(get_prompt_service),
+) -> dict:
+    count = await service.wipe_and_reset_builtin_prompts()
+    return {"recreated": count}

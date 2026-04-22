@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -86,3 +86,11 @@ class PromptRepository:
             prompt,
             attribute_names=["category", "tag_links"],
         )
+
+    async def delete_all_prompts(self) -> None:
+        from sqlalchemy import update
+
+        await self.session.execute(
+            update(Prompt).values(is_archived=True, is_active=False)
+        )
+        await self.session.commit()

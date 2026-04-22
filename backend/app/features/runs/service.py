@@ -33,6 +33,7 @@ class RunLaunchValidationError(ValueError):
 
 def serialize_prompt_snapshot(
     snapshot: SessionRunPromptSnapshot,
+    difficulty: int | None = None,
 ) -> RunPromptSnapshotRead:
     return RunPromptSnapshotRead(
         id=snapshot.id,
@@ -44,6 +45,7 @@ def serialize_prompt_snapshot(
         user_prompt_text=snapshot.user_prompt_text,
         evaluation_notes=snapshot.evaluation_notes,
         snapshot_order=snapshot.snapshot_order,
+        difficulty=difficulty,
     )
 
 
@@ -88,7 +90,8 @@ def serialize_global_summary(summary: ModelGlobalSummary) -> RunGlobalSummaryRea
     )
 
 
-def serialize_run(run: SessionRun) -> RunRead:
+def serialize_run(run: SessionRun, difficulties: dict[int, int | None] | None = None) -> RunRead:
+    diff_map = difficulties or {}
     return RunRead(
         id=run.id,
         session_id=run.session_id,
@@ -102,7 +105,7 @@ def serialize_run(run: SessionRun) -> RunRead:
         pdf_report_path=run.pdf_report_path,
         notes=run.notes,
         prompt_snapshots=[
-            serialize_prompt_snapshot(item)
+            serialize_prompt_snapshot(item, difficulty=diff_map.get(item.source_prompt_id))
             for item in sorted(
                 run.prompt_snapshots,
                 key=lambda value: value.snapshot_order,
@@ -145,7 +148,9 @@ class RunService:
         await self.repository.commit()
         stored = await self.repository.get_run(run.id)
         assert stored is not None
-        return serialize_run(stored)
+        source_ids = [s.source_prompt_id for s in stored.prompt_snapshots]
+        difficulties = await self.repository.get_prompt_difficulties(source_ids)
+        return serialize_run(stored, difficulties)
 
     async def list_runs(self) -> tuple[list[RunListItem], int]:
         runs, total = await self.repository.list_runs()
@@ -169,7 +174,9 @@ class RunService:
         run = await self.repository.get_run(run_id)
         if run is None:
             raise RunNotFoundError(f"Run {run_id} not found.")
-        return serialize_run(run)
+        source_ids = [s.source_prompt_id for s in run.prompt_snapshots]
+        difficulties = await self.repository.get_prompt_difficulties(source_ids)
+        return serialize_run(run, difficulties)
 
     async def get_run_status(self, run_id: int) -> RunStatusRead:
         run = await self.repository.get_run(run_id)

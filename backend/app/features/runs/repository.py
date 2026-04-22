@@ -77,5 +77,13 @@ class RunRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_prompt_difficulties(self, source_prompt_ids: list[int]) -> dict[int, int | None]:
+        if not source_prompt_ids:
+            return {}
+        result = await self.session.execute(
+            select(Prompt.id, Prompt.difficulty).where(Prompt.id.in_(source_prompt_ids))
+        )
+        return {row.id: row.difficulty for row in result}
+
     async def commit(self) -> None:
         await self.session.commit()

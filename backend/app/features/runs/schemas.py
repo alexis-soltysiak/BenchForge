@@ -13,6 +13,7 @@ class RunPromptSnapshotRead(BaseModel):
     user_prompt_text: str
     evaluation_notes: str | None
     snapshot_order: int
+    difficulty: int | None = None
 
 
 class RunModelSnapshotRead(BaseModel):
