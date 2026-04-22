@@ -446,6 +446,16 @@ class ReportsService:
         category_radar_plotly = self._render_category_radar_plotly(report)
         category_html = self._render_category_breakdown_html(report)
 
+        best_judge = max((float(r.judge_score) for r in report.summary_matrix if r.judge_score), default=None)
+        best_quality = max((float(r.quality_score) for r in report.summary_matrix if r.quality_score), default=None)
+        best_cost = min((float(r.total_estimated_cost) for r in report.summary_matrix if r.total_estimated_cost), default=None)
+        best_latency = min((r.avg_duration_ms for r in report.summary_matrix if r.avg_duration_ms is not None), default=None)
+
+        def _best_td(value: str, is_best: bool) -> str:
+            if is_best:
+                return f"<td class='best-col'>{escape(value)}</td>"
+            return f"<td>{escape(value)}</td>"
+
         summary_rows = ""
         for i, row in enumerate(report.summary_matrix):
             score = Decimal(row.final_global_score or "0")
@@ -454,14 +464,18 @@ class ReportsService:
             cost_raw = f"${row.total_estimated_cost}" if row.total_estimated_cost else "—"
             latency_raw = f"{row.avg_duration_ms} ms" if row.avg_duration_ms is not None else "—"
             winner = i == 0
+            is_best_judge = best_judge is not None and row.judge_score and float(row.judge_score) == best_judge
+            is_best_quality = best_quality is not None and row.quality_score and float(row.quality_score) == best_quality
+            is_best_cost = best_cost is not None and row.total_estimated_cost and float(row.total_estimated_cost) == best_cost
+            is_best_latency = best_latency is not None and row.avg_duration_ms is not None and row.avg_duration_ms == best_latency
             summary_rows += (
                 f"<tr{'  class=\"winner-row\"' if winner else ''}>"
                 f"<td>{'★ ' if winner else ''}<strong>{escape(row.candidate_name)}</strong></td>"
-                f"<td>{escape(row.judge_score)}</td>"
-                f"<td>{escape(row.quality_score)}</td>"
-                f"<td>{escape(cost_raw)}</td>"
-                f"<td>{escape(latency_raw)}</td>"
-                f"<td><strong>{escape(row.final_global_score or '—')}</strong></td>"
+                + _best_td(row.judge_score or "—", is_best_judge)
+                + _best_td(row.quality_score or "—", is_best_quality)
+                + _best_td(cost_raw, is_best_cost)
+                + _best_td(latency_raw, is_best_latency)
+                + f"<td><strong>{escape(row.final_global_score or '—')}</strong></td>"
                 f"<td class='{'delta-zero' if i == 0 else 'delta-neg'}'>{escape(delta_str)}</td>"
                 "</tr>"
             )
@@ -684,6 +698,7 @@ class ReportsService:
       .winner-row td:first-child {{ border-left: 3px solid #eab308; padding-left: 11px; }}
       .delta-zero {{ color: var(--muted); }}
       .delta-neg {{ color: #dc2626; font-weight: 600; }}
+      .best-col {{ background: #dcfce7 !important; color: #15803d; font-weight: 700; }}
       .candidate-grid, .prompt-grid {{ display: grid; gap: 20px; }}
       .candidate {{
         border: 1px solid var(--line);
@@ -1387,16 +1402,26 @@ class ReportsService:
             return ""
 
         candidate_names = [s.candidate_name for s in report.candidate_sections]
-        headers = "<th>Category</th>" + "".join(f"<th>{escape(n)}</th>" for n in candidate_names)
+        sorted_cats = sorted(by_cat)
 
-        rows = ""
-        for cat in sorted(by_cat):
-            rows += f"<tr><td><strong>{escape(cat)}</strong></td>"
+        avgs_by_cat: dict[str, dict[str, float | None]] = {}
+        for cat in sorted_cats:
+            avgs_by_cat[cat] = {}
             for name in candidate_names:
                 scores = by_cat[cat].get(name, [])
-                if scores:
-                    avg = sum(scores) / len(scores)
-                    rows += f"<td>{avg:.1f}</td>"
+                avgs_by_cat[cat][name] = sum(scores) / len(scores) if scores else None
+
+        headers = "<th>Model</th>" + "".join(f"<th>{escape(cat)}</th>" for cat in sorted_cats)
+
+        rows = ""
+        for name in candidate_names:
+            row_vals = [avgs_by_cat[cat][name] for cat in sorted_cats]
+            best_in_row = max((v for v in row_vals if v is not None), default=None)
+            rows += f"<tr><td><strong>{escape(name)}</strong></td>"
+            for val in row_vals:
+                if val is not None:
+                    is_best = best_in_row is not None and val == best_in_row
+                    rows += f"<td{'  class=\"best-col\"' if is_best else ''}>{val:.1f}</td>"
                 else:
                     rows += "<td>—</td>"
             rows += "</tr>"

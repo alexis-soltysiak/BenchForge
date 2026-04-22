@@ -600,12 +600,14 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     expectedResponses > 0 &&
     effectiveResponses.length === expectedResponses &&
     completedCandidateResponses === expectedResponses;
+  const absoluteBatches = judging?.items.filter((b) => b.batch_type === "absolute") ?? [];
+  const allAbsoluteComplete =
+    absoluteBatches.length > 0 && absoluteBatches.every((b) => b.status === "completed");
   const judgingReady =
     allCandidatesReady &&
     !!judging &&
     judging.total_batches > 0 &&
-    judging.completed_batches === judging.total_batches &&
-    judging.failed_batches === 0;
+    allAbsoluteComplete;
   const phase1Progress =
     expectedResponses > 0 ? completedCandidateResponses / expectedResponses : 0;
   const phase2Progress =
@@ -1007,7 +1009,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                 <div className="mt-5">
                   <LockedPhasePanel
                     title="Phase 3 locked"
-                    description="Judging must complete successfully for every batch before report generation is available."
+                    description="All absolute judging batches must complete before report generation is available. Arena failures are ignored."
                   />
                 </div>
               ) : (
@@ -1070,6 +1072,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                     responses={rawResponses}
                     run={selectedRun}
                   />
+                  <CostRecapPanel run={selectedRun} judging={judging} responses={rawResponses} />
                   <AggregatedSummaryTable run={selectedRun} />
                 </div>
               )}
@@ -1508,9 +1511,10 @@ function MetaPill({ label }: { label: string }) {
   );
 }
 
-function StatusPill({ label, status }: { label?: string; status: string }) {
+function StatusPill({ label, status, title }: { label?: string; status: string; title?: string }) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold capitalize",
         status === "completed" && "bg-emerald-100 text-emerald-900",
@@ -2274,6 +2278,94 @@ function PromptRankingMatrix({
   );
 }
 
+function CostRecapPanel({ run, judging, responses }: { run: Run; judging: RunJudging | undefined; responses: CandidateResponse[] }) {
+  const candidateModels = run.model_snapshots.filter((m) => m.role === "candidate");
+  const judgeModels = run.model_snapshots.filter((m) => m.role === "judge");
+
+  const phase1Rows = candidateModels.map((model) => {
+    const modelResponses = responses.filter((r) => r.model_snapshot_id === model.id);
+    const hasCost = modelResponses.some((r) => r.metric?.estimated_cost != null);
+    const total = modelResponses.reduce((acc, r) => acc + (r.metric?.estimated_cost ? Number(r.metric.estimated_cost) : 0), 0);
+    return { model, cost: hasCost ? total : null };
+  });
+  const phase1Total = phase1Rows.reduce((acc, row) => {
+    return acc + (row.cost ?? 0);
+  }, 0);
+  const phase1HasCost = phase1Rows.some((r) => r.cost !== null);
+
+  const phase2Rows = judgeModels.map((model) => {
+    const batches = judging?.items.filter((b) => b.judge_model_snapshot_id === model.id) ?? [];
+    const total = batches.reduce((acc, b) => acc + (b.estimated_cost ? Number(b.estimated_cost) : 0), 0);
+    const hasCost = batches.some((b) => b.estimated_cost !== null);
+    return { model, cost: hasCost ? total : null };
+  });
+  const phase2Total = phase2Rows.reduce((acc, row) => acc + (row.cost ?? 0), 0);
+  const phase2HasCost = phase2Rows.some((r) => r.cost !== null);
+
+  const grandTotal = phase1Total + phase2Total;
+  const hasAnyCost = phase1HasCost || phase2HasCost;
+
+  if (candidateModels.length === 0 && judgeModels.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-border/70 bg-slate-50 p-5 space-y-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cost Recap</p>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Phase 1 */}
+        {candidateModels.length > 0 && (
+          <div className="rounded-lg border border-border/60 bg-white p-4 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-600">Phase 1 · Candidate execution</p>
+            <div className="space-y-1">
+              {phase1Rows.map(({ model, cost }) => (
+                <div key={model.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600 truncate max-w-[60%]">{model.display_name}</span>
+                  <span className="font-mono text-slate-800">{cost !== null ? `$${Number(cost).toFixed(4)}` : "—"}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border/60 pt-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Phase 1</span>
+              <span className="text-base font-bold text-sky-700 font-mono">
+                {phase1HasCost ? `$${phase1Total.toFixed(4)}` : "—"}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Phase 2 */}
+        {judgeModels.length > 0 && (
+          <div className="rounded-lg border border-border/60 bg-white p-4 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-violet-600">Phase 2 · Judging</p>
+            <div className="space-y-1">
+              {phase2Rows.map(({ model, cost }) => (
+                <div key={model.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600 truncate max-w-[60%]">{model.display_name}</span>
+                  <span className="font-mono text-slate-800">{cost !== null ? `$${cost.toFixed(4)}` : "—"}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border/60 pt-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Phase 2</span>
+              <span className="text-base font-bold text-violet-700 font-mono">
+                {phase2HasCost ? `$${phase2Total.toFixed(4)}` : "—"}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Grand total */}
+      <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-3">
+        <span className="text-sm font-semibold text-emerald-800 uppercase tracking-wide">Total session cost</span>
+        <span className="text-2xl font-extrabold text-emerald-700 font-mono">
+          {hasAnyCost ? `$${grandTotal.toFixed(4)}` : "—"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function AggregatedSummaryTable({ run }: { run: Run }) {
   if (run.global_summaries.length === 0) {
     return <EmptyStatePanel title="No aggregated summaries yet" description="Aggregation runs after judging completes successfully." />;
@@ -2394,6 +2486,34 @@ function promptAggregateStatus(batches: JudgeBatch[]): string {
   if (batches.some((b) => b.status === "failed")) return "failed";
   if (batches.some((b) => b.status === "running")) return "running";
   return "pending";
+}
+
+const DIFFICULTY_COLORS: Record<number, string> = {
+  1: "bg-emerald-400",
+  2: "bg-lime-400",
+  3: "bg-amber-400",
+  4: "bg-orange-500",
+  5: "bg-red-500",
+};
+
+const DIFFICULTY_LABELS: Record<number, string> = {
+  1: "Très facile",
+  2: "Facile",
+  3: "Moyen",
+  4: "Difficile",
+  5: "Très difficile",
+};
+
+function DifficultyDot({ level }: { level: number | null }) {
+  if (!level) return null;
+  return (
+    <span
+      className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white", DIFFICULTY_COLORS[level])}
+      title={`Difficulté : ${DIFFICULTY_LABELS[level] ?? level}`}
+    >
+      {level}
+    </span>
+  );
 }
 
 function JudgeBatchPanel({
@@ -2536,6 +2656,7 @@ function JudgeBatchPanel({
               onClick={() => onSelectPrompt(prompt.id)}
               type="button"
             >
+              <DifficultyDot level={prompt.difficulty ?? null} />
               <div className="min-w-0 flex-1">
                 <p className={cn(
                   "truncate text-[0.82rem] font-medium",
@@ -2673,9 +2794,13 @@ function PromptJudgeResultsPanel({
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
                     {rank + 1}
                   </span>
-                  <p className="min-w-0 flex-1 truncate text-[0.82rem] font-semibold text-slate-800">
-                    {modelName}
-                  </p>
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-400 shrink-0">Candidate</span>
+                    <p className="min-w-0 truncate text-[0.82rem] font-semibold text-slate-800">
+                      {modelName}
+                    </p>
+                  </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {avgScore !== null ? (
                       <span className={cn(
@@ -2702,11 +2827,17 @@ function PromptJudgeResultsPanel({
                       return (
                         <div key={batch.id} className={cn("px-3 py-2", bIdx > 0 && "border-t border-sky-100/60")}>
                           <div className="flex items-center gap-2 mb-1.5">
-                            {multipleJudges && judgeModel ? (
-                              <p className="min-w-0 flex-1 truncate text-[0.74rem] font-medium text-slate-500">
-                                {judgeModel.display_name}
-                              </p>
-                            ) : <div className="flex-1" />}
+                            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                              <Gavel className="h-3 w-3 shrink-0 text-violet-400" />
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-400">
+                                Judge
+                              </span>
+                              {judgeModel ? (
+                                <span className="min-w-0 truncate text-[0.74rem] font-medium text-slate-600">
+                                  {judgeModel.display_name}
+                                </span>
+                              ) : null}
+                            </div>
                             <div className="flex shrink-0 items-center gap-1.5">
                               <StatusPill status={isBatchRetrying ? "running" : batch.status} />
                               {batch.status === "failed" && !isBatchRetrying ? (
@@ -2781,7 +2912,15 @@ function PromptJudgeResultsPanel({
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    <StatusPill status={isBatchRetrying ? "running" : batch.status} />
+                    <StatusPill
+                      status={isBatchRetrying ? "running" : batch.status}
+                      title={batch.status === "failed" && batch.error_message ? batch.error_message : undefined}
+                    />
+                    {batch.status === "failed" && !isBatchRetrying ? (
+                      <Button disabled={isJudgingActive} onClick={(e) => { e.stopPropagation(); onRetryBatch(batch.id); }} size="sm" variant="secondary">
+                        Retry
+                      </Button>
+                    ) : null}
                     {batch.evaluation ? (
                       <button
                         className="rounded p-0.5 text-violet-400 transition-colors hover:text-violet-700"
@@ -2798,19 +2937,19 @@ function PromptJudgeResultsPanel({
                     )} />
                   </div>
                 </button>
-                {isExpanded && batch.evaluation ? (
-                  <div className="border-t border-violet-100/80 px-3 py-2">
-                    {batch.status === "failed" && !isBatchRetrying ? (
-                      <Button disabled={isJudgingActive} onClick={() => onRetryBatch(batch.id)} size="sm" variant="secondary">
-                        Retry
-                      </Button>
+                {isExpanded && (batch.evaluation || batch.error_message) ? (
+                  <div className="border-t border-violet-100/80 px-3 py-2 space-y-2">
+                    {batch.error_message ? (
+                      <CodeBlock content={batch.error_message} tone="rose" />
                     ) : null}
-                    <JudgeFeedbackPanel
-                      batch={batch}
-                      responses={responses}
-                      run={run}
-                      onSelectResponse={onSelectResponse}
-                    />
+                    {batch.evaluation ? (
+                      <JudgeFeedbackPanel
+                        batch={batch}
+                        responses={responses}
+                        run={run}
+                        onSelectResponse={onSelectResponse}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -2909,21 +3048,24 @@ function JudgeCandidateCard({
 function ScoreStat({
   label,
   value,
+  highlight,
 }: {
   label: string;
   value: string;
+  highlight?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "rounded-lg border px-2 py-2 text-center transition-all duration-200",
+        "flex-1 rounded-lg border px-1.5 py-1.5 text-center transition-all duration-200",
         scoreToneClasses(value, "soft"),
+        highlight && "ring-1 ring-inset ring-slate-300",
       )}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 truncate">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 truncate leading-tight">
         {label}
       </p>
-      <p className="mt-1 text-base font-semibold leading-none">{formatScore(value)}</p>
+      <p className="mt-0.5 text-sm font-semibold leading-none">{formatScore(value)}</p>
     </div>
   );
 }
@@ -3000,34 +3142,23 @@ function CandidateFeedbackAccordion({
         role={onOpenResponse ? "button" : undefined}
         tabIndex={onOpenResponse ? 0 : undefined}
       >
-        <div className="grid items-start gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Candidate
+            </span>
+            <span className="text-[10px] font-bold text-slate-500">
               {candidate.anonymized_candidate_label}
             </span>
-            <p className="min-w-0 truncate text-sm font-semibold text-slate-950 transition-colors duration-150 group-hover:text-slate-700">
-              {model?.display_name ?? "Candidate model"}
-            </p>
-            <MetaPill label={`Rank ${candidate.ranking_in_batch}`} />
-            <span className="truncate text-xs text-slate-400">
-              {model ? `${model.provider_type} / ${model.runtime_type}` : ""}
-            </span>
           </div>
-          <div
-            className={cn(
-              "justify-self-start rounded-lg border px-3 py-1.5 text-center md:justify-self-end",
-              scoreToneClasses(candidate.overall_score, "soft"),
-            )}
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              Overall
-            </p>
-            <p className="mt-0.5 text-xl font-semibold leading-none">
-              {formatScore(candidate.overall_score)}
-            </p>
-          </div>
+          <p className="min-w-0 truncate text-sm font-semibold text-slate-950 transition-colors duration-150 group-hover:text-slate-700">
+            {model?.display_name ?? "Candidate model"}
+          </p>
+          <span className="truncate text-xs text-slate-400">
+            {model ? `${model.provider_type} / ${model.runtime_type}` : ""}
+          </span>
         </div>
-        <div className="mt-2.5 grid grid-cols-[2.5rem_repeat(3,minmax(0,1fr))] gap-2 sm:grid-cols-[2.5rem_repeat(6,minmax(0,1fr))]">
+        <div className="mt-2 grid grid-cols-[2rem_repeat(6,minmax(0,1fr))_4px_minmax(0,1fr)] items-stretch gap-1.5">
           <button
             className={cn(
               "flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 transition-all duration-200 hover:border-slate-300 hover:bg-white active:scale-[0.97]",
@@ -3046,12 +3177,14 @@ function CandidateFeedbackAccordion({
               )}
             />
           </button>
-          <ScoreStat label="Relevance" value={candidate.relevance_score} />
-          <ScoreStat label="Accuracy" value={candidate.accuracy_score} />
-          <ScoreStat label="Completeness" value={candidate.completeness_score} />
+          <ScoreStat label="Relev." value={candidate.relevance_score} />
+          <ScoreStat label="Accur." value={candidate.accuracy_score} />
+          <ScoreStat label="Compl." value={candidate.completeness_score} />
           <ScoreStat label="Clarity" value={candidate.clarity_score} />
-          <ScoreStat label="Instruction" value={candidate.instruction_following_score} />
-          <ScoreStat label="Confidence" value={candidate.judge_confidence_score ?? "—"} />
+          <ScoreStat label="Instr." value={candidate.instruction_following_score} />
+          <ScoreStat label="Confid." value={candidate.judge_confidence_score ?? "—"} />
+          <div className="self-stretch rounded-full bg-border/70" />
+          <ScoreStat label="Overall" value={candidate.overall_score} highlight />
         </div>
       </div>
       {isExpanded ? (

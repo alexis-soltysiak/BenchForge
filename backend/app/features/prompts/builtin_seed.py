@@ -17,7 +17,145 @@ class BuiltinPromptSeed:
 
 
 BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
-    # ── Summarization ─────────────────────────────────────────────────────────
+
+    # ── Level 1 — Easy ────────────────────────────────────────────────────────
+
+    BuiltinPromptSeed(
+        slug="summarize-team-standup",
+        name="summarize-team-standup",
+        category_slug="summarization",
+        description="Summarize a short daily standup transcript into exactly 3 labeled bullets.",
+        system_prompt_text="You are a concise meeting assistant. Follow the output format exactly.",
+        user_prompt_text=(
+            "Summarize the standup transcript below in exactly 3 bullet points.\n\n"
+            "Rules:\n"
+            "- Use these labels in this exact order: `Done`, `Doing`, `Blocked`\n"
+            "- Each bullet must begin with its label followed by a colon\n"
+            "- Each bullet must be a single sentence under 20 words\n"
+            "- Do not add any introductory or closing text\n\n"
+            "Transcript:\n"
+            "Alice: Yesterday I finished the login page redesign and merged it. "
+            "Today I'm starting on the password reset flow. No blockers.\n"
+            "Bob: I shipped the email notification service yesterday. "
+            "Right now I'm reviewing Alice's PR and writing tests. "
+            "I'm blocked on the staging credentials — DevOps hasn't responded yet."
+        ),
+        evaluation_notes=(
+            "Reward: exact 3-bullet structure with correct labels in correct order, "
+            "each bullet under 20 words, no extra text. "
+            "Penalize: wrong order, missing label, merged content, or added commentary."
+        ),
+        tags=("benchmark", "summarization", "format", "meeting"),
+        difficulty=1,
+    ),
+
+    BuiltinPromptSeed(
+        slug="extract-employee-records-basic",
+        name="extract-employee-records-basic",
+        category_slug="structured-output",
+        description="Extract name, email, and department from 4 plaintext employee records into a JSON array.",
+        system_prompt_text="Return valid JSON only. No commentary.",
+        user_prompt_text=(
+            "Convert the employee records below into a JSON array. "
+            "Each object must contain exactly these keys: `full_name`, `email`, `department`.\n\n"
+            "Rules:\n"
+            "- `full_name` must preserve the original capitalization\n"
+            "- `email` must be lowercase\n"
+            "- `department` must be title case (e.g. `Sales`, `Human Resources`)\n"
+            "- Return JSON only\n\n"
+            "Records:\n"
+            "1. Alice Martin — engineering — alice.martin@company.com\n"
+            "2. BOB CHEN | sales | Bob@company.com\n"
+            "3. Clara Diaz (human resources) - CLARA.DIAZ@company.com\n"
+            "4. David Kim, Product Management, d.kim@corp.com"
+        ),
+        evaluation_notes=(
+            "Reward: correct 4-object array, full_name preserving original case, "
+            "email lowercased, department in title case. "
+            "Penalize: wrong casing, missing keys, extra keys, or invalid JSON."
+        ),
+        tags=("benchmark", "structured-output", "json", "extraction", "normalization"),
+        difficulty=1,
+    ),
+
+    # ── Level 2 — Moderate ────────────────────────────────────────────────────
+
+    BuiltinPromptSeed(
+        slug="reasoning-expense-approval-basic",
+        name="reasoning-expense-approval-basic",
+        category_slug="reasoning",
+        description="Apply 4 clear expense approval rules to 5 requests, each with a single unambiguous outcome.",
+        system_prompt_text="Apply the rules exactly as written. Do not infer additional restrictions.",
+        user_prompt_text=(
+            "A company uses these expense approval rules:\n"
+            "1. Any expense under 100 euros requires no approval.\n"
+            "2. Expenses from 100 to 500 euros (inclusive) require manager approval.\n"
+            "3. Expenses above 500 euros require both manager and finance team approval.\n"
+            "4. Travel expenses always require manager approval, regardless of amount.\n\n"
+            "Determine who must approve each request. "
+            "Answer in exactly this format:\n"
+            "`A: [approvers or 'no approval needed'] - reason`\n"
+            "`B: [approvers or 'no approval needed'] - reason`\n"
+            "`C: [approvers or 'no approval needed'] - reason`\n"
+            "`D: [approvers or 'no approval needed'] - reason`\n"
+            "`E: [approvers or 'no approval needed'] - reason`\n\n"
+            "Requests:\n"
+            "A: 75 euro team lunch, not a travel expense\n"
+            "B: 350 euro flight booking (travel)\n"
+            "C: 800 euro server license\n"
+            "D: 40 euro taxi to client site (travel)\n"
+            "E: 500 euro conference ticket, not a travel expense"
+        ),
+        evaluation_notes=(
+            "A: no approval needed (< 100, not travel). "
+            "B: manager only (travel rule applies regardless of amount). "
+            "C: manager + finance (> 500). "
+            "D: manager only (travel, even though < 100). "
+            "E: manager only (exactly 500, rule 2 says 'up to 500 inclusive'). "
+            "Penalize conflating the travel rule with the amount thresholds."
+        ),
+        tags=("benchmark", "reasoning", "rules", "approval"),
+        difficulty=2,
+    ),
+
+    BuiltinPromptSeed(
+        slug="extract-product-orders-normalized",
+        name="extract-product-orders-normalized",
+        category_slug="structured-output",
+        description="Convert 5 product orders into a normalized JSON array with status mapping, null handling, and a computed total field.",
+        system_prompt_text="Return valid JSON only. Apply every rule exactly. Do not include commentary.",
+        user_prompt_text=(
+            "Convert the orders below into a JSON array. Each object must contain exactly:\n"
+            "`order_id`, `customer`, `sku`, `quantity`, `unit_price_eur`, `total_eur`, `status`\n\n"
+            "Rules:\n"
+            "- `order_id` must be a string\n"
+            "- `customer` must be lowercase\n"
+            "- `sku` must be uppercase\n"
+            "- `quantity` must be an integer\n"
+            "- `unit_price_eur` must be a float rounded to 2 decimal places\n"
+            "- `total_eur` = quantity × unit_price_eur, rounded to 2 decimal places\n"
+            "- `status` must be normalized: map `shipped` → `delivered`, `pending` → `open`, "
+            "`cancelled` → `cancelled`, any unknown value → `unknown`\n"
+            "- If `unit_price_eur` is missing or empty, use null for both `unit_price_eur` and `total_eur`\n"
+            "- Return JSON only\n\n"
+            "Orders:\n"
+            "1. ID=1042, Customer=Alice Dupont, SKU=wdg-003, qty=3, price=12.5 EUR, status=shipped\n"
+            "2. ID=1043, Customer=BOB MARTIN, SKU=prd-017, qty=10, price=, status=pending\n"
+            "3. ID=1044, Customer=Clara Diaz, SKU=wdg-003, qty=1, price=12.50, status=cancelled\n"
+            "4. ID=1045, customer=DAVID KIM, sku=SVC-099, qty=5, price=200 EUR, status=dispatched\n"
+            "5. ID=1046, Customer=Eve Blanc, SKU=prd-021, qty=2, price=9.99, status=pending"
+        ),
+        evaluation_notes=(
+            "Reward: correct casing, total_eur computed correctly (1042→37.50, 1044→12.50, 1045→1000.00, 1046→19.98), "
+            "null handling for 1043, status normalization (dispatched→unknown, shipped→delivered, pending→open). "
+            "Penalize: wrong totals, missing nulls, incorrect status mapping."
+        ),
+        tags=("benchmark", "structured-output", "json", "normalization", "computation"),
+        difficulty=2,
+    ),
+
+    # ── Level 3 — Super Hard ──────────────────────────────────────────────────
+
     BuiltinPromptSeed(
         slug="summarize-policy-with-exception-hierarchy",
         name="summarize-policy-with-exception-hierarchy",
@@ -64,16 +202,16 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "Counter-exception scoped to disciplinary review only; Mandatory disclosure with 500-record threshold and 4-hour window; "
             "Consequence track A for negligence (retraining + suspension + 12-month escalation trigger); "
             "Consequence track B for intentional/concealed (revocation + termination + regulatory referral). "
-            "Penalize: merging consequence tracks, omitting the disciplinary-review counter-exception, dropping the 12-month recidivism condition, or exceeding one sentence per bullet."
+            "Penalize: merging consequence tracks, omitting the disciplinary-review counter-exception, "
+            "dropping the 12-month recidivism condition, or exceeding one sentence per bullet."
         ),
-        tags=("benchmark", "summarization", "policy", "compliance", "nested-exceptions", "role-scoped", "structured-summary"),
-        difficulty=5,
+        tags=("benchmark", "summarization", "policy", "compliance", "nested-exceptions", "structured-summary"),
+        difficulty=3,
     ),
 
-    # ── Structured Output ─────────────────────────────────────────────────────
     BuiltinPromptSeed(
         slug="extract-incident-records-with-rule-collisions",
-        name="extract_incident_records_with_rule_collisions",
+        name="extract-incident-records-with-rule-collisions",
         category_slug="structured-output",
         description="Convert noisy incident lines into strict JSON while resolving omission, normalization, and masking rules that can conflict.",
         system_prompt_text="Return valid JSON only. Follow the schema and all transformation rules exactly. Do not include commentary.",
@@ -104,12 +242,44 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "Reward exact omission of debug and invalid timestamp records, correct RFC3339-style UTC timestamps, "
             "correct masking of all private ranges including 172.20.x.x, null ticket handling, and strict schema compliance."
         ),
-        tags=("benchmark", "structured-output", "json", "logs", "normalization", "validation", "rule-conflict"),
+        tags=("benchmark", "structured-output", "json", "logs", "normalization", "rule-conflict"),
         difficulty=3,
     ),
+
+    BuiltinPromptSeed(
+        slug="write-customer-response-with-hidden-conflict-constraints",
+        name="write-customer-response-with-hidden-conflict-constraints",
+        category_slug="writing",
+        description="Draft a customer reply that must satisfy multiple tightly constrained commercial, structural, and lexical requirements simultaneously.",
+        system_prompt_text="Write with empathy and professionalism. Respect every explicit constraint exactly, especially the ones that conflict in subtle ways.",
+        user_prompt_text=(
+            "Write a reply to a customer whose order arrived 5 days late and who is asking for a full refund.\n\n"
+            "Constraints:\n"
+            "- Between 95 and 105 words inclusive\n"
+            "- Exactly 2 paragraphs\n"
+            "- Acknowledge frustration\n"
+            "- Apologize clearly\n"
+            "- Offer a 15% discount on the next order\n"
+            "- Do not offer a refund\n"
+            "- Do not blame the shipping carrier\n"
+            "- Do not use the words `policy`, `refund denied`, `unfortunately`, `cannot`, or `won't`\n"
+            "- Include exactly one sentence that begins with `As a gesture of goodwill,`\n"
+            "- The second paragraph must contain exactly 2 sentences\n"
+            "- The final sentence must invite the customer to reply directly"
+        ),
+        evaluation_notes=(
+            "Reward strict compliance with length, paragraph structure, forbidden phrase constraints, and the required goodwill sentence "
+            "while still sounding natural and empathetic. Penalize accidental carrier blame, blunt refusal language, or implicit refund promises."
+        ),
+        tags=("benchmark", "writing", "customer-support", "constraint-following", "tone-control"),
+        difficulty=3,
+    ),
+
+    # ── Level 4 — Extremely Hard ──────────────────────────────────────────────
+
     BuiltinPromptSeed(
         slug="transform-contract-clauses-to-strict-json",
-        name="transform_contract_clauses_to_strict_json",
+        name="transform-contract-clauses-to-strict-json",
         category_slug="structured-output",
         description="Extract structured contract obligations from dense clauses with nested conditions, shared exclusions, and mixed normative language.",
         system_prompt_text="Return valid JSON only. Follow the schema exactly and obey the inclusion and exclusion rules without approximation.",
@@ -146,10 +316,9 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         difficulty=4,
     ),
 
-    # ── Reasoning ─────────────────────────────────────────────────────────────
     BuiltinPromptSeed(
         slug="reasoning-multi-rule-approval-matrix",
-        name="reasoning_multi_rule_approval_matrix",
+        name="reasoning-multi-rule-approval-matrix",
         category_slug="reasoning",
         description="Evaluate several approval decisions under overlapping rules, scoped exceptions, precedence, and narrow carve-outs.",
         system_prompt_text="Apply the rules exactly as written. Respect precedence and scope. Do not extend exceptions beyond what is explicitly stated.",
@@ -186,45 +355,47 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
         tags=("benchmark", "reasoning", "logic", "rule-application", "precedence", "exceptions"),
         difficulty=4,
     ),
+
     BuiltinPromptSeed(
-        slug="reasoning-policy-precedence-nested-exceptions",
-        name="reasoning_policy_precedence_nested_exceptions",
-        category_slug="reasoning",
-        description="Resolve access decisions under a policy stack with precedence, nested exceptions, interacting roles, and one narrow override.",
-        system_prompt_text="Apply the rules in precedence order. A lower rule cannot override a higher one unless the text explicitly says so.",
+        slug="coding-rate-limiter-out-of-order-requests",
+        name="coding-rate-limiter-out-of-order-requests",
+        category_slug="coding",
+        description="Implement a per-user rolling-window rate limiter that remains correct when events arrive out of chronological order and duplicate timestamps appear.",
+        system_prompt_text="Prefer correctness over cleverness. Handle edge cases explicitly. Do not silently assume monotonic timestamps.",
         user_prompt_text=(
-            "Access rules are applied in this order from highest precedence to lowest:\n"
-            "1. A direct suspension always denies access.\n"
-            "2. Admins can access all systems except payroll while under audit.\n"
-            "3. Managers can access finance_reports only if they completed compliance training.\n"
-            "4. Contractors cannot access payroll.\n"
-            "5. Anyone on an exception list may access exactly one named system unless blocked by a higher-precedence rule.\n"
-            "6. Employees may access internal_tools by default.\n"
-            "7. A payroll-specific executive waiver overrides rule 2 only, but does not override rule 1.\n\n"
-            "Facts:\n"
-            "- Nora is an employee, a manager, and an admin.\n"
-            "- Nora is under audit.\n"
-            "- Nora completed compliance training.\n"
-            "- Nora is on the exception list for payroll.\n"
-            "- Nora has a payroll-specific executive waiver.\n"
-            "- Nora is not suspended.\n\n"
-            "Question: Can Nora access each system?\n\n"
-            "Answer in exactly this format:\n"
-            "`payroll: yes/no - reason`\n"
-            "`finance_reports: yes/no - reason`\n"
-            "`internal_tools: yes/no - reason`"
+            "Implement a Python class `RateLimiter` with a method `allow(user_id, timestamp)`.\n\n"
+            "Rules:\n"
+            "- Each user may perform at most 3 requests in any rolling 10-second window\n"
+            "- `timestamp` is an integer in seconds\n"
+            "- Requests for the same user are not guaranteed to arrive in chronological order\n"
+            "- Multiple requests may share the exact same timestamp and must still be counted separately\n"
+            "- Different users must be tracked independently\n"
+            "- Return `True` if the request is allowed, otherwise `False`\n"
+            "- Do not use external libraries\n"
+            "- Do not mutate stored history in a way that would make a later out-of-order decision lose needed prior events\n"
+            "- After the code, explain in at most 4 sentences how your design handles out-of-order timestamps and duplicate timestamps\n\n"
+            "Your implementation should be correct on window-boundary cases and should not rely on queue-only pruning assumptions.\n\n"
+            "The following sequence must evaluate correctly for the same user:\n"
+            "`allow(u, 100) -> True`\n"
+            "`allow(u, 101) -> True`\n"
+            "`allow(u, 102) -> True`\n"
+            "`allow(u, 102) -> False`\n"
+            "`allow(u, 200) -> True`\n"
+            "`allow(u, 103) -> False`"
         ),
         evaluation_notes=(
-            "Reward correct precedence handling: payroll allowed because rule 7 explicitly overrides rule 2, "
-            "finance_reports allowed, and internal_tools allowed. Penalize treating the lower exception list as the reason for payroll access "
-            "instead of the explicit waiver."
+            "Reward designs that explicitly support out-of-order timestamps and duplicate timestamps instead of standard append-only queue logic. "
+            "Penalize implementations that destructively prune history, collapse duplicates, or are only correct for monotonic event streams."
         ),
-        tags=("benchmark", "reasoning", "policy", "precedence", "nested-rules", "logic"),
+        tags=("benchmark", "coding", "python", "algorithm", "edge-cases", "data-structures"),
         difficulty=4,
     ),
+
+    # ── Level 5 — Impossible ──────────────────────────────────────────────────
+
     BuiltinPromptSeed(
         slug="reasoning-multi-entity-permission-with-delegation",
-        name="reasoning_multi_entity_permission_with_delegation",
+        name="reasoning-multi-entity-permission-with-delegation",
         category_slug="reasoning",
         description="Compute effective system access for five principals across roles, individual exceptions, admin grants, emergency suspensions, time-window restrictions, and single-hop delegation chains.",
         system_prompt_text=(
@@ -281,78 +452,13 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "delegated; (4) Eve DOES inherit Diana's LEGAL permissions because suspensions are not delegated; "
             "(5) Bob gets payroll via admin grant even though OPS has no payroll access."
         ),
-        tags=("benchmark", "reasoning", "permissions", "delegation", "precedence", "multi-entity", "access-control"),
+        tags=("benchmark", "reasoning", "permissions", "delegation", "precedence", "access-control"),
         difficulty=5,
     ),
 
-    # ── Writing ───────────────────────────────────────────────────────────────
-    BuiltinPromptSeed(
-        slug="write-customer-response-with-hidden-conflict-constraints",
-        name="write_customer_response_with_hidden_conflict_constraints",
-        category_slug="writing",
-        description="Draft a customer reply that must satisfy multiple tightly constrained commercial, structural, and lexical requirements simultaneously.",
-        system_prompt_text="Write with empathy and professionalism. Respect every explicit constraint exactly, especially the ones that conflict in subtle ways.",
-        user_prompt_text=(
-            "Write a reply to a customer whose order arrived 5 days late and who is asking for a full refund.\n\n"
-            "Constraints:\n"
-            "- Between 95 and 105 words inclusive\n"
-            "- Exactly 2 paragraphs\n"
-            "- Acknowledge frustration\n"
-            "- Apologize clearly\n"
-            "- Offer a 15% discount on the next order\n"
-            "- Do not offer a refund\n"
-            "- Do not blame the shipping carrier\n"
-            "- Do not use the words `policy`, `refund denied`, `unfortunately`, `cannot`, or `won't`\n"
-            "- Include exactly one sentence that begins with `As a gesture of goodwill,`\n"
-            "- The second paragraph must contain exactly 2 sentences\n"
-            "- The final sentence must invite the customer to reply directly"
-        ),
-        evaluation_notes=(
-            "Reward strict compliance with length, paragraph structure, forbidden phrase constraints, and the required goodwill sentence "
-            "while still sounding natural and empathetic. Penalize accidental carrier blame, blunt refusal language, or implicit refund promises."
-        ),
-        tags=("benchmark", "writing", "customer-support", "constraint-following", "tone-control", "precision"),
-        difficulty=4,
-    ),
-
-    # ── Coding ────────────────────────────────────────────────────────────────
-    BuiltinPromptSeed(
-        slug="coding-rate-limiter-out-of-order-requests",
-        name="coding_rate_limiter_out_of_order_requests",
-        category_slug="coding",
-        description="Implement a per-user rolling-window rate limiter that remains correct when events arrive out of chronological order and duplicate timestamps appear.",
-        system_prompt_text="Prefer correctness over cleverness. Handle edge cases explicitly. Do not silently assume monotonic timestamps.",
-        user_prompt_text=(
-            "Implement a Python class `RateLimiter` with a method `allow(user_id, timestamp)`.\n\n"
-            "Rules:\n"
-            "- Each user may perform at most 3 requests in any rolling 10-second window\n"
-            "- `timestamp` is an integer in seconds\n"
-            "- Requests for the same user are not guaranteed to arrive in chronological order\n"
-            "- Multiple requests may share the exact same timestamp and must still be counted separately\n"
-            "- Different users must be tracked independently\n"
-            "- Return `True` if the request is allowed, otherwise `False`\n"
-            "- Do not use external libraries\n"
-            "- Do not mutate stored history in a way that would make a later out-of-order decision lose needed prior events\n"
-            "- After the code, explain in at most 4 sentences how your design handles out-of-order timestamps and duplicate timestamps\n\n"
-            "Your implementation should be correct on window-boundary cases and should not rely on queue-only pruning assumptions.\n\n"
-            "The following sequence must evaluate correctly for the same user:\n"
-            "`allow(u, 100) -> True`\n"
-            "`allow(u, 101) -> True`\n"
-            "`allow(u, 102) -> True`\n"
-            "`allow(u, 102) -> False`\n"
-            "`allow(u, 200) -> True`\n"
-            "`allow(u, 103) -> False`"
-        ),
-        evaluation_notes=(
-            "Reward designs that explicitly support out-of-order timestamps and duplicate timestamps instead of standard append-only queue logic. "
-            "Penalize implementations that destructively prune history, collapse duplicates, or are only correct for monotonic event streams."
-        ),
-        tags=("benchmark", "coding", "python", "algorithm", "edge-cases", "data-structures", "robustness"),
-        difficulty=5,
-    ),
     BuiltinPromptSeed(
         slug="coding-lru-cache-with-explicit-state-invariants",
-        name="coding_lru_cache_with_explicit_state_invariants",
+        name="coding-lru-cache-with-explicit-state-invariants",
         category_slug="coding",
         description="Implement a thread-safe LRU cache with extended semantics including peek, put_if_absent, evict_where, and strict hit/miss tracking.",
         system_prompt_text="Write correct, concise Python. Every semantic rule must hold exactly, including under concurrent access. Do not sacrifice correctness for brevity.",
@@ -389,12 +495,13 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "no OrderedDict, ValueError on bad capacity, and all sequence steps correct. "
             "Penalize: any recency corruption from peek or put_if_absent, stats counting puts, nested locks, or O(n) operations."
         ),
-        tags=("benchmark", "coding", "python", "data-structures", "lru-cache", "concurrency", "invariants", "algorithm"),
+        tags=("benchmark", "coding", "python", "data-structures", "lru-cache", "concurrency", "invariants"),
         difficulty=5,
     ),
+
     BuiltinPromptSeed(
         slug="coding-transactional-key-value-store",
-        name="coding_transactional_key_value_store",
+        name="coding-transactional-key-value-store",
         category_slug="coding",
         description="Implement a thread-safe transactional key-value store with snapshot isolation, last-writer-wins commit semantics, and point-in-time reads.",
         system_prompt_text=(
@@ -458,7 +565,7 @@ BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
             "Penalize: snapshots referencing shared mutable state, incorrect last-writer-wins behavior, "
             "cross-transaction visibility of uncommitted writes, or accepting operations on finalized transactions."
         ),
-        tags=("benchmark", "coding", "python", "transactions", "snapshot-isolation", "concurrency", "invariants", "key-value"),
+        tags=("benchmark", "coding", "python", "transactions", "snapshot-isolation", "concurrency", "key-value"),
         difficulty=5,
     ),
 )

@@ -78,10 +78,11 @@ function toPayload(state: SessionFormState): SessionPayload {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  const d = new Date(value);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = String(d.getFullYear()).slice(2);
+  return `${day}/${month}/${year}`;
 }
 
 function matchesSearch(session: Session, search: string): boolean {
@@ -117,7 +118,7 @@ const ROCKET_LAUNCH_CSS = `
   100% { transform: translate(0,0) rotate(0deg); opacity: 1; }
 }
 .rocket-firing {
-  animation: rocket-launch 2s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation: rocket-launch 4s cubic-bezier(0.4,0,0.2,1) forwards;
 }
 `;
 
@@ -637,7 +638,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                         )}
                         onClick={() => openModal(session)}
                       >
-                        <td className="px-3 py-2.5 align-top lg:px-3.5">
+                        <td className="px-3 py-1.5 align-middle lg:px-3.5">
                           <div className="flex items-center gap-3">
                             <button
                               type="button"
@@ -656,17 +657,17 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             >
                               <AnimatedRocket className="h-4 w-4" />
                             </button>
-                            <div className="space-y-1">
-                              <p className="text-[0.95rem] font-semibold text-foreground transition hover:text-[hsl(var(--primary))]">
+                            <div className="pl-0.5">
+                              <p className="text-[0.95rem] font-semibold leading-tight text-foreground transition hover:text-[hsl(var(--primary))]">
                                 {session.name}
                               </p>
-                              <p className="max-w-sm text-[0.92rem] text-[hsl(var(--foreground-soft))]">
+                              <p className="max-w-sm text-[0.8rem] leading-tight text-[hsl(var(--foreground-soft))]">
                                 {session.description ?? t("sessions.noDescription")}
                               </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
+                        <td className="px-3 py-1.5 align-middle text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="neutral">{t("sessions.compositionPrompts", { count: session.prompts.length })}</Badge>
                             <Badge variant="neutral">
@@ -675,11 +676,11 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             <Badge variant="neutral">{t("sessions.compositionJudges", { count: session.judges.length })}</Badge>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 align-top text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
+                        <td className="px-3 py-1.5 align-middle text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
                           {formatDate(session.updated_at)}
                         </td>
                         <td
-                          className="px-3 py-2.5 align-top lg:px-3.5"
+                          className="px-3 py-1.5 align-middle lg:px-3.5"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="relative">
@@ -722,7 +723,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             ) : null}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 align-top lg:px-3.5" onClick={(event) => event.stopPropagation()}>
+                        <td className="px-3 py-1.5 align-middle lg:px-3.5" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             <ActionIconButton
                               aria-label={`${t("sessions.action.archive")} ${session.name}`}
@@ -831,7 +832,6 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
           {selectionStep === "prompts" && selectedSession ? (
             <SelectionWorkspace
-              description={t("sessions.selection.promptsDesc")}
               filters={
                 <PromptFilters
                   categories={allPromptCategories}
@@ -843,7 +843,6 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                 />
               }
               search={promptSearch}
-              selectedCount={selectedSession.prompts.length}
               title={t("sessions.selection.prompts")}
               onSearchChange={setPromptSearch}
             >
@@ -878,9 +877,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
           {selectionStep === "candidates" && selectedSession ? (
             <SelectionWorkspace
-              description={t("sessions.selection.candidatesDesc")}
               search={candidateSearch}
-              selectedCount={selectedSession.candidates.length}
               title={t("sessions.selection.candidates")}
               onSearchChange={setCandidateSearch}
             >
@@ -910,9 +907,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
           {selectionStep === "judges" && selectedSession ? (
             <SelectionWorkspace
-              description={t("sessions.selection.judgesDesc")}
               search={judgeSearch}
-              selectedCount={selectedSession.judges.length}
               title={t("sessions.selection.judges")}
               onSearchChange={setJudgeSearch}
             >
@@ -1223,18 +1218,14 @@ function SessionStepSwitcher({
 
 function SelectionWorkspace({
   children,
-  description,
   filters,
   search,
-  selectedCount,
   title,
   onSearchChange,
 }: {
   children: ReactNode;
-  description: string;
   filters?: ReactNode;
   search: string;
-  selectedCount: number;
   title: string;
   onSearchChange: (value: string) => void;
 }) {
@@ -1242,14 +1233,8 @@ function SelectionWorkspace({
   return (
     <div className="space-y-4">
       <div className="rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface-overlay))] p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">{title}</p>
-            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-              {t("sessions.selection.count", { count: selectedCount })}
-            </h3>
-            <p className="mt-1 text-sm text-[hsl(var(--foreground-soft))]">{description}</p>
-          </div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          {filters ? <div>{filters}</div> : null}
           <label className="relative block min-w-full lg:min-w-80">
             <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
             <Input
@@ -1260,7 +1245,6 @@ function SelectionWorkspace({
             />
           </label>
         </div>
-        {filters ? <div className="mt-4 border-t border-border/60 pt-4">{filters}</div> : null}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {children}

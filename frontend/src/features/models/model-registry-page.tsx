@@ -46,6 +46,54 @@ import { ApiError } from "@/lib/api";
 import { queryClient } from "@/lib/query-client";
 import { cn } from "@/lib/utils";
 
+const TEST_TUBE_CSS = `
+@keyframes test-tube-shake {
+  0%   { transform: rotate(0deg); }
+  10%  { transform: rotate(-18deg); }
+  25%  { transform: rotate(14deg); }
+  40%  { transform: rotate(-10deg); }
+  55%  { transform: rotate(8deg); }
+  70%  { transform: rotate(-5deg); }
+  85%  { transform: rotate(3deg); }
+  100% { transform: rotate(0deg); }
+}
+.test-tube-shaking {
+  animation: test-tube-shake 0.7s ease-in-out forwards;
+  transform-origin: bottom center;
+}
+`;
+
+function AnimatedTestTube({ className }: { className?: string }) {
+  const [key, setKey] = useState(0);
+  const [shaking, setShaking] = useState(false);
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+
+    function schedule() {
+      const delay = 3000 + Math.random() * 9000;
+      timeout = setTimeout(() => {
+        setShaking(true);
+        setKey((k) => k + 1);
+        setTimeout(() => {
+          setShaking(false);
+          schedule();
+        }, 700);
+      }, delay);
+    }
+
+    schedule();
+    return () => clearTimeout(timeout);
+  }, []);
+
+  return (
+    <>
+      <style>{TEST_TUBE_CSS}</style>
+      <TestTube2 key={key} className={cn(className, shaking && "test-tube-shaking")} />
+    </>
+  );
+}
+
 type ModelFormState = {
   displayName: string;
   role: "candidate" | "judge" | "both";
@@ -150,7 +198,7 @@ const emptyForm: ModelFormState = {
   apiStyle: "openai_compatible",
   runtimeType: "remote",
   endpointUrl: "https://api.openai.com/v1/chat/completions",
-  modelIdentifier: "gpt-5.2",
+  modelIdentifier: "gpt-5.4-2026-03-05",
   secretMode: "manual",
   apiKeyPresetId: "",
   secret: "",
@@ -175,7 +223,7 @@ const providerPresets: Record<string, ProviderPreset> = {
     label: "OpenAI",
     apiStyle: "openai_compatible",
     endpointUrl: "https://api.openai.com/v1/chat/completions",
-    modelIdentifiers: ["gpt-5.2", "gpt-5-mini", "gpt-5-nano", "gpt-4.1"],
+    modelIdentifiers: ["gpt-5.4-2026-03-05", "gpt-5.4-mini-2026-03-17", "gpt-5.4-nano"],
   },
   google: {
     label: "Google Gemini",
@@ -248,6 +296,12 @@ const providerPresets: Record<string, ProviderPreset> = {
     apiStyle: "openai_compatible",
     endpointUrl: "http://localhost:11434/v1/chat/completions",
     modelIdentifiers: ["llama3.2", "qwen3", "gemma3", "mistral"],
+  },
+  lmstudio: {
+    label: "LM Studio",
+    apiStyle: "openai_compatible",
+    endpointUrl: "http://127.0.0.1:1234/v1/chat/completions",
+    modelIdentifiers: ["qwen/qwen3.6-35b-a3b"],
   },
 };
 
@@ -1196,7 +1250,7 @@ export function ModelRegistryPage() {
                               type="button"
                               variant="soft"
                             >
-                              <TestTube2
+                              <AnimatedTestTube
                                 className={cn(
                                   "h-4 w-4",
                                   isTestingConnection && "animate-pulse text-sky-700",
