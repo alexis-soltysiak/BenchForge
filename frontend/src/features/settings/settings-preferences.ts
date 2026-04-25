@@ -10,7 +10,7 @@ export type AppTheme =
 
 const THEME_STORAGE_KEY = "benchforge.theme";
 
-const DEFAULT_THEME: AppTheme = "light";
+const DEFAULT_THEME: AppTheme = "noir";
 
 const appThemes = new Set<AppTheme>([
   "light",

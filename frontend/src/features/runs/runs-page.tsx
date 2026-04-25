@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
+  Award,
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
@@ -22,13 +23,13 @@ import {
   SquareTerminal,
   XCircle,
 } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadErrorState } from "@/components/ui/load-error-state";
-import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import {
   clearRunJudging,
@@ -43,6 +44,7 @@ import {
   fetchRunResponses,
   fetchRuns,
   generateAndDownloadAll,
+  regenerateAndDownloadHtml,
   restartRunJudging,
   resumeRun,
   retryCandidateResponse,
@@ -58,6 +60,7 @@ import type {
   JudgeEvaluationCandidate,
   LocalExecutionNextResponse,
   Run,
+  RunGlobalSummary,
   RunJudging,
   RunModelSnapshot,
   RunPromptSnapshot,
@@ -130,160 +133,269 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
     ),
   ).length;
   const readyReports = visibleRuns.filter((item) => item.report_status === "completed").length;
+  const completedVisibleRuns = visibleRuns.filter((item) => item.status === "completed");
+  const completedRunQueries = useQueries({
+    queries: completedVisibleRuns.map((item) => ({
+      queryKey: ["runs", item.id, "list-detail"],
+      queryFn: () => fetchRun(item.id),
+      staleTime: 60_000,
+      refetchInterval: false,
+    })),
+  });
+  const completedRunDetails = useMemo(() => {
+    const map = new Map<number, Run>();
+    completedVisibleRuns.forEach((item, index) => {
+      const data = completedRunQueries[index]?.data;
+      if (data) {
+        map.set(item.id, data);
+      }
+    });
+    return map;
+  }, [completedRunQueries, completedVisibleRuns]);
   const loadError =
     (runsQuery.error instanceof ApiError && runsQuery.error.message) || null;
   const retryLoad = () => {
     void runsQuery.refetch();
   };
+  const hasAnyFilters = Boolean(search.trim()) || statusFilter !== null;
 
   return (
-    <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-      <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
-        <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-        <div className="relative flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center xl:gap-4">
-          <div className="relative max-w-[30rem] space-y-2">
-            <span className="inline-flex rounded-full border border-rose-200 bg-[hsl(var(--surface)/0.85)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--foreground-soft))]">
+    <div className="text-foreground">
+      <header className="border-b border-border/50 px-6 pb-6 pt-8 lg:px-8">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-[0.28em] text-primary/80">
               {t("runs.executionMonitor")}
-            </span>
-            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
+            </p>
+            <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight text-foreground">
               {t("runs.pageTitle")}
             </h1>
-          </div>
-          <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              compact
-              className="rounded-[1.2rem]"
-              icon={Activity}
-              label={t("runs.metricVisible")}
-              tone="red"
-              value={String(visibleRuns.length)}
-            />
-            <MetricCard
-              compact
-              className="rounded-[1.2rem]"
-              icon={CheckCircle2}
-              label={t("runs.metricCompleted")}
-              tone="red"
-              value={String(completedRuns)}
-            />
-            <MetricCard
-              compact
-              className="rounded-[1.2rem]"
-              icon={SquareTerminal}
-              label={t("runs.metricActive")}
-              tone="red"
-              value={String(activeRuns)}
-            />
-            <MetricCard
-              compact
-              className="rounded-[1.2rem]"
-              icon={Gavel}
-              label={t("runs.metricReports")}
-              tone="red"
-              value={String(readyReports)}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-5 space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className="relative block flex-1 max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input
-              className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
-              placeholder={t("runs.searchPlaceholder")}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {([null, "active", "completed", "failed"] as const).map((s) => (
-              <button
-                key={String(s)}
-                type="button"
-                onClick={() => setStatusFilter(s)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
-                  statusFilter === s
-                    ? s === "completed"
-                      ? "bg-emerald-100 text-emerald-900"
-                      : s === "active"
-                        ? "bg-amber-100 text-amber-900"
-                        : s === "failed"
-                          ? "bg-rose-100 text-rose-900"
-                          : "bg-foreground text-background"
-                    : "bg-[hsl(var(--surface-muted))] text-[hsl(var(--foreground-soft))] hover:text-foreground",
-                )}
-              >
-                {s === null ? "Tous" : s === "active" ? "En cours" : s === "completed" ? "Terminés" : "Échoués"}
-              </button>
-            ))}
+            <div className="mt-3 flex flex-wrap items-center gap-1">
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <Activity className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{visibleRuns.length}</span>{" "}
+                  {t("runs.metricVisible").toLowerCase()}
+                </span>
+              </div>
+              <span className="mx-1.5 text-border/60">·</span>
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{completedRuns}</span>{" "}
+                  {t("runs.metricCompleted").toLowerCase()}
+                </span>
+              </div>
+              <span className="mx-1.5 text-border/60">·</span>
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <SquareTerminal className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{activeRuns}</span>{" "}
+                  {t("runs.metricActive").toLowerCase()}
+                </span>
+              </div>
+              <span className="mx-1.5 text-border/60">·</span>
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <Gavel className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{readyReports}</span>{" "}
+                  {t("runs.metricReports").toLowerCase()}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+      </header>
 
-        {loadError ? (
-          <LoadErrorState
-            message={loadError}
-            onRetry={retryLoad}
-            resourceLabel={t("runs.pageTitle")}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-6 py-3 lg:px-8">
+        <label className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="h-9 w-52 rounded-lg pl-8 text-sm"
+            placeholder={t("runs.searchPlaceholder")}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
           />
-        ) : null}
+        </label>
 
-        {runsQuery.isLoading ? (
-          <div className="py-10 text-center text-[0.92rem] text-[hsl(var(--foreground-soft))]">{t("runs.loading")}</div>
-        ) : visibleRuns.length === 0 ? (
-          <div className="py-7">
-            <EmptyStatePanel title={t("runs.noRuns")} description="" />
-          </div>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {visibleRuns.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onOpenRun(item.id)}
-                className="group flex flex-col gap-2 rounded-xl border border-border/70 bg-[hsl(var(--surface-overlay))] p-3 text-left shadow-sm transition-all hover:border-border hover:shadow-md hover:bg-amber-50"
-              >
-                <div className="flex min-h-[2.8rem] items-start justify-between gap-2">
-                  <p className="flex-1 text-[0.88rem] font-semibold text-foreground leading-snug line-clamp-2">
-                    {item.name}
-                  </p>
-                  <StatusPill status={item.status} />
-                </div>
+        {([null, "active", "completed", "failed"] as const).map((s) => (
+          <button
+            key={String(s)}
+            type="button"
+            onClick={() => setStatusFilter(s)}
+            className={cn(
+              "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[0.82rem] font-medium transition",
+              statusFilter === s
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-muted))]",
+            )}
+          >
+            {s === null ? "Tous" : s === "active" ? "En cours" : s === "completed" ? "Terminés" : "Échoués"}
+          </button>
+        ))}
 
-                <div className="flex items-center justify-between border-t border-border/40 pt-2">
-                  <div className="flex gap-3 text-[0.75rem] text-[hsl(var(--foreground-soft))]">
-                    <span><span className="font-medium text-foreground">{item.prompt_count}</span> prompts</span>
-                    <span><span className="font-medium text-foreground">{item.model_count}</span> modèles</span>
-                    <span><span className="font-medium text-foreground">{item.judge_count}</span> juges</span>
-                  </div>
-                  {item.status === "completed" ? (
-                    <Button
-                      aria-label={`Preview report for ${item.name}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setPreviewRun({ id: item.id, name: item.name });
-                      }}
-                      size="iconSm"
-                      title={`Preview report for ${item.name}`}
-                      type="button"
-                      variant="soft"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                  ) : (
-                    <span className="text-[0.72rem] text-[hsl(var(--foreground-soft))]">
-                      {formatDate(item.launched_at)}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            title="Reset filters"
+            aria-label="Reset filters"
+            disabled={!hasAnyFilters}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition",
+              hasAnyFilters
+                ? "text-muted-foreground hover:bg-[hsl(var(--surface-muted))] hover:text-foreground"
+                : "cursor-default text-muted-foreground/25",
+            )}
+            onClick={() => {
+              setSearch("");
+              setStatusFilter(null);
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {loadError ? (
+        <LoadErrorState
+          message={loadError}
+          onRetry={retryLoad}
+          resourceLabel={t("runs.pageTitle")}
+        />
+      ) : null}
+
+      <div>
+        <table className="w-full table-fixed text-left">
+          <thead>
+            <tr className="border-b border-border/50">
+              <th className="px-6 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground lg:px-8">
+                {t("runs.pageTitle")}
+              </th>
+              <th className="w-28 px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Statut
+              </th>
+              <th className="px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Résultat
+              </th>
+              <th className="w-48 px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Composition
+              </th>
+              <th className="w-32 px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Chronologie
+              </th>
+              <th className="w-14 px-4 py-2.5" />
+            </tr>
+          </thead>
+          <tbody>
+            {runsQuery.isLoading ? (
+              <RunsTableEmptyRow message={t("runs.loading")} />
+            ) : visibleRuns.length === 0 ? (
+              <RunsTableEmptyRow message={t("runs.noRuns")} />
+            ) : (
+              visibleRuns.map((item) => {
+                const detailedRun = completedRunDetails.get(item.id);
+                const topSummaries = detailedRun ? getTopRunListSummaries(detailedRun, 3) : [];
+                const completionLabel =
+                  item.status === "completed" && detailedRun?.completed_at
+                    ? `Terminé ${formatRunListDateTimeShort(detailedRun.completed_at)}`
+                    : `Lancé ${formatDate(item.launched_at)}`;
+
+                return (
+                  <tr
+                    key={item.id}
+                    className="group cursor-pointer border-b border-border/30 transition-colors duration-100 hover:bg-[hsl(var(--surface-muted)/0.6)]"
+                    onClick={() => onOpenRun(item.id)}
+                  >
+                    <td className="px-6 py-3.5 align-middle lg:px-8">
+                      <div className="min-w-0">
+                        <p className="truncate text-[0.88rem] font-medium text-foreground">
+                          {item.name}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[0.78rem] text-muted-foreground">
+                          <span>{item.rubric_version}</span>
+                          <span className="text-border/60">·</span>
+                          <span>
+                            rapport{" "}
+                            <span className={cn(
+                              "font-medium",
+                              item.report_status === "completed" ? "text-foreground" : "text-muted-foreground",
+                            )}
+                            >
+                              {item.report_status}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 align-middle">
+                      <StatusPill status={item.status} />
+                    </td>
+                    <td className="px-4 py-3.5 align-middle">
+                      {item.status === "completed" ? (
+                        detailedRun ? (
+                          topSummaries.length > 0 ? (
+                            <RunTopThreeSummary run={detailedRun} summaries={topSummaries} />
+                          ) : (
+                            <div className="min-w-0 text-[0.78rem] text-muted-foreground">
+                              Résumés globaux indisponibles
+                            </div>
+                          )
+                        ) : (
+                          <div className="min-w-0 text-[0.78rem] text-muted-foreground">
+                            Chargement du résumé…
+                          </div>
+                        )
+                      ) : (
+                        <div className="min-w-0 text-[0.78rem] text-muted-foreground">
+                          {item.report_status === "completed"
+                            ? "Rapport prêt"
+                            : "Résultat final non disponible"}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 align-middle text-[0.78rem] text-muted-foreground">
+                      <div className="flex flex-wrap gap-3">
+                        <span><span className="font-semibold text-foreground">{item.prompt_count}</span> prompts</span>
+                        <span><span className="font-semibold text-foreground">{item.model_count}</span> candidats</span>
+                        <span><span className="font-semibold text-foreground">{item.judge_count}</span> juges</span>
+                        {detailedRun ? (
+                          <span><span className="font-semibold text-foreground">{detailedRun.candidate_response_count}</span> réponses</span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 align-middle text-[0.78rem] text-muted-foreground">
+                      <div className="space-y-1">
+                        <p>{completionLabel}</p>
+                        {item.status === "completed" && detailedRun?.completed_at ? (
+                          <p>{formatRunListElapsed(item.launched_at, detailedRun.completed_at)}</p>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 align-middle" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        {item.status === "completed" ? (
+                          <Button
+                            aria-label={`Preview report for ${item.name}`}
+                            onClick={() => setPreviewRun({ id: item.id, name: item.name })}
+                            size="iconSm"
+                            title={`Preview report for ${item.name}`}
+                            type="button"
+                            variant="soft"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
       <Modal
         description={t("runs.preview.title")}
@@ -545,7 +657,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
   });
 
   const downloadHtmlMutation = useMutation({
-    mutationFn: () => downloadRunReportHtml(runId),
+    mutationFn: () => regenerateAndDownloadHtml(runId),
     onError: (error) => {
       setFeedback(error instanceof ApiError ? error.message : "Unable to download HTML report.");
     },
@@ -648,7 +760,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
   return (
     <div className="px-5 py-3 lg:px-10 lg:py-4">
-      <div className="mb-1">
+      <div className="mb-2">
         <Button className="h-8 px-2" onClick={onBack} variant="ghost">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to runs
@@ -657,62 +769,81 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
 
       {selectedRun ? (
         <div className="space-y-3">
-          <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                  Run #{selectedRun.id}
-                </p>
-                <h2 className="mt-2 truncate whitespace-nowrap text-3xl font-semibold tracking-tight text-foreground">
-                  {selectedRun.name}
-                </h2>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <StatusPill status={selectedRun.status} />
-                  <InfoTag
-                    tone="slate"
-                    value={formatDate(selectedRun.launched_at)}
-                  />
-                  <InfoTag
-                    tone="sky"
-                    value={selectedRun.rubric_version}
-                  />
-                  <InfoTag
-                    tone="rose"
-                    value={`${
-                      selectedRun.prompt_snapshots.length + selectedRun.model_snapshots.length
-                    } records`}
-                  />
-                  <MetaPill label={`${selectedRun.prompt_snapshots.length} prompts`} />
-                  <MetaPill
-                    label={`${
-                      selectedRun.model_snapshots.filter((item) => item.role === "candidate")
-                        .length
-                    } candidates`}
-                  />
-                  <MetaPill
-                    label={`${
-                      selectedRun.model_snapshots.filter((item) => item.role === "judge").length
-                    } judge`}
-                  />
+          <div className="overflow-hidden rounded-[1.5rem] border border-border/60 bg-[hsl(var(--surface-overlay))] shadow-[0_24px_70px_-40px_rgba(15,23,42,0.16)]">
+            <header className="border-b border-border/40 px-6 pb-5 pt-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <p className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-[0.28em] text-primary/80">
+                    Run #{selectedRun.id}
+                  </p>
+                  <h2 className="truncate text-[2rem] font-semibold tracking-tight text-foreground">
+                    {selectedRun.name}
+                  </h2>
+                  <div className="mt-3 flex flex-wrap items-center gap-1 text-[0.78rem] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <StatusPill status={selectedRun.status} />
+                    </div>
+                    <span className="mx-1.5 text-border/60">·</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>
+                        <span className="font-semibold text-foreground">{selectedRun.prompt_snapshots.length}</span> prompts
+                      </span>
+                    </div>
+                    <span className="mx-1.5 text-border/60">·</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>
+                        <span className="font-semibold text-foreground">
+                          {selectedRun.model_snapshots.filter((item) => item.role === "candidate").length}
+                        </span>{" "}
+                        candidates
+                      </span>
+                    </div>
+                    <span className="mx-1.5 text-border/60">·</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>
+                        <span className="font-semibold text-foreground">
+                          {selectedRun.model_snapshots.filter((item) => item.role === "judge").length}
+                        </span>{" "}
+                        juges
+                      </span>
+                    </div>
+                    <span className="mx-1.5 text-border/60">·</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>
+                        <span className="font-semibold text-foreground">{selectedRun.candidate_response_count}</span> réponses
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
+                      {selectedRun.rubric_version}
+                    </Badge>
+                    <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
+                      {formatDate(selectedRun.launched_at)}
+                    </Badge>
+                    <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
+                      {selectedRun.report_status === "completed" ? "report ready" : selectedRun.report_status}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    disabled={resumeMutation.isPending}
+                    onClick={() => resumeMutation.mutate()}
+                    variant="secondary"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    {selectedRun.candidate_response_count === 0
+                      ? "Start all endpoints"
+                      : "Resume all endpoints"}
+                  </Button>
                 </div>
               </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  disabled={resumeMutation.isPending}
-                  onClick={() => resumeMutation.mutate()}
-                  variant="secondary"
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  {selectedRun.candidate_response_count === 0
-                    ? "Start all endpoints"
-                    : "Resume all endpoints"}
-                </Button>
-              </div>
-            </div>
+            </header>
 
             {loadError ? (
-              <div className="mt-5">
+              <div className="px-6 py-4">
                 <LoadErrorState
                   compact
                   message={loadError}
@@ -733,12 +864,12 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   />
                 </div>
               ) : (
-                <div className="mt-5 rounded-2xl border border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] px-4 py-3 text-sm text-[hsl(var(--theme-accent-soft-foreground))]">
+                <div className="border-t border-primary/20 bg-primary/5 px-6 py-3 text-[0.82rem] text-primary">
                   {feedback}
                 </div>
               )
             ) : null}
-          </Card>
+          </div>
 
           <RunPhaseSwitcher
             activePhase={activePhase}
@@ -1209,16 +1340,8 @@ function RunPhaseSwitcher({
       subtitle: "Candidates",
       icon: SquareTerminal,
       progress: phase1Progress,
-      stageFill: "28%",
       unlocked: true,
-      tint: {
-        border: "border-orange-200",
-        wash: "bg-orange-50/60",
-        fill: "",
-        icon: "bg-orange-100/80 text-orange-700",
-        text: "text-slate-950",
-        progress: "bg-orange-400",
-      },
+      iconClass: "bg-primary/10 text-primary",
     },
     {
       key: "phase2" as const,
@@ -1226,16 +1349,8 @@ function RunPhaseSwitcher({
       subtitle: "Judging",
       icon: Gavel,
       progress: phase2Progress,
-      stageFill: "56%",
       unlocked: phase2Unlocked,
-      tint: {
-        border: "border-amber-200",
-        wash: "bg-amber-50/60",
-        fill: "",
-        icon: "bg-amber-100/80 text-amber-700",
-        text: "text-slate-950",
-        progress: "bg-amber-500",
-      },
+      iconClass: "bg-primary/10 text-primary",
     },
     {
       key: "phase3" as const,
@@ -1243,16 +1358,8 @@ function RunPhaseSwitcher({
       subtitle: "Report",
       icon: Sparkles,
       progress: phase3Progress,
-      stageFill: "84%",
       unlocked: phase3Unlocked,
-      tint: {
-        border: "border-teal-200",
-        wash: "bg-teal-50/60",
-        fill: "",
-        icon: "bg-teal-100/80 text-teal-700",
-        text: "text-slate-950",
-        progress: "bg-teal-500",
-      },
+      iconClass: "bg-primary/10 text-primary",
     },
   ];
 
@@ -1267,21 +1374,21 @@ function RunPhaseSwitcher({
           <button
             key={phase.key}
             className={cn(
-              "group relative overflow-hidden rounded-[1.45rem] border bg-white text-left transition duration-200",
+              "group relative overflow-hidden rounded-[1.25rem] border text-left transition duration-200",
               isActive
-                ? cn(phase.tint.border, "shadow-[0_22px_48px_-28px_rgba(15,23,42,0.28)]")
-                : "border-border/80 hover:border-slate-300",
-              !phase.unlocked && "opacity-80",
+                ? "border-primary/30 bg-primary/8 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.18)]"
+                : "border-border/60 bg-[hsl(var(--surface-overlay))] hover:bg-[hsl(var(--surface))]",
+              !phase.unlocked && "opacity-70",
             )}
             disabled={!phase.unlocked}
             onClick={() => onPhaseChange(phase.key)}
             type="button"
           >
-            <div className="absolute inset-x-4 bottom-3 h-[4px] overflow-hidden rounded-full bg-slate-200/70">
+            <div className="absolute inset-x-4 bottom-3 h-[4px] overflow-hidden rounded-full bg-border/60">
               <div
                 className={cn(
                   "h-full rounded-full transition-[width] duration-500 ease-out",
-                  phase.tint.progress,
+                  isActive ? "bg-primary" : "bg-primary/50",
                 )}
                 style={{ width: progressWidth }}
               />
@@ -1291,8 +1398,8 @@ function RunPhaseSwitcher({
               <div className="flex min-w-0 items-center gap-3">
                 <span
                   className={cn(
-                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm",
-                    phase.tint.icon,
+                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm",
+                    phase.iconClass,
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -1300,22 +1407,21 @@ function RunPhaseSwitcher({
                 <div className="min-w-0">
                   <p
                     className={cn(
-                      "text-[0.95rem] font-semibold leading-none",
-                      isActive ? phase.tint.text : "text-slate-950",
+                      "text-[0.95rem] font-semibold leading-none text-foreground",
                     )}
                   >
                     {phase.label}
                   </p>
-                  <p className="mt-1 text-[0.82rem] leading-none text-slate-500">{phase.subtitle}</p>
+                  <p className="mt-1 text-[0.8rem] leading-none text-muted-foreground">{phase.subtitle}</p>
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 <span
                   className={cn(
-                    "inline-flex rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold",
+                    "inline-flex rounded-full px-2.5 py-0.5 text-[0.68rem] font-semibold",
                     isActive
-                      ? "bg-white/80 text-slate-700"
-                      : "bg-slate-100 text-slate-600",
+                      ? "bg-primary/10 text-primary"
+                      : "bg-[hsl(var(--surface-muted))] text-muted-foreground",
                   )}
                 >
                   {!phase.unlocked ? "Locked" : isActive ? "Current" : "Open"}
@@ -1491,6 +1597,138 @@ function CandidateExecutionCard({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function getTopRunListSummaries(run: Run, limit: number): RunGlobalSummary[] {
+  return [...run.global_summaries]
+    .sort(
+    (a, b) => Number(b.final_global_score ?? "-1") - Number(a.final_global_score ?? "-1"),
+    )
+    .slice(0, limit);
+}
+
+function formatRunListDateTimeShort(value: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatRunListElapsed(startedAt: string, completedAt: string): string {
+  const diffMs = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (!Number.isFinite(diffMs) || diffMs <= 0) {
+    return "durée indisponible";
+  }
+
+  const totalMinutes = Math.round(diffMs / 60000);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+}
+
+function formatRunListLatency(value: number | null): string {
+  if (value === null) {
+    return "latence —";
+  }
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)} s`;
+  }
+  return `${value} ms`;
+}
+
+function formatRunListCost(value: string | null): string {
+  if (!value) {
+    return "coût —";
+  }
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return `coût ${value}`;
+  }
+  return `coût $${numericValue.toFixed(3)}`;
+}
+
+function formatRunListScore(value: string | null): string {
+  if (!value) {
+    return "—";
+  }
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return value;
+  }
+  return numericValue.toFixed(2);
+}
+
+function RunTopThreeSummary({
+  run,
+  summaries,
+}: {
+  run: Run;
+  summaries: RunGlobalSummary[];
+}) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      {summaries.map((summary, index) => {
+        const model = run.model_snapshots.find((item) => item.id === summary.model_snapshot_id);
+        const rank = index + 1;
+        return (
+          <div
+            key={summary.id}
+            className={cn(
+              "flex items-center gap-2 rounded-md border px-2 py-1",
+              rank === 1
+                ? "border-primary/20 bg-primary/6"
+                : "border-border/50 bg-[hsl(var(--surface))]",
+            )}
+          >
+            <div
+              className={cn(
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.58rem] font-bold",
+                rank === 1 && "bg-amber-100 text-amber-700",
+                rank === 2 && "bg-slate-100 text-slate-600",
+                rank === 3 && "bg-orange-100 text-orange-700",
+              )}
+            >
+              {rank === 1 ? <Award className="h-2.5 w-2.5" /> : rank}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-[0.74rem] font-medium text-foreground">
+                  {model?.display_name ?? `Modèle ${rank}`}
+                </p>
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[0.64rem] text-muted-foreground">
+                <span>
+                  score <span className="font-semibold text-foreground">{formatRunListScore(summary.final_global_score)}</span>
+                </span>
+                {rank === 1 ? (
+                  <>
+                    <span className="text-border/60">·</span>
+                    <span>{formatRunListLatency(summary.avg_duration_ms)}</span>
+                    <span className="text-border/60">·</span>
+                    <span>{formatRunListCost(summary.total_estimated_cost)}</span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RunsTableEmptyRow({ message }: { message: string }) {
+  return (
+    <tr className="border-t border-border/30">
+      <td className="px-5 py-12 text-center text-sm text-muted-foreground/50" colSpan={5}>
+        {message}
+      </td>
+    </tr>
   );
 }
 
@@ -2432,23 +2670,49 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
           return (
             <div
               key={`detail-${summary.id}`}
-              className="rounded-xl border border-border/80 bg-slate-50 p-3"
+              className="overflow-hidden rounded-[1.2rem] border border-border/60 bg-[hsl(var(--surface-overlay))] shadow-[0_18px_42px_-32px_rgba(15,23,42,0.14)]"
             >
-              <p className="text-xs font-semibold text-slate-950">
-                {model?.display_name ?? "Unknown model"}
-              </p>
-              <p className="mt-1.5 text-xs leading-5 text-slate-600">
-                {summary.global_summary_text ?? "No global summary generated."}
-              </p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <FeedbackBlock
+              <div className="border-b border-border/40 px-4 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[0.95rem] font-semibold text-foreground">
+                      {model?.display_name ?? "Unknown model"}
+                    </p>
+                    <p className="mt-1 text-[0.76rem] text-muted-foreground">
+                      {model
+                        ? `${model.provider_type} / ${model.runtime_type}`
+                        : "Missing snapshot"}
+                    </p>
+                  </div>
+                  <ScoreBadge value={summary.final_global_score} />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="accent" className="whitespace-nowrap text-[0.68rem]">
+                    avg {formatScore(summary.average_overall_score)}
+                  </Badge>
+                  <Badge variant="accent" className="whitespace-nowrap text-[0.68rem]">
+                    {formatDuration(summary.avg_duration_ms)}
+                  </Badge>
+                  <Badge variant="accent" className="whitespace-nowrap text-[0.68rem]">
+                    {formatCost(summary.total_estimated_cost)}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-[0.8rem] leading-6 text-muted-foreground">
+                  {summary.global_summary_text ?? "No global summary generated."}
+                </p>
+              </div>
+
+              <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
+                <SummaryInsightCard
                   icon={Sparkles}
                   label="Best patterns"
+                  tone="good"
                   value={summary.best_patterns_text ?? "No repeated strengths captured."}
                 />
-                <FeedbackBlock
+                <SummaryInsightCard
                   icon={Clock3}
                   label="Weak patterns"
+                  tone="warn"
                   value={summary.weak_patterns_text ?? "No repeated weaknesses captured."}
                 />
               </div>
@@ -2456,6 +2720,39 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function SummaryInsightCard({
+  icon: Icon,
+  label,
+  tone,
+  value,
+}: {
+  icon: typeof Sparkles;
+  label: string;
+  tone: "good" | "warn";
+  value: string;
+}) {
+  return (
+    <div className="rounded-[1rem] border border-border/50 bg-[hsl(var(--surface))] p-3">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-lg",
+            tone === "good" ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700",
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <p className="mt-3 text-[0.82rem] leading-6 text-foreground">
+        {value}
+      </p>
     </div>
   );
 }

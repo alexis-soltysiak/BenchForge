@@ -162,7 +162,13 @@ export function downloadRunReportSummarySvg(runId: number): Promise<void> {
 export async function generateAndDownloadAll(runId: number): Promise<void> {
   await generateRunReport(runId);
   await Promise.all([
+    downloadRunReportHtml(runId),
     downloadRunReportPdf(runId),
     downloadRunReportSvg(runId),
   ]);
+}
+
+export async function regenerateAndDownloadHtml(runId: number): Promise<void> {
+  await generateRunReport(runId);
+  await downloadRunReportHtml(runId);
 }

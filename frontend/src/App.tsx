@@ -176,16 +176,16 @@ export function App() {
       : view === "settings"
         ? t("nav.settings")
         : activeView.label;
+  const showShellGlow = isHomeView;
 
   return (
     <QueryClientProvider client={queryClient}>
       <div
         className={cn("min-h-screen", !isHomeView && "xl:pr-[17.25rem]")}
         style={{
-          backgroundImage:
-            isHomeView || isRunDetailView
-              ? "none"
-              : "radial-gradient(circle at top, var(--shell-glow), transparent 28%)",
+          backgroundImage: showShellGlow
+            ? "radial-gradient(circle at top, var(--shell-glow), transparent 28%)"
+            : "none",
         }}
       >
         {isHomeView ? (
@@ -331,10 +331,6 @@ export function App() {
 
             <aside className="fixed inset-y-0 right-0 z-30 hidden w-[15.75rem] p-3 xl:block">
               <div className="relative flex h-full flex-col overflow-hidden rounded-[2rem] border border-[hsl(var(--border)/0.75)] bg-[hsl(var(--surface-glass))] px-3.5 py-4 shadow-[0_34px_110px_-54px_rgba(15,23,42,0.3)] backdrop-blur-xl">
-                <div className="absolute inset-x-0 top-0 h-40 bg-[var(--shell-rail-glow)]" />
-                <div className="absolute -left-12 top-24 h-44 w-44 rounded-full bg-[hsl(var(--primary)/0.08)] blur-3xl" />
-                <div className="absolute bottom-10 right-[-3.5rem] h-48 w-48 rounded-full bg-[var(--shell-rail-orb)] blur-3xl" />
-
                 <div className="relative flex h-full flex-col">
                   <div className="mb-2 flex justify-end">
                     <button
@@ -372,35 +368,54 @@ export function App() {
                           key={item.id}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "group flex w-full flex-row-reverse items-center gap-3 rounded-[1.5rem] border px-3.5 py-3.5 text-right transition duration-200 h-[4.5rem]",
+                            "group flex h-[4.4rem] w-full flex-row-reverse items-center gap-3 rounded-[1.45rem] border px-3.5 py-3 text-right transition duration-200",
                             isActive
-                              ? "border-[hsl(var(--surface-strong))] bg-[hsl(var(--surface-strong))] text-[hsl(var(--surface-strong-foreground))] shadow-[0_24px_50px_-30px_rgba(15,23,42,0.28)]"
+                              ? "border-primary/30 bg-primary/10 text-foreground shadow-[0_20px_42px_-32px_rgba(15,23,42,0.2)]"
                               : "border-[hsl(var(--border)/0.7)] bg-[hsl(var(--surface-overlay))] text-foreground hover:bg-[hsl(var(--surface))]",
                           )}
                           onClick={() => navigateToView(item.id)}
                           type="button"
                         >
-                            <span
+                          <span
+                            className={cn(
+                              "flex h-10.5 w-10.5 shrink-0 items-center justify-center rounded-[1.1rem] transition-all duration-200",
+                              isActive
+                                ? "border border-primary/20 bg-[linear-gradient(180deg,hsl(var(--surface)),hsl(var(--surface-elevated)))] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_18px_30px_-24px_rgba(15,23,42,0.24)] ring-1 ring-primary/12"
+                                : "bg-[hsl(var(--muted))] text-foreground group-hover:bg-[hsl(var(--surface-muted))]",
+                            )}
+                          >
+                            <Icon
                               className={cn(
-                                "flex h-10.5 w-10.5 shrink-0 items-center justify-center rounded-[1rem] transition-colors",
-                                isActive
-                                  ? "bg-[hsl(var(--surface-strong-foreground)/0.12)] text-current"
-                                  : "bg-[hsl(var(--muted))] text-foreground group-hover:bg-[hsl(var(--surface-muted))]",
+                                "h-[1.05rem] w-[1.05rem]",
+                                isActive && "drop-shadow-none",
                               )}
-                            >
-                            <Icon className="h-[1.05rem] w-[1.05rem]" />
+                            />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center justify-between gap-3">
-                              <span className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
-                                0{index + 1}
+                                <span
+                                  className={cn(
+                                    "text-[9.5px] font-semibold uppercase tracking-[0.16em]",
+                                    isActive
+                                      ? "text-primary"
+                                      : "text-[hsl(var(--foreground-soft))]",
+                                  )}
+                                >
+                                  0{index + 1}
+                                </span>
+                                <span className="truncate text-[0.84rem] font-semibold leading-4">
+                                  {item.label}
+                                </span>
                               </span>
-                              <span className="truncate text-[0.84rem] font-semibold leading-4">
-                                {item.label}
-                              </span>
-                            </span>
-                            <span className="mt-0.5 block truncate text-[0.67rem] leading-4 text-[hsl(var(--foreground-soft))]">
-                              {item.description}
+                            <span
+                              className={cn(
+                                "mt-0.5 block truncate text-[0.67rem] leading-4",
+                                isActive
+                                  ? "text-foreground/70"
+                                  : "text-[hsl(var(--foreground-soft))]",
+                              )}
+                            >
+                                {item.description}
                             </span>
                           </span>
                         </button>

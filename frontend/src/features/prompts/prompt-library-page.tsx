@@ -26,10 +26,8 @@ import {
 import type { Prompt, PromptPayload } from "@/features/prompts/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadErrorState } from "@/components/ui/load-error-state";
-import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
@@ -107,9 +105,9 @@ function formatDateFull(value: string): string {
 }
 
 const DIFFICULTY_COLORS: Record<number, string> = {
-  1: "bg-emerald-400",
-  2: "bg-lime-400",
-  3: "bg-amber-400",
+  1: "bg-emerald-500",
+  2: "bg-lime-500",
+  3: "bg-amber-500",
   4: "bg-orange-500",
   5: "bg-red-500",
 };
@@ -125,19 +123,16 @@ const DIFFICULTY_LABELS: Record<number, string> = {
 function DifficultyDot({ level }: { level: number | null }) {
   if (!level) {
     return (
-      <span
-        className="flex h-5 w-5 items-center justify-center rounded-full bg-border/60 text-[10px] font-bold text-muted-foreground"
-        title="Difficulté non définie"
-      />
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-border/40 text-[9px] font-bold text-muted-foreground" />
     );
   }
   return (
     <span
       className={cn(
-        "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white",
+        "flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white",
         DIFFICULTY_COLORS[level],
       )}
-      title={`Difficulté : ${DIFFICULTY_LABELS[level] ?? level}`}
+      title={DIFFICULTY_LABELS[level]}
     >
       {level}
     </span>
@@ -145,19 +140,10 @@ function DifficultyDot({ level }: { level: number | null }) {
 }
 
 function matchesSearch(prompt: Prompt, search: string): boolean {
-  if (!search) {
-    return true;
-  }
-
-  const haystack = [
-    prompt.name,
-    prompt.description ?? "",
-    prompt.category.name,
-    prompt.tags.join(" "),
-  ]
+  if (!search) return true;
+  const haystack = [prompt.name, prompt.description ?? "", prompt.category.name, prompt.tags.join(" ")]
     .join(" ")
     .toLowerCase();
-
   return haystack.includes(search.toLowerCase());
 }
 
@@ -170,18 +156,13 @@ function matchesCategory(prompt: Prompt, categoryId: string): boolean {
 }
 
 function matchesTags(prompt: Prompt, tags: string[]): boolean {
-  if (tags.length === 0) {
-    return true;
-  }
-
+  if (tags.length === 0) return true;
   const promptTags = new Set(prompt.tags.map((tag) => tag.trim().toLowerCase()));
   return tags.every((tag) => promptTags.has(tag.toLowerCase()));
 }
 
 function matchesDifficulty(prompt: Prompt, difficulties: number[]): boolean {
-  if (difficulties.length === 0) {
-    return true;
-  }
+  if (difficulties.length === 0) return true;
   return prompt.difficulty !== null && difficulties.includes(prompt.difficulty);
 }
 
@@ -195,12 +176,8 @@ const DIFFICULTY_STYLES: Record<number, string> = {
 
 function uniqueTags(prompts: Prompt[]): string[] {
   return Array.from(
-    new Set(
-      prompts.flatMap((prompt) =>
-        prompt.tags.map((tag) => tag.trim()).filter(Boolean),
-      ),
-    ),
-  ).sort((left, right) => left.localeCompare(right));
+    new Set(prompts.flatMap((p) => p.tags.map((t) => t.trim()).filter(Boolean))),
+  ).sort((a, b) => a.localeCompare(b));
 }
 
 function getCategoryLabel(
@@ -208,13 +185,9 @@ function getCategoryLabel(
   selectedCategoryId: string,
   allCategoriesLabel: string,
 ): string {
-  if (selectedCategoryId === "all") {
-    return allCategoriesLabel;
-  }
-
+  if (selectedCategoryId === "all") return allCategoriesLabel;
   return (
-    categories.find((category) => String(category.id) === selectedCategoryId)
-      ?.name ?? allCategoriesLabel
+    categories.find((c) => String(c.id) === selectedCategoryId)?.name ?? allCategoriesLabel
   );
 }
 
@@ -237,26 +210,18 @@ const DEFAULT_FILTER_STATE: PromptFilterState = {
 };
 
 function readPromptFilterState(): PromptFilterState {
-  if (typeof window === "undefined") {
-    return DEFAULT_FILTER_STATE;
-  }
-
+  if (typeof window === "undefined") return DEFAULT_FILTER_STATE;
   const raw = window.localStorage.getItem(PROMPT_FILTERS_STORAGE_KEY);
-  if (!raw) {
-    return DEFAULT_FILTER_STATE;
-  }
-
+  if (!raw) return DEFAULT_FILTER_STATE;
   try {
     const parsed = JSON.parse(raw) as Partial<PromptFilterState>;
     return {
       showArchived: Boolean(parsed.showArchived),
       search: typeof parsed.search === "string" ? parsed.search : "",
       selectedCategoryId:
-        typeof parsed.selectedCategoryId === "string"
-          ? parsed.selectedCategoryId
-          : "all",
+        typeof parsed.selectedCategoryId === "string" ? parsed.selectedCategoryId : "all",
       selectedTags: Array.isArray(parsed.selectedTags)
-        ? parsed.selectedTags.filter((tag): tag is string => typeof tag === "string")
+        ? parsed.selectedTags.filter((t): t is string => typeof t === "string")
         : [],
       selectedDifficulties: Array.isArray(parsed.selectedDifficulties)
         ? parsed.selectedDifficulties.filter((d): d is number => typeof d === "number")
@@ -269,20 +234,12 @@ function readPromptFilterState(): PromptFilterState {
 
 export function PromptLibraryPage() {
   const { t } = useTranslation();
-  const initialPromptFilters = readPromptFilterState();
-  const [showArchived, setShowArchived] = useState(
-    initialPromptFilters.showArchived,
-  );
-  const [search, setSearch] = useState(initialPromptFilters.search);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    initialPromptFilters.selectedCategoryId,
-  );
-  const [selectedTags, setSelectedTags] = useState<string[]>(
-    initialPromptFilters.selectedTags,
-  );
-  const [selectedDifficulties, setSelectedDifficulties] = useState<number[]>(
-    initialPromptFilters.selectedDifficulties,
-  );
+  const initialFilters = readPromptFilterState();
+  const [showArchived, setShowArchived] = useState(initialFilters.showArchived);
+  const [search, setSearch] = useState(initialFilters.search);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(initialFilters.selectedCategoryId);
+  const [selectedTags, setSelectedTags] = useState<string[]>(initialFilters.selectedTags);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<number[]>(initialFilters.selectedDifficulties);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [isTagsMenuOpen, setIsTagsMenuOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
@@ -319,12 +276,10 @@ export function PromptLibraryPage() {
       return;
     }
     isDirtyRef.current = false;
-
     if (selectedPrompt) {
       setFormState(toFormState(selectedPrompt));
       return;
     }
-
     if (categoriesQuery.data && categoriesQuery.data.length > 0) {
       setFormState((current) => ({
         ...emptyForm,
@@ -335,12 +290,8 @@ export function PromptLibraryPage() {
 
   useEffect(() => {
     if (!isDirtyRef.current) return;
-    const isValid =
-      formState.name.trim() &&
-      formState.userPromptText.trim() &&
-      formState.categoryId;
+    const isValid = formState.name.trim() && formState.userPromptText.trim() && formState.categoryId;
     if (!isValid) return;
-
     const timer = setTimeout(() => {
       void saveMutation.mutateAsync(toPayload(formState));
     }, 700);
@@ -357,21 +308,13 @@ export function PromptLibraryPage() {
   useEffect(() => {
     window.localStorage.setItem(
       PROMPT_FILTERS_STORAGE_KEY,
-      JSON.stringify({
-        showArchived,
-        search,
-        selectedCategoryId,
-        selectedTags,
-        selectedDifficulties,
-      }),
+      JSON.stringify({ showArchived, search, selectedCategoryId, selectedTags, selectedDifficulties }),
     );
   }, [search, selectedCategoryId, selectedTags, selectedDifficulties, showArchived]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: PromptPayload) => {
-      if (selectedPrompt) {
-        return updatePrompt(selectedPrompt.id, payload);
-      }
+      if (selectedPrompt) return updatePrompt(selectedPrompt.id, payload);
       return createPrompt(payload);
     },
     onSuccess: async (prompt) => {
@@ -382,9 +325,7 @@ export function PromptLibraryPage() {
       }
     },
     onError: (error) => {
-      setFeedback(
-        error instanceof ApiError ? error.message : t("prompts.feedback.errorSave"),
-      );
+      setFeedback(error instanceof ApiError ? error.message : t("prompts.feedback.errorSave"));
     },
   });
 
@@ -393,38 +334,32 @@ export function PromptLibraryPage() {
     onSuccess: async (prompt) => {
       await queryClient.invalidateQueries({ queryKey: ["prompts"] });
       setFeedback(t("prompts.feedback.archived", { name: prompt.name }));
-      startTransition(() => {
-        setSelectedPrompt(null);
-      });
+      startTransition(() => setSelectedPrompt(null));
     },
     onError: (error) => {
-      setFeedback(
-        error instanceof ApiError ? error.message : t("prompts.feedback.errorArchive"),
-      );
+      setFeedback(error instanceof ApiError ? error.message : t("prompts.feedback.errorArchive"));
     },
   });
 
-  const scopedPrompts = (promptsQuery.data?.items ?? []).filter((prompt) =>
-    matchesArchiveState(prompt, showArchived),
+  const scopedPrompts = (promptsQuery.data?.items ?? []).filter((p) =>
+    matchesArchiveState(p, showArchived),
   );
   const promptTags = uniqueTags(scopedPrompts);
   const categoryOptions = categoriesQuery.data ?? [];
   const categoryLabel = getCategoryLabel(categoryOptions, selectedCategoryId, t("prompts.allCategories"));
   const tagOptions = useMemo(
-    () => Array.from(new Set([...promptTags, ...selectedTags])).sort(
-      (left, right) => left.localeCompare(right),
-    ),
+    () => Array.from(new Set([...promptTags, ...selectedTags])).sort((a, b) => a.localeCompare(b)),
     [promptTags, selectedTags],
   );
   const suggestedTags = tagOptions.filter(
     (tag) => !selectedTags.some((item) => item.toLowerCase() === tag.toLowerCase()),
   );
   const visiblePrompts = scopedPrompts.filter(
-    (prompt) =>
-      matchesSearch(prompt, search) &&
-      matchesCategory(prompt, selectedCategoryId) &&
-      matchesTags(prompt, selectedTags) &&
-      matchesDifficulty(prompt, selectedDifficulties),
+    (p) =>
+      matchesSearch(p, search) &&
+      matchesCategory(p, selectedCategoryId) &&
+      matchesTags(p, selectedTags) &&
+      matchesDifficulty(p, selectedDifficulties),
   );
   const categoryCount = categoriesQuery.data?.length ?? 0;
   const hasAnyFilters =
@@ -449,9 +384,7 @@ export function PromptLibraryPage() {
       setFeedback(null);
       setFormState((current) => ({
         ...emptyForm,
-        categoryId:
-          current.categoryId ||
-          (categoriesQuery.data?.[0] ? String(categoriesQuery.data[0].id) : ""),
+        categoryId: current.categoryId || (categoriesQuery.data?.[0] ? String(categoriesQuery.data[0].id) : ""),
       }));
     });
     setFormTagInput("");
@@ -469,10 +402,7 @@ export function PromptLibraryPage() {
 
   const addTag = (tag: string) => {
     const normalized = tag.trim();
-    if (!normalized) {
-      return;
-    }
-
+    if (!normalized) return;
     setSelectedTags((current) =>
       current.some((item) => item.toLowerCase() === normalized.toLowerCase())
         ? current
@@ -494,10 +424,7 @@ export function PromptLibraryPage() {
   };
 
   const removeFormTag = (tag: string) => {
-    const next = formState.tags
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item !== tag);
+    const next = formState.tags.split(",").map((item) => item.trim()).filter((item) => item !== tag);
     updateForm((current) => ({ ...current, tags: next.join(", ") }));
   };
 
@@ -506,772 +433,717 @@ export function PromptLibraryPage() {
     (tag) => !formTagList.some((item) => item.toLowerCase() === tag.toLowerCase()),
   );
   const formTagFiltered = formTagSuggestions
-    .filter((tag) =>
-      !formTagInput.trim() || tag.toLowerCase().includes(formTagInput.trim().toLowerCase()),
-    )
+    .filter((tag) => !formTagInput.trim() || tag.toLowerCase().includes(formTagInput.trim().toLowerCase()))
     .slice(0, 3);
 
   const selectedPromptId = selectedPrompt?.id ?? null;
 
+  const resetFilters = () => {
+    setSearch("");
+    setSelectedCategoryId("all");
+    setSelectedTags([]);
+    setSelectedDifficulties([]);
+    setTagDraft("");
+    setIsCategoryMenuOpen(false);
+    setIsTagsMenuOpen(false);
+  };
+
   return (
     <div className="text-foreground">
-      <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-        <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
-          <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-          <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
-            <div className="relative max-w-[30rem] space-y-2">
-              <span className="inline-flex rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-950">
-                {t("prompts.reusableAssets")}
-              </span>
-              <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
-                {t("prompts.pageTitle")}
-              </h1>
-            </div>
-            <div className="grid gap-1.5 sm:grid-cols-3">
-              <MetricCard
-                compact
-                className="rounded-[1.2rem]"
-                label={t("prompts.metricVisible")}
-                tone="amber"
-                value={String(visiblePrompts.length)}
-                icon={FileText}
-              />
-              <MetricCard
-                compact
-                className="rounded-[1.2rem]"
-                label={t("prompts.metricCategories")}
-                tone="amber"
-                value={String(categoryCount)}
-                icon={Shapes}
-              />
-              <MetricCard
-                compact
-                className="rounded-[1.2rem]"
-                label={t("prompts.metricSystemPacks")}
-                tone="amber"
-                value={String(
-                  (categoriesQuery.data ?? []).filter((item) => item.is_system).length,
-                )}
-                icon={Sparkles}
-              />
+      {/* ── Page header ── */}
+      <header className="px-6 lg:px-8 pt-8 pb-6 border-b border-border/50">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[0.62rem] font-bold uppercase tracking-[0.28em] text-primary/80 mb-1.5">
+              {t("prompts.reusableAssets")}
+            </p>
+            <h1 className="text-[1.75rem] font-semibold tracking-tight text-foreground leading-none">
+              {t("prompts.pageTitle")}
+            </h1>
+            <div className="flex items-center gap-1 mt-3 flex-wrap">
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{visiblePrompts.length}</span>{" "}
+                  {t("prompts.metricVisible").toLowerCase()}
+                </span>
+              </div>
+              <span className="text-border/60 mx-1.5">·</span>
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <Shapes className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{categoryCount}</span>{" "}
+                  {t("prompts.metricCategories").toLowerCase()}
+                </span>
+              </div>
+              <span className="text-border/60 mx-1.5">·</span>
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">
+                    {(categoriesQuery.data ?? []).filter((c) => c.is_system).length}
+                  </span>{" "}
+                  {t("prompts.metricSystemPacks").toLowerCase()}
+                </span>
+              </div>
             </div>
           </div>
-        </section>
 
-        <section className="mt-5 space-y-5">
-          <Card className="overflow-visible border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
-            <div className="relative z-30 border-b border-border/80 px-3 py-2.5 lg:px-3.5">
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.88fr)_minmax(0,1.1fr)_auto] xl:items-stretch">
-                  <label className="relative min-h-10 flex-1">
-                    <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                      className="h-10 rounded-[1rem] pl-9 text-[0.83rem]"
-                      placeholder={t("prompts.searchPlaceholder")}
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </label>
+          <Button className="shrink-0" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" />
+            {t("prompts.newPrompt")}
+          </Button>
+        </div>
+      </header>
 
-                  <div className="relative z-40 min-w-0">
-                    <button
-                      className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-[hsl(var(--surface))] px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.12)] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))]"
-                      type="button"
-                      onClick={() =>
-                        setIsCategoryMenuOpen((current) => !current)
-                      }
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                          {t("prompts.categoryLabel")}
-                        </p>
-                        <p className="truncate text-[0.72rem] font-semibold text-foreground">
-                          {categoryLabel}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {selectedCategoryId !== "all" ? (
-                          <Badge variant="accent">{t("prompts.filtered")}</Badge>
-                        ) : null}
-                      </div>
-                    </button>
+      {/* ── Filter bar ── */}
+      <div className="px-6 lg:px-8 py-3 border-b border-border/40 flex items-center gap-2 flex-wrap">
+        {/* Search */}
+        <label className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            className="h-9 w-52 pl-8 text-sm rounded-lg"
+            placeholder={t("prompts.searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
 
-                    {isCategoryMenuOpen ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
-                        <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
-                          <p className="text-sm font-semibold text-foreground">
-                            {t("prompts.chooseCategory")}
-                          </p>
-                          <p className="text-xs text-[hsl(var(--foreground-soft))]">
-                            {t("prompts.chooseCategoryDesc")}
-                          </p>
-                        </div>
-                        <div className="max-h-72 overflow-y-auto p-2">
-                          <button
-                            className={cn(
-                              "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left transition",
-                              selectedCategoryId === "all"
-                                ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
-                                : "hover:bg-[hsl(var(--surface-muted))]",
-                            )}
-                            type="button"
-                            onClick={() => {
-                              setSelectedCategoryId("all");
-                              setIsCategoryMenuOpen(false);
-                            }}
-                          >
-                            <span className="font-medium">{t("prompts.allCategories")}</span>
-                            {selectedCategoryId === "all" ? (
-                              <Check className="h-4 w-4" />
-                            ) : null}
-                          </button>
-                          {categoryOptions.map((category) => {
-                            const isSelected =
-                              selectedCategoryId === String(category.id);
-                            return (
-                              <button
-                                key={category.id}
-                                className={cn(
-                                  "flex w-full items-start justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition",
-                                  isSelected
-                                    ? "bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))]"
-                                    : "hover:bg-[hsl(var(--surface-muted))]",
-                                )}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedCategoryId(String(category.id));
-                                  setIsCategoryMenuOpen(false);
-                                }}
-                              >
-                                <span className="min-w-0">
-                                  <span className="block font-medium">
-                                    {category.name}
-                                  </span>
-                                  {category.description ? (
-                                    <span className="block text-xs text-[hsl(var(--foreground-soft))]">
-                                      {category.description}
-                                    </span>
-                                  ) : null}
-                                </span>
-                                {isSelected ? (
-                                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
-                                ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="relative z-40 min-w-0">
-                    <button
-                      className="flex h-10 w-full items-center justify-between rounded-[1rem] border border-border/80 bg-[hsl(var(--surface))] px-3.5 text-left shadow-[0_12px_30px_-18px_rgba(15,23,42,0.12)] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))]"
-                      type="button"
-                      onClick={() => setIsTagsMenuOpen((current) => !current)}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                          {t("prompts.tagsLabel")}
-                        </p>
-                        <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden">
-                          {selectedTags.length > 0 ? (
-                            <>
-                              {selectedTags.slice(0, 2).map((tag) => (
-                                <Badge key={tag} variant="accent" className="shrink-0 text-[0.6rem]">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {selectedTags.length > 2 ? (
-                                <Badge variant="neutral" className="shrink-0 text-[0.6rem]">
-                                  +{selectedTags.length - 2}
-                                </Badge>
-                              ) : null}
-                            </>
-                          ) : (
-                            <span className="truncate text-[0.72rem] font-semibold text-foreground">
-                              {t("prompts.addOrRemoveTags")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-[hsl(var(--foreground-soft))]" />
-                      </div>
-                    </button>
-
-                    {isTagsMenuOpen ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[90] overflow-hidden rounded-3xl border border-border/80 bg-[hsl(var(--surface-elevated))] shadow-[0_24px_64px_-24px_rgba(15,23,42,0.18)]">
-                        <div className="border-b border-border/70 bg-[linear-gradient(180deg,_hsl(var(--theme-accent-muted)),_hsl(var(--surface-elevated)))] px-4 py-3">
-                          <p className="text-sm font-semibold text-foreground">
-                            {t("prompts.manageTags")}
-                          </p>
-                          <p className="text-xs text-[hsl(var(--foreground-soft))]">
-                            {t("prompts.manageTagsDesc")}
-                          </p>
-                        </div>
-
-                        <div className="space-y-4 p-4">
-                          <div className="flex gap-2">
-                            <Input
-                              className="flex-1"
-                              placeholder={t("prompts.addATag")}
-                              value={tagDraft}
-                              onChange={(event) => setTagDraft(event.target.value)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  event.preventDefault();
-                                  addTag(tagDraft);
-                                }
-                              }}
-                            />
-                            <Button type="button" onClick={() => addTag(tagDraft)}>
-                              {t("prompts.add")}
-                            </Button>
-                          </div>
-
-                          {selectedTags.length > 0 ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                                  {t("prompts.activeTags")}
-                                </span>
-                                <Button
-                                  size="sm"
-                                  type="button"
-                                  variant="ghost"
-                                  onClick={() => setSelectedTags([])}
-                                >
-                                  {t("prompts.clearAll")}
-                                </Button>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {selectedTags.map((tag) => (
-                                  <button
-                                    key={tag}
-                                    className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-                                    type="button"
-                                    onClick={() => removeTag(tag)}
-                                    title={`Remove ${tag}`}
-                                  >
-                                    {tag}
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : null}
-
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--foreground-soft))]">
-                                {t("prompts.suggestions")}
-                              </span>
-                              {suggestedTags.length > 0 ? (
-                                <span className="text-xs text-[hsl(var(--foreground-soft))]">
-                                  {t("prompts.clickToAdd")}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-[hsl(var(--surface-muted))] p-2">
-                              {suggestedTags.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                  {suggestedTags.map((tag) => (
-                                    <button
-                                      key={tag}
-                                      className="inline-flex items-center gap-2 rounded-full border border-border bg-[hsl(var(--surface))] px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))] hover:text-[hsl(var(--theme-accent-soft-foreground))]"
-                                      type="button"
-                                      onClick={() => addTag(tag)}
-                                    >
-                                      <Plus className="h-3 w-3" />
-                                      {tag}
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="px-2 py-3 text-sm text-[hsl(var(--foreground-soft))]">
-                                  {t("prompts.noTagsToSuggest")}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                <div className="relative z-40 flex flex-wrap items-center gap-3 xl:justify-end">
-                  {availableDifficulties.length > 0 ? (
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
-                        Difficulty
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {availableDifficulties.map((d) => {
-                          const active = selectedDifficulties.includes(d);
-                          const style = DIFFICULTY_STYLES[d] ?? "bg-slate-500 text-white";
-                          return (
-                            <button
-                              key={d}
-                              type="button"
-                              onClick={() =>
-                                setSelectedDifficulties((current) =>
-                                  current.includes(d)
-                                    ? current.filter((x) => x !== d)
-                                    : [...current, d],
-                                )
-                              }
-                              className={cn(
-                                "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition",
-                                style,
-                                active ? "opacity-100 ring-2 ring-current ring-offset-1" : "opacity-30 hover:opacity-70",
-                              )}
-                            >
-                              {d}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-                    <Button
-                      disabled={!hasAnyFilters}
-                      type="button"
-                      size="sm"
-                      variant={hasAnyFilters ? "secondary" : "ghost"}
-                      className="h-9 rounded-full px-3 text-xs font-semibold"
-                      aria-label="Reset filters"
-                      title="Reset filters"
-                      onClick={() => {
-                        setSearch("");
-                        setSelectedCategoryId("all");
-                        setSelectedTags([]);
-                        setSelectedDifficulties([]);
-                        setTagDraft("");
-                        setIsCategoryMenuOpen(false);
-                        setIsTagsMenuOpen(false);
-                      }}
-                      >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-
-                    <Button
-                      aria-label={showArchived ? "Show unarchived prompts" : "Show archived prompts"}
-                      className={cn(
-                        showArchived &&
-                          "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-[0_14px_28px_-18px_rgba(15,23,42,0.18)] hover:brightness-[0.98]",
-                        )}
-                      title={showArchived ? "Show unarchived" : "Show archived"}
-                      type="button"
-                      variant={showArchived ? "secondary" : "ghost"}
-                      size="icon"
-                      onClick={() => setShowArchived((current) => !current)}
-                    >
-                      <Archive className="h-4 w-4" />
-                    </Button>
-                    <Button className="h-10 rounded-[1rem] px-4 text-[0.95rem]" onClick={openCreateModal}>
-                      <Plus className="h-4 w-4" />
-                      {t("prompts.newPrompt")}
-                    </Button>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {loadError ? (
-              <LoadErrorState
-                message={loadError}
-                onRetry={retryLoad}
-                resourceLabel="the prompt library"
+        {/* Category dropdown */}
+        <div className="relative z-40">
+          <button
+            type="button"
+            className={cn(
+              "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[0.82rem] font-medium transition",
+              selectedCategoryId !== "all"
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-muted))]",
+            )}
+            onClick={() => { setIsCategoryMenuOpen((v) => !v); setIsTagsMenuOpen(false); }}
+          >
+            {categoryLabel}
+            {selectedCategoryId !== "all" ? (
+              <X
+                className="h-3.5 w-3.5 opacity-60 hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedCategoryId("all");
+                  setIsCategoryMenuOpen(false);
+                }}
               />
             ) : null}
+          </button>
 
-            {feedback ? (
-              <div className="border-b border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-muted))] px-5 py-3 text-sm text-[hsl(var(--theme-accent-soft-foreground))]">
-                {feedback}
+          {isCategoryMenuOpen ? (
+            <div className="absolute left-0 top-[calc(100%+0.4rem)] z-[90] min-w-[14rem] overflow-hidden rounded-xl border border-border bg-[hsl(var(--surface-elevated))] shadow-[0_20px_60px_-16px_rgba(0,0,0,0.5)]">
+              <div className="px-3 py-2.5 border-b border-border/60">
+                <p className="text-[0.78rem] font-semibold text-foreground">{t("prompts.chooseCategory")}</p>
+                <p className="text-[0.68rem] text-muted-foreground mt-0.5">{t("prompts.chooseCategoryDesc")}</p>
               </div>
-            ) : null}
-
-            <div
-              className={cn(
-                "relative z-10",
-                showArchived &&
-                  "border-l-4 border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-muted)/0.56)] pl-0",
-              )}
-            >
-              <table className="w-full table-fixed text-left">
-                <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
-                  <tr>
-                    <th className="w-8 px-3 py-2 font-semibold lg:px-3.5" />
-                    <th className="w-[42%] px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colName")}</th>
-                    <th className="w-36 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colCategory")}</th>
-                    <th className="w-10 px-3 py-2 font-semibold lg:px-3.5">
-                      <div className="flex justify-center">
-                        <Tag className="h-3.5 w-3.5 text-[hsl(var(--foreground-soft))]" />
-                      </div>
-                    </th>
-                    <th className="w-20 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colUpdated")}</th>
-                    <th className="w-16 px-3 py-2 font-semibold lg:px-3.5">{t("prompts.colActions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {promptsQuery.isLoading ? (
-                    <TableEmptyRow message={t("prompts.loading")} />
-                  ) : visiblePrompts.length === 0 ? (
-                    <TableEmptyRow
-                      message={
-                        showArchived
-                          ? t("prompts.noArchivedYet")
-                          : promptsQuery.data?.total === 0
-                          ? t("prompts.emptySeeded")
-                          : t("prompts.noMatchingFilters")
-                      }
-                    />
-                  ) : (
-                    visiblePrompts.map((prompt) => {
-                      const isSelected = prompt.id === selectedPromptId;
-
-                      return (
-                        <tr
-                          key={prompt.id}
-                          className={cn(
-                            "cursor-pointer border-t border-border/70 transition-colors hover:bg-amber-50",
-                            isSelected && "bg-[hsl(var(--theme-accent-muted)/0.78)]",
-                          )}
-                        onClick={() => {
-                          openEditModal(prompt);
-                        }}
-                      >
-                          <td className="w-6 px-3 py-1.5 align-middle lg:px-3.5">
-                            <DifficultyDot level={prompt.difficulty} />
-                          </td>
-                          <td className="min-w-0 px-3 py-1.5 align-middle lg:px-3.5">
-                            <p
-                              className="truncate text-[0.9rem] font-semibold text-foreground"
-                              title={prompt.name}
-                            >
-                              {prompt.name}
-                            </p>
-                          </td>
-                          <td className="px-3 py-1.5 align-middle lg:px-3.5">
-                            <Badge variant="accent" className="whitespace-nowrap">{prompt.category.name}</Badge>
-                          </td>
-                          <td className="px-3 py-1.5 align-middle lg:px-3.5" onClick={(e) => e.stopPropagation()}>
-                            {prompt.tags.length > 0 ? (
-                              <div className="flex justify-center">
-                                <button
-                                  type="button"
-                                  className="relative flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 bg-[hsl(var(--surface-muted))] text-[hsl(var(--foreground-soft))] transition hover:border-[hsl(var(--theme-accent-border))] hover:bg-[hsl(var(--theme-accent-muted))] hover:text-[hsl(var(--theme-accent-soft-foreground))]"
-                                  onMouseEnter={(e) => {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    setTagsTooltip({ tags: prompt.tags, x: rect.left + rect.width / 2, y: rect.top });
-                                  }}
-                                  onMouseLeave={() => setTagsTooltip(null)}
-                                >
-                                  <Tag className="h-3 w-3" />
-                                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 text-[8px] font-bold leading-none text-white">
-                                    {prompt.tags.length}
-                                  </span>
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="flex justify-center text-[hsl(var(--foreground-soft))] opacity-30">
-                                <Tag className="h-3 w-3" />
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-1.5 align-middle text-[0.84rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
-                            <span title={formatDateFull(prompt.updated_at)}>
-                              {formatDateShort(prompt.updated_at)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-1.5 align-middle lg:px-3.5" onClick={(event) => event.stopPropagation()}>
-                            <div className="flex justify-end gap-1.5">
-                              <Button
-                                aria-label={`Archive ${prompt.name}`}
-                                disabled={prompt.is_archived || archiveMutation.isPending}
-                                size="iconSm"
-                                title={`Archive ${prompt.name}`}
-                                variant="dangerSoft"
-                                onClick={() => archiveMutation.mutate(prompt.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
+              <div className="max-h-64 overflow-y-auto py-1">
+                <button
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 px-3 py-2 text-[0.82rem] transition",
+                    selectedCategoryId === "all"
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-foreground hover:bg-[hsl(var(--surface-muted))]",
                   )}
-                </tbody>
-              </table>
+                  type="button"
+                  onClick={() => { setSelectedCategoryId("all"); setIsCategoryMenuOpen(false); }}
+                >
+                  <span>{t("prompts.allCategories")}</span>
+                  {selectedCategoryId === "all" ? <Check className="h-3.5 w-3.5" /> : null}
+                </button>
+                {categoryOptions.map((cat) => {
+                  const isSelected = selectedCategoryId === String(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      className={cn(
+                        "flex w-full items-start justify-between gap-2 px-3 py-2.5 text-[0.82rem] text-left transition",
+                        isSelected
+                          ? "bg-primary/10 text-primary font-semibold"
+                          : "text-foreground hover:bg-[hsl(var(--surface-muted))]",
+                      )}
+                      type="button"
+                      onClick={() => { setSelectedCategoryId(String(cat.id)); setIsCategoryMenuOpen(false); }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-medium">{cat.name}</span>
+                        {cat.description ? (
+                          <span className="block text-[0.68rem] text-muted-foreground">{cat.description}</span>
+                        ) : null}
+                      </span>
+                      {isSelected ? <Check className="h-3.5 w-3.5 shrink-0 mt-0.5" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </Card>
-        </section>
+          ) : null}
+        </div>
+
+        {/* Tags dropdown */}
+        <div className="relative z-40">
+          <button
+            type="button"
+            className={cn(
+              "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[0.82rem] font-medium transition",
+              selectedTags.length > 0
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-muted))]",
+            )}
+            onClick={() => { setIsTagsMenuOpen((v) => !v); setIsCategoryMenuOpen(false); }}
+          >
+            <Tag className="h-3.5 w-3.5" />
+            {selectedTags.length > 0
+              ? `${selectedTags.length} tag${selectedTags.length > 1 ? "s" : ""}`
+              : t("prompts.tagsLabel")}
+          </button>
+
+          {isTagsMenuOpen ? (
+            <div className="absolute left-0 top-[calc(100%+0.4rem)] z-[90] w-72 overflow-hidden rounded-xl border border-border bg-[hsl(var(--surface-elevated))] shadow-[0_20px_60px_-16px_rgba(0,0,0,0.5)]">
+              <div className="px-3 py-2.5 border-b border-border/60">
+                <p className="text-[0.78rem] font-semibold text-foreground">{t("prompts.manageTags")}</p>
+                <p className="text-[0.68rem] text-muted-foreground mt-0.5">{t("prompts.manageTagsDesc")}</p>
+              </div>
+              <div className="p-3 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1 h-8 text-sm"
+                    placeholder={t("prompts.addATag")}
+                    value={tagDraft}
+                    onChange={(e) => setTagDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); addTag(tagDraft); }
+                    }}
+                  />
+                  <Button size="sm" type="button" onClick={() => addTag(tagDraft)}>
+                    {t("prompts.add")}
+                  </Button>
+                </div>
+
+                {selectedTags.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[0.62rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {t("prompts.activeTags")}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-[0.68rem] text-muted-foreground hover:text-foreground transition"
+                        onClick={() => setSelectedTags([])}
+                      >
+                        {t("prompts.clearAll")}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[0.7rem] font-medium text-primary transition hover:bg-primary/20"
+                          onClick={() => removeTag(tag)}
+                        >
+                          {tag}
+                          <X className="h-3 w-3" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[0.62rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t("prompts.suggestions")}
+                    </span>
+                    {suggestedTags.length > 0 ? (
+                      <span className="text-[0.62rem] text-muted-foreground">{t("prompts.clickToAdd")}</span>
+                    ) : null}
+                  </div>
+                  <div className="max-h-36 overflow-y-auto rounded-lg border border-border/60 bg-[hsl(var(--surface-muted))] p-2">
+                    {suggestedTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {suggestedTags.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-[hsl(var(--surface))] px-2.5 py-0.5 text-[0.7rem] font-medium text-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                            onClick={() => addTag(tag)}
+                          >
+                            <Plus className="h-2.5 w-2.5" />
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="py-2 px-1 text-xs text-muted-foreground">
+                        {t("prompts.noTagsToSuggest")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Difficulty dots */}
+        {availableDifficulties.length > 0 ? (
+          <div className="flex items-center gap-1 ml-0.5">
+            {availableDifficulties.map((d) => {
+              const active = selectedDifficulties.includes(d);
+              const style = DIFFICULTY_STYLES[d] ?? "bg-slate-500 text-white";
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  title={DIFFICULTY_LABELS[d]}
+                  className={cn(
+                    "inline-flex h-6 w-6 items-center justify-center rounded-full text-[0.62rem] font-bold transition",
+                    style,
+                    active
+                      ? "opacity-100 ring-2 ring-current ring-offset-1 ring-offset-background"
+                      : "opacity-25 hover:opacity-60",
+                  )}
+                  onClick={() =>
+                    setSelectedDifficulties((current) =>
+                      current.includes(d) ? current.filter((x) => x !== d) : [...current, d],
+                    )
+                  }
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Reset + Archive */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={!hasAnyFilters}
+            title="Reset filters"
+            aria-label="Reset filters"
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition",
+              hasAnyFilters
+                ? "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-muted))]"
+                : "text-muted-foreground/25 cursor-default",
+            )}
+            onClick={resetFilters}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            title={showArchived ? "Show active prompts" : "Show archived prompts"}
+            aria-label={showArchived ? "Show active prompts" : "Show archived prompts"}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition",
+              showArchived
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-muted))]",
+            )}
+            onClick={() => setShowArchived((v) => !v)}
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
+      {/* Error state */}
+      {loadError ? (
+        <LoadErrorState message={loadError} onRetry={retryLoad} resourceLabel="the prompt library" />
+      ) : null}
+
+      {/* Feedback strip */}
+      {feedback ? (
+        <div className="border-b border-primary/20 bg-primary/5 px-6 lg:px-8 py-2.5 text-[0.82rem] text-primary">
+          {feedback}
+        </div>
+      ) : null}
+
+      {/* ── Table ── */}
+      <div className={cn(showArchived && "border-l-2 border-primary/25")}>
+        <table className="w-full table-fixed text-left">
+          <thead>
+            <tr className="border-b border-border/50">
+              <th className="w-12 px-6 lg:px-8 py-2.5" />
+              <th className="px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground w-[44%]">
+                {t("prompts.colName")}
+              </th>
+              <th className="px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground w-32">
+                {t("prompts.colCategory")}
+              </th>
+              <th className="w-12 px-4 py-2.5">
+                <div className="flex justify-center">
+                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              </th>
+              <th className="px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground w-20">
+                {t("prompts.colUpdated")}
+              </th>
+              <th className="w-14 px-4 py-2.5" />
+            </tr>
+          </thead>
+          <tbody>
+            {promptsQuery.isLoading ? (
+              <TableEmptyRow message={t("prompts.loading")} />
+            ) : visiblePrompts.length === 0 ? (
+              <TableEmptyRow
+                message={
+                  showArchived
+                    ? t("prompts.noArchivedYet")
+                    : promptsQuery.data?.total === 0
+                      ? t("prompts.emptySeeded")
+                      : t("prompts.noMatchingFilters")
+                }
+              />
+            ) : (
+              visiblePrompts.map((prompt) => {
+                const isSelected = prompt.id === selectedPromptId;
+                return (
+                  <tr
+                    key={prompt.id}
+                    className={cn(
+                      "group border-b border-border/30 cursor-pointer transition-colors duration-100",
+                      isSelected
+                        ? "bg-primary/5"
+                        : "hover:bg-[hsl(var(--surface-muted)/0.6)]",
+                    )}
+                    onClick={() => openEditModal(prompt)}
+                  >
+                    <td className="px-6 lg:px-8 py-3.5 align-middle">
+                      <DifficultyDot level={prompt.difficulty} />
+                    </td>
+                    <td className="min-w-0 px-4 py-3.5 align-middle">
+                      <p
+                        className="truncate text-[0.88rem] font-medium text-foreground"
+                        title={prompt.name}
+                      >
+                        {prompt.name}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3.5 align-middle">
+                      <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
+                        {prompt.category.name}
+                      </Badge>
+                    </td>
+                    <td
+                      className="px-4 py-3.5 align-middle"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {prompt.tags.length > 0 ? (
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            className="relative flex h-7 w-7 items-center justify-center rounded-md border border-border/50 bg-[hsl(var(--surface-muted))] text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                            onMouseEnter={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setTagsTooltip({ tags: prompt.tags, x: rect.left + rect.width / 2, y: rect.top });
+                            }}
+                            onMouseLeave={() => setTagsTooltip(null)}
+                          >
+                            <Tag className="h-3 w-3" />
+                            <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+                              {prompt.tags.length}
+                            </span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="flex justify-center text-muted-foreground/20">
+                          <Tag className="h-3 w-3" />
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 align-middle text-[0.78rem] text-muted-foreground">
+                      <span title={formatDateFull(prompt.updated_at)}>
+                        {formatDateShort(prompt.updated_at)}
+                      </span>
+                    </td>
+                    <td
+                      className="px-4 py-3.5 align-middle"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          aria-label={`Archive ${prompt.name}`}
+                          disabled={prompt.is_archived || archiveMutation.isPending}
+                          size="iconSm"
+                          title={`Archive ${prompt.name}`}
+                          variant="dangerSoft"
+                          onClick={() => archiveMutation.mutate(prompt.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Create / Edit modal ── */}
       <Modal
         onClose={() => setIsEditorOpen(false)}
         open={isEditorOpen}
+        size="xl"
         title={selectedPrompt ? t("prompts.editModal.title") : t("prompts.createModal.title")}
       >
-        <form className="space-y-3.5">
-          {loadError ? (
-            <LoadErrorState compact message={loadError} resourceLabel={t("prompts.pageTitle")} />
-          ) : null}
+        {loadError ? (
+          <LoadErrorState compact message={loadError} resourceLabel={t("prompts.pageTitle")} />
+        ) : null}
 
-          {/* Name + Category */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <PromptModalField label={t("prompts.form.name")}>
-              <Input
-                placeholder={t("prompts.form.namePlaceholder")}
-                value={formState.name}
-                onChange={(event) =>
-                  updateForm((current) => ({ ...current, name: event.target.value }))
-                }
-              />
-            </PromptModalField>
-
-            <PromptModalField label={t("prompts.form.category")}>
-              <div className="flex flex-wrap gap-1">
-                {(categoriesQuery.data ?? []).map((category) => {
-                  const isSelected = formState.categoryId === String(category.id);
-                  return (
-                    <button
-                      key={category.id}
-                      type="button"
-                      onClick={() =>
-                        updateForm((current) => ({ ...current, categoryId: String(category.id) }))
-                      }
-                      className={cn(
-                        "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all",
-                        isSelected
-                          ? "border-amber-300 bg-amber-50 text-amber-700"
-                          : "border-border bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
-                      )}
-                    >
-                      {category.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </PromptModalField>
+        {feedback ? (
+          <div className="mb-4 rounded-lg border border-primary/20 bg-primary/8 px-4 py-2.5 text-[0.82rem] text-primary">
+            {feedback}
           </div>
+        ) : null}
 
-          {/* Tags + Difficulty */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <PromptModalField label={t("prompts.form.tags")}>
-              {/* Active tags + free-type input */}
-              <div className="flex min-h-9 flex-wrap items-center gap-1 rounded-lg border border-border bg-white px-2 py-1.5">
-                {formTagList.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      className="text-amber-400 hover:text-amber-700"
-                      onClick={() => removeFormTag(tag)}
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  className="min-w-[5rem] flex-1 bg-transparent text-[11px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
-                  placeholder={formTagList.length === 0 ? t("prompts.form.tagsPlaceholder") : ""}
-                  value={formTagInput}
-                  onChange={(event) => setFormTagInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === ",") {
-                      event.preventDefault();
-                      const value = formTagInput.trim();
-                      if (value) {
-                        addFormTag(value);
-                        setFormTagInput("");
-                      }
-                    } else if (event.key === "Backspace" && formTagInput === "") {
-                      if (formTagList.length > 0) {
-                        removeFormTag(formTagList[formTagList.length - 1]);
-                      }
-                    }
-                  }}
+        <form>
+          {/* Two-column layout */}
+          <div className="flex gap-0 min-h-0">
+            {/* ── Left panel: meta ── */}
+            <div className="w-56 shrink-0 space-y-5 pr-6 border-r border-border/50">
+
+              {/* Name */}
+              <PromptModalField label={t("prompts.form.name")} required>
+                <Input
+                  placeholder={t("prompts.form.namePlaceholder")}
+                  value={formState.name}
+                  onChange={(e) => updateForm((c) => ({ ...c, name: e.target.value }))}
                 />
-              </div>
-              {/* Smart suggestions — filtered by what's typed, max 3 */}
-              <div className="mt-1.5 flex min-h-[1.5rem] items-center gap-1.5">
-                {formTagFiltered.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => { addFormTag(tag); setFormTagInput(""); }}
-                    className="rounded-full border border-dashed border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
-                  >
-                    + {tag}
-                  </button>
-                ))}
-                {formTagFiltered.length === 0 && formTagInput.trim() ? (
-                  <span className="text-[11px] text-slate-400">
-                    Entrée pour créer <span className="font-semibold text-amber-600">«&nbsp;{formTagInput.trim()}&nbsp;»</span>
-                  </span>
-                ) : null}
-              </div>
-            </PromptModalField>
+              </PromptModalField>
 
-            <PromptModalField label={t("prompts.form.difficulty")}>
-              <div className="flex gap-1.5">
-                {([1, 2, 3, 4, 5] as const).map((level) => {
-                  const isSelected = formState.difficulty === level;
-                  const activeStyle: Record<number, string> = {
-                    1: "bg-emerald-400 border-emerald-400 text-white",
-                    2: "bg-lime-400 border-lime-400 text-white",
-                    3: "bg-amber-400 border-amber-400 text-white",
-                    4: "bg-orange-500 border-orange-500 text-white",
-                    5: "bg-red-500 border-red-500 text-white",
-                  };
-                  const hoverStyle: Record<number, string> = {
-                    1: "hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700",
-                    2: "hover:bg-lime-50 hover:border-lime-300 hover:text-lime-700",
-                    3: "hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700",
-                    4: "hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700",
-                    5: "hover:bg-red-50 hover:border-red-300 hover:text-red-700",
-                  };
-                  return (
-                    <button
-                      key={level}
-                      type="button"
-                      title={DIFFICULTY_LABELS[level]}
-                      className={cn(
-                        "flex flex-1 flex-col items-center justify-center rounded-lg border px-1 py-2 text-xs font-bold transition-all",
-                        isSelected
-                          ? activeStyle[level]
-                          : cn("border-border bg-white text-slate-400", hoverStyle[level]),
-                      )}
-                      onClick={() =>
-                        updateForm((current) => ({
-                          ...current,
-                          difficulty: current.difficulty === level ? null : level,
-                        }))
-                      }
+              {/* Category */}
+              <PromptModalField label={t("prompts.form.category")}>
+                <div className="flex flex-wrap gap-1.5">
+                  {(categoriesQuery.data ?? []).map((category) => {
+                    const isSelected = formState.categoryId === String(category.id);
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => updateForm((c) => ({ ...c, categoryId: String(category.id) }))}
+                        className={cn(
+                          "rounded-full border px-2.5 py-0.5 text-[0.7rem] font-medium transition-all",
+                          isSelected
+                            ? "border-primary/40 bg-primary/10 text-primary"
+                            : "border-border bg-[hsl(var(--surface-muted))] text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </PromptModalField>
+
+              {/* Difficulty */}
+              <PromptModalField label={t("prompts.form.difficulty")}>
+                <div className="flex gap-1">
+                  {([1, 2, 3, 4, 5] as const).map((level) => {
+                    const isSelected = formState.difficulty === level;
+                    const activeStyle: Record<number, string> = {
+                      1: "bg-emerald-500 border-emerald-500 text-white",
+                      2: "bg-lime-500 border-lime-500 text-white",
+                      3: "bg-amber-500 border-amber-500 text-white",
+                      4: "bg-orange-500 border-orange-500 text-white",
+                      5: "bg-red-500 border-red-500 text-white",
+                    };
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        title={DIFFICULTY_LABELS[level]}
+                        className={cn(
+                          "flex flex-1 flex-col items-center justify-center rounded-lg border py-2 text-xs font-bold transition-all",
+                          isSelected
+                            ? activeStyle[level]
+                            : "border-border bg-[hsl(var(--surface-muted))] text-muted-foreground hover:text-foreground",
+                        )}
+                        onClick={() =>
+                          updateForm((c) => ({
+                            ...c,
+                            difficulty: c.difficulty === level ? null : level,
+                          }))
+                        }
+                      >
+                        {level}
+                        <span className="mt-0.5 text-[8px] font-normal leading-none opacity-60">
+                          {DIFFICULTY_LABELS[level]?.split(" ").pop()}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </PromptModalField>
+
+              {/* Tags */}
+              <PromptModalField label={t("prompts.form.tags")}>
+                <div className="flex min-h-9 flex-wrap items-center gap-1 rounded-lg border border-border bg-[hsl(var(--surface))] px-2 py-1.5">
+                  {formTagList.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[0.65rem] font-medium text-primary"
                     >
-                      {level}
-                      <span className="mt-0.5 text-[9px] font-medium leading-none opacity-70">
-                        {DIFFICULTY_LABELS[level]?.split(" ").pop()}
-                      </span>
+                      {tag}
+                      <button
+                        type="button"
+                        className="text-primary/50 hover:text-primary transition"
+                        onClick={() => removeFormTag(tag)}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    className="min-w-[3rem] flex-1 bg-transparent text-[0.75rem] text-foreground outline-none placeholder:text-muted-foreground/40"
+                    placeholder={formTagList.length === 0 ? t("prompts.form.tagsPlaceholder") : ""}
+                    value={formTagInput}
+                    onChange={(e) => setFormTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const value = formTagInput.trim();
+                        if (value) { addFormTag(value); setFormTagInput(""); }
+                      } else if (e.key === "Backspace" && formTagInput === "") {
+                        if (formTagList.length > 0) removeFormTag(formTagList[formTagList.length - 1]);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {formTagFiltered.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => { addFormTag(tag); setFormTagInput(""); }}
+                      className="rounded-full border border-dashed border-border/50 px-2 py-0.5 text-[0.65rem] text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                    >
+                      + {tag}
                     </button>
-                  );
-                })}
-              </div>
-            </PromptModalField>
-          </div>
+                  ))}
+                  {formTagFiltered.length === 0 && formTagInput.trim() ? (
+                    <span className="text-[0.65rem] text-muted-foreground">
+                      ↵ créer{" "}
+                      <span className="font-semibold text-primary">«&nbsp;{formTagInput.trim()}&nbsp;»</span>
+                    </span>
+                  ) : null}
+                </div>
+              </PromptModalField>
 
-          {/* Description */}
-          <PromptModalField label={t("prompts.form.description")}>
-            <Textarea
-              className="min-h-16"
-              placeholder={t("prompts.form.descriptionPlaceholder")}
-              value={formState.description}
-              onChange={(event) =>
-                updateForm((current) => ({ ...current, description: event.target.value }))
-              }
-            />
-          </PromptModalField>
+              {/* Description */}
+              <PromptModalField label={t("prompts.form.description")}>
+                <Textarea
+                  className="min-h-[4rem] text-sm resize-none"
+                  placeholder={t("prompts.form.descriptionPlaceholder")}
+                  value={formState.description}
+                  onChange={(e) => updateForm((c) => ({ ...c, description: e.target.value }))}
+                />
+              </PromptModalField>
 
-          {/* System Prompt */}
-          <PromptModalField label={t("prompts.form.systemPrompt")}>
-            <Textarea
-              placeholder={t("prompts.form.systemPromptPlaceholder")}
-              value={formState.systemPromptText}
-              onChange={(event) =>
-                updateForm((current) => ({ ...current, systemPromptText: event.target.value }))
-              }
-            />
-          </PromptModalField>
-
-          {/* User Prompt */}
-          <PromptModalField label={t("prompts.form.userPrompt")}>
-            <Textarea
-              className="min-h-36"
-              placeholder={t("prompts.form.userPromptPlaceholder")}
-              value={formState.userPromptText}
-              onChange={(event) =>
-                updateForm((current) => ({ ...current, userPromptText: event.target.value }))
-              }
-            />
-          </PromptModalField>
-
-          {/* Evaluation Notes */}
-          <PromptModalField label={t("prompts.form.evaluationNotes")}>
-            <Textarea
-              placeholder={t("prompts.form.evaluationNotesPlaceholder")}
-              value={formState.evaluationNotes}
-              onChange={(event) =>
-                updateForm((current) => ({ ...current, evaluationNotes: event.target.value }))
-              }
-            />
-          </PromptModalField>
-
-          {/* Active toggle */}
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <input
-              checked={formState.isActive}
-              className="h-4 w-4 rounded border-border"
-              onChange={(event) =>
-                updateForm((current) => ({ ...current, isActive: event.target.checked }))
-              }
-              type="checkbox"
-            />
-            {t("prompts.form.isActive")}
-          </label>
-
-          {feedback ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-              {feedback}
+              {/* Active toggle */}
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border/60 bg-[hsl(var(--surface-muted))] px-3 py-2 text-[0.78rem] text-foreground transition hover:bg-[hsl(var(--surface-elevated))]">
+                <input
+                  checked={formState.isActive}
+                  className="h-3.5 w-3.5 rounded border-border accent-primary"
+                  onChange={(e) => updateForm((c) => ({ ...c, isActive: e.target.checked }))}
+                  type="checkbox"
+                />
+                {t("prompts.form.isActive")}
+              </label>
             </div>
-          ) : null}
+
+            {/* ── Right panel: content ── */}
+            <div className="min-w-0 flex-1 space-y-5 pl-6">
+
+              {/* System Prompt */}
+              <PromptModalField label={t("prompts.form.systemPrompt")}>
+                <Textarea
+                  className="min-h-[7rem] font-mono text-[0.78rem] leading-relaxed resize-y"
+                  placeholder={t("prompts.form.systemPromptPlaceholder")}
+                  value={formState.systemPromptText}
+                  onChange={(e) => updateForm((c) => ({ ...c, systemPromptText: e.target.value }))}
+                />
+              </PromptModalField>
+
+              {/* User Prompt */}
+              <PromptModalField label={t("prompts.form.userPrompt")} required>
+                <Textarea
+                  className="min-h-[14rem] font-mono text-[0.78rem] leading-relaxed resize-y"
+                  placeholder={t("prompts.form.userPromptPlaceholder")}
+                  value={formState.userPromptText}
+                  onChange={(e) => updateForm((c) => ({ ...c, userPromptText: e.target.value }))}
+                />
+              </PromptModalField>
+
+              {/* Evaluation Notes */}
+              <PromptModalField label={t("prompts.form.evaluationNotes")}>
+                <Textarea
+                  className="min-h-[5rem] text-sm resize-y"
+                  placeholder={t("prompts.form.evaluationNotesPlaceholder")}
+                  value={formState.evaluationNotes}
+                  onChange={(e) => updateForm((c) => ({ ...c, evaluationNotes: e.target.value }))}
+                />
+              </PromptModalField>
+            </div>
+          </div>
         </form>
       </Modal>
 
-      {tagsTooltip && (
+      {/* ── Tags tooltip ── */}
+      {tagsTooltip ? (
         <div
-          className="pointer-events-none fixed z-[9999] w-56 rounded-2xl border border-border/80 bg-[hsl(var(--surface-elevated))] p-3 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.22)]"
-          style={{ left: tagsTooltip.x, top: tagsTooltip.y, transform: "translate(-50%, calc(-100% - 10px))" }}
+          className="pointer-events-none fixed z-[9999] w-52 rounded-xl border border-border bg-[hsl(var(--surface-elevated))] p-3 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)]"
+          style={{
+            left: tagsTooltip.x,
+            top: tagsTooltip.y,
+            transform: "translate(-50%, calc(-100% - 10px))",
+          }}
         >
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
+          <p className="mb-2 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Tags
           </p>
           <div className="flex flex-wrap gap-1.5">
             {tagsTooltip.tags.map((tag) => (
-              <Badge key={tag} variant="neutral" className="text-[10px]">
+              <Badge key={tag} variant="neutral" className="text-[0.65rem]">
                 {tag}
               </Badge>
             ))}
           </div>
-          <div className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-border/80 bg-[hsl(var(--surface-elevated))]" />
+          <div className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-border bg-[hsl(var(--surface-elevated))]" />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 function TableEmptyRow({ message }: { message: string }) {
   return (
-    <tr className="border-t border-border/70">
-      <td className="px-5 py-12 text-center text-sm text-slate-500" colSpan={6}>
+    <tr className="border-t border-border/30">
+      <td className="px-6 py-14 text-center text-sm text-muted-foreground" colSpan={6}>
         {message}
       </td>
     </tr>
   );
 }
 
-function PromptModalField({ label, children }: { label: string; children: ReactNode }) {
+function PromptModalField({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+      <span className="block text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
+        {required ? <span className="ml-1 text-primary">*</span> : null}
       </span>
       {children}
     </div>
