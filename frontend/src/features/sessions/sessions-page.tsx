@@ -7,6 +7,7 @@ import {
   BadgeInfo,
   Layers3,
   Plus,
+  RotateCcw,
   Rocket,
   Search,
   ShieldCheck,
@@ -17,10 +18,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadErrorState } from "@/components/ui/load-error-state";
-import { MetricCard } from "@/components/ui/metric-card";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -496,125 +495,146 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
       modelsQuery.refetch(),
     ]);
   };
+  const hasAnyFilters = Boolean(search.trim()) || showArchived;
 
   return (
-    <div className="px-3 py-5 lg:px-6 lg:py-6 xl:px-7">
-      <section className="relative overflow-hidden rounded-[1.65rem] border border-[hsl(var(--border))] bg-[hsl(var(--surface-elevated))] p-3.5 shadow-xl lg:p-4">
-        <div className="absolute left-0 top-0 h-full w-[58%] bg-[var(--hero-bg)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(var(--hero-grid)_1px,transparent_1px),linear-gradient(90deg,var(--hero-grid)_1px,transparent_1px)] bg-[size:26px_26px] opacity-50" />
-        <div className="relative flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_31rem] lg:items-center lg:gap-4">
-          <div className="relative max-w-[30rem] space-y-2">
-            <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-950">
+    <div className="text-foreground">
+      <header className="border-b border-border/50 px-6 pb-6 pt-8 lg:px-8">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-[0.28em] text-primary/80">
               {t("sessions.benchmarkSetup")}
-            </span>
-            <h1 className="font-display text-[1.8rem] font-semibold tracking-tight text-foreground lg:text-[2.2rem]">
+            </p>
+            <h1 className="text-[1.75rem] font-semibold leading-none tracking-tight text-foreground">
               {t("sessions.pageTitle")}
             </h1>
-          </div>
-          <div className="grid gap-1.5 sm:grid-cols-3">
-            <MetricCard
-              compact
-              className="rounded-[1.2rem]"
-              icon={Layers3}
-              label={t("sessions.metricVisible")}
-              tone="emerald"
-              value={String(visibleSessions.length)}
-            />
-            <MetricCard
-              compact
-              className="rounded-[1.2rem]"
-              icon={Users}
-              label={t("sessions.metricPromptLibrary")}
-              tone="emerald"
-              value={String(promptsQuery.data?.total ?? 0)}
-            />
-            <MetricCard
-              compact
-              className="rounded-[1.2rem]"
-              icon={ShieldCheck}
-              label={t("sessions.metricModelRegistry")}
-              tone="emerald"
-              value={String(modelsQuery.data?.total ?? 0)}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-5 space-y-5">
-        <Card className="border-border/70 bg-[hsl(var(--surface-overlay))] shadow-sm">
-          <div className="border-b border-border/80 px-3 py-2.5 lg:px-3.5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <label className="relative block min-w-64 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  className="h-10 rounded-[1rem] pl-9 text-[0.95rem]"
-                  placeholder={t("sessions.searchPlaceholder")}
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </label>
-              <div className="flex gap-3">
-                <Button
-                  aria-label={showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
-                  className={cn(
-                    showArchived &&
-                      "border-[hsl(var(--theme-accent-border))] bg-[hsl(var(--theme-accent-soft))] text-[hsl(var(--theme-accent-soft-foreground))] shadow-[0_14px_28px_-18px_rgba(15,23,42,0.18)] hover:brightness-[0.98]",
-                  )}
-                  title={showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
-                  type="button"
-                  variant={showArchived ? "secondary" : "ghost"}
-                  size="icon"
-                  onClick={() => setShowArchived((current) => !current)}
-                >
-                  <Archive className="h-4 w-4" />
-                </Button>
-                <Button className="h-10 rounded-[1rem] px-4 text-[0.95rem]" onClick={openCreateModal}>
-                  <Plus className="h-4 w-4" />
-                  {t("sessions.newSession")}
-                </Button>
+            <div className="mt-3 flex flex-wrap items-center gap-1">
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <Layers3 className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{visibleSessions.length}</span>{" "}
+                  {t("sessions.metricVisible").toLowerCase()}
+                </span>
+              </div>
+              <span className="mx-1.5 text-border/60">·</span>
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <Users className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{promptsQuery.data?.total ?? 0}</span>{" "}
+                  {t("sessions.metricPromptLibrary").toLowerCase()}
+                </span>
+              </div>
+              <span className="mx-1.5 text-border/60">·</span>
+              <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-foreground">{modelsQuery.data?.total ?? 0}</span>{" "}
+                  {t("sessions.metricModelRegistry").toLowerCase()}
+                </span>
               </div>
             </div>
           </div>
+          <Button className="shrink-0" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" />
+            {t("sessions.newSession")}
+          </Button>
+        </div>
+      </header>
 
-          {loadError ? (
-            <LoadErrorState
-              message={loadError}
-              onRetry={retryLoad}
-              resourceLabel={t("sessions.pageTitle")}
-            />
-          ) : null}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-6 py-3 lg:px-8">
+        <label className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="h-9 w-52 rounded-lg pl-8 text-sm"
+            placeholder={t("sessions.searchPlaceholder")}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
 
-          {feedback ? (
-            <div className="border-b border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] px-5 py-3 text-sm text-[hsl(var(--theme-success-foreground))]">
-              {feedback}
-            </div>
-          ) : null}
+        <div className="flex-1" />
 
-          {(isPending ||
-            saveMutation.isPending ||
-            archiveMutation.isPending) && (
-            <div className="border-b border-border/70 px-5 py-3 text-sm text-[hsl(var(--foreground-soft))]">
-              {t("sessions.syncing")}
-            </div>
-          )}
-          {launchMutation.isPending && (
-            <div className="border-b border-border/70 px-5 py-3 text-sm text-[hsl(var(--foreground-soft))]">
-              {t("sessions.launching")}
-            </div>
-          )}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            title="Reset filters"
+            aria-label="Reset filters"
+            disabled={!hasAnyFilters}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition",
+              hasAnyFilters
+                ? "text-muted-foreground hover:bg-[hsl(var(--surface-muted))] hover:text-foreground"
+                : "cursor-default text-muted-foreground/25",
+            )}
+            onClick={() => {
+              setSearch("");
+              setShowArchived(false);
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            title={showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
+            aria-label={showArchived ? t("sessions.showUnarchived") : t("sessions.showArchived")}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition",
+              showArchived
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-[hsl(var(--surface-muted))] hover:text-foreground",
+            )}
+            onClick={() => setShowArchived((current) => !current)}
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
 
-          <div className="overflow-x-auto overflow-y-visible">
-            <table className="min-w-full text-left">
-              <thead className="bg-[hsl(var(--surface-muted))] text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
-                <tr>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colSession")}</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colComposition")}</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colUpdated")}</th>
-                  <th className="px-3 py-2 font-semibold lg:px-3.5">{t("sessions.colStatus")}</th>
-                  <th className="px-3 py-2 font-semibold text-right lg:px-3.5">{t("sessions.colActions")}</th>
-                </tr>
-              </thead>
-              <tbody>
+      {loadError ? (
+        <LoadErrorState
+          message={loadError}
+          onRetry={retryLoad}
+          resourceLabel={t("sessions.pageTitle")}
+        />
+      ) : null}
+
+      {feedback ? (
+        <div className="border-b border-primary/20 bg-primary/5 px-6 py-2.5 text-[0.82rem] text-primary lg:px-8">
+          {feedback}
+        </div>
+      ) : null}
+
+      {(isPending || saveMutation.isPending || archiveMutation.isPending) ? (
+        <div className="border-b border-border/40 px-6 py-2.5 text-[0.82rem] text-muted-foreground lg:px-8">
+          {t("sessions.syncing")}
+        </div>
+      ) : null}
+      {launchMutation.isPending ? (
+        <div className="border-b border-border/40 px-6 py-2.5 text-[0.82rem] text-muted-foreground lg:px-8">
+          {t("sessions.launching")}
+        </div>
+      ) : null}
+
+      <div className={cn(showArchived && "border-l-2 border-primary/25")}>
+        <table className="w-full table-fixed text-left">
+          <thead>
+            <tr className="border-b border-border/50">
+              <th className="px-6 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground lg:px-8">
+                {t("sessions.colSession")}
+              </th>
+              <th className="px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("sessions.colComposition")}
+              </th>
+              <th className="w-28 px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("sessions.colUpdated")}
+              </th>
+              <th className="w-28 px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("sessions.colStatus")}
+              </th>
+              <th className="w-14 px-4 py-2.5" />
+            </tr>
+          </thead>
+          <tbody>
                 {sessionsQuery.isLoading ? (
                   <TableEmptyRow message={t("sessions.loading")} />
                 ) : visibleSessions.length === 0 ? (
@@ -633,12 +653,12 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                       <tr
                         key={session.id}
                         className={cn(
-                          "cursor-pointer border-t border-border/70 transition-colors hover:bg-[hsl(var(--surface-muted)/0.5)]",
-                          isSelected && "bg-[hsl(var(--theme-success-soft)/0.48)]",
+                          "group cursor-pointer border-b border-border/30 transition-colors duration-100",
+                          isSelected ? "bg-primary/5" : "hover:bg-[hsl(var(--surface-muted)/0.6)]",
                         )}
                         onClick={() => openModal(session)}
                       >
-                        <td className="px-3 py-1.5 align-middle lg:px-3.5">
+                        <td className="px-6 py-3.5 align-middle lg:px-8">
                           <div className="flex items-center gap-3">
                             <button
                               type="button"
@@ -657,30 +677,34 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                             >
                               <AnimatedRocket className="h-4 w-4" />
                             </button>
-                            <div className="pl-0.5">
-                              <p className="text-[0.95rem] font-semibold leading-tight text-foreground transition hover:text-[hsl(var(--primary))]">
+                            <div className="min-w-0 pl-0.5">
+                              <p className="truncate text-[0.88rem] font-medium text-foreground">
                                 {session.name}
                               </p>
-                              <p className="max-w-sm text-[0.8rem] leading-tight text-[hsl(var(--foreground-soft))]">
+                              <p className="truncate text-[0.78rem] text-muted-foreground">
                                 {session.description ?? t("sessions.noDescription")}
                               </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-1.5 align-middle text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
+                        <td className="px-4 py-3.5 align-middle">
                           <div className="flex flex-wrap gap-2">
-                            <Badge variant="neutral">{t("sessions.compositionPrompts", { count: session.prompts.length })}</Badge>
-                            <Badge variant="neutral">
+                            <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
+                              {t("sessions.compositionPrompts", { count: session.prompts.length })}
+                            </Badge>
+                            <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
                               {t("sessions.compositionCandidates", { count: session.candidates.length })}
                             </Badge>
-                            <Badge variant="neutral">{t("sessions.compositionJudges", { count: session.judges.length })}</Badge>
+                            <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
+                              {t("sessions.compositionJudges", { count: session.judges.length })}
+                            </Badge>
                           </div>
                         </td>
-                        <td className="px-3 py-1.5 align-middle text-[0.92rem] text-[hsl(var(--foreground-soft))] lg:px-3.5">
+                        <td className="px-4 py-3.5 align-middle text-[0.78rem] text-muted-foreground">
                           {formatDate(session.updated_at)}
                         </td>
                         <td
-                          className="px-3 py-1.5 align-middle lg:px-3.5"
+                          className="px-4 py-3.5 align-middle"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="relative">
@@ -693,20 +717,29 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                               className="cursor-pointer"
                             >
                               <Badge
+                                className="whitespace-nowrap text-[0.7rem]"
                                 variant={session.status === "archived" ? "muted" : session.status === "ready" ? "success" : "neutral"}
                               >
                                 {t(`sessions.form.status.${session.status}`)}
                               </Badge>
                             </button>
                             {statusPickerSessionId === session.id ? (
-                              <div className="absolute left-0 top-full z-50 mt-1 min-w-[120px] rounded-xl border border-border bg-[hsl(var(--surface-elevated))] py-1 shadow-lg">
+                              <div className="absolute left-0 top-[calc(100%+0.4rem)] z-[90] min-w-[12rem] overflow-hidden rounded-xl border border-border bg-[hsl(var(--surface-elevated))] shadow-[0_20px_60px_-16px_rgba(0,0,0,0.5)]">
+                                <div className="border-b border-border/60 px-3 py-2.5">
+                                  <p className="text-[0.78rem] font-semibold text-foreground">
+                                    {t("sessions.form.status")}
+                                  </p>
+                                </div>
+                                <div className="py-1">
                                 {(["draft", "ready", "archived"] as const).map((s) => (
                                   <button
                                     key={s}
                                     type="button"
                                     className={cn(
-                                      "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-[hsl(var(--surface-muted)/0.7)]",
-                                      session.status === s && "font-semibold text-[hsl(var(--primary))]",
+                                      "flex w-full items-center gap-2 px-3 py-2 text-left text-[0.82rem] transition",
+                                      session.status === s
+                                        ? "bg-primary/10 font-semibold text-primary"
+                                        : "text-foreground hover:bg-[hsl(var(--surface-muted))]",
                                     )}
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -719,12 +752,13 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                                     {t(`sessions.form.status.${s}`)}
                                   </button>
                                 ))}
+                                </div>
                               </div>
                             ) : null}
                           </div>
                         </td>
-                        <td className="px-3 py-1.5 align-middle lg:px-3.5" onClick={(event) => event.stopPropagation()}>
-                          <div className="flex justify-end gap-1.5">
+                        <td className="px-4 py-3.5 align-middle" onClick={(event) => event.stopPropagation()}>
+                          <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                             <ActionIconButton
                               aria-label={`${t("sessions.action.archive")} ${session.name}`}
                               description={t("sessions.action.archiveDesc")}
@@ -744,11 +778,9 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                     );
                   })
                 )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </section>
+          </tbody>
+        </table>
+      </div>
 
       <Modal
         onClose={() => setIsModalOpen(false)}
@@ -767,65 +799,71 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
           />
 
           {selectionStep === "information" ? (
-            <form className="space-y-3">
+            <form>
               {loadError ? (
                 <LoadErrorState compact message={loadError} resourceLabel="sessions" />
               ) : null}
 
-              <Field hint={t("sessions.form.nameHint")} label={t("sessions.form.name")}>
-                <Input
-                  placeholder={t("sessions.form.namePlaceholder")}
-                  value={formState.name}
-                  onChange={(event) => {
-                    isDirtyRef.current = true;
-                    setFormState((current) => ({ ...current, name: event.target.value }));
-                  }}
-                />
-              </Field>
+              <div className="flex min-h-0 gap-0">
+                <div className="w-56 shrink-0 space-y-5 border-r border-border/50 pr-6">
+                  <Field hint={t("sessions.form.nameHint")} label={t("sessions.form.name")}>
+                    <Input
+                      placeholder={t("sessions.form.namePlaceholder")}
+                      value={formState.name}
+                      onChange={(event) => {
+                        isDirtyRef.current = true;
+                        setFormState((current) => ({ ...current, name: event.target.value }));
+                      }}
+                    />
+                  </Field>
 
-              <Field hint={t("sessions.form.descriptionHint")} label={t("sessions.form.description")}>
-                <Textarea
-                  className="min-h-16"
-                  placeholder={t("sessions.form.descriptionPlaceholder")}
-                  value={formState.description}
-                  onChange={(event) => {
-                    isDirtyRef.current = true;
-                    setFormState((current) => ({ ...current, description: event.target.value }));
-                  }}
-                />
-              </Field>
+                  <Field hint={t("sessions.form.statusHint")} label={t("sessions.form.status")}>
+                    <Select
+                      value={formState.status}
+                      onChange={(event) => {
+                        isDirtyRef.current = true;
+                        setFormState((current) => ({
+                          ...current,
+                          status: event.target.value as SessionFormState["status"],
+                        }));
+                      }}
+                    >
+                      <option value="draft">{t("sessions.form.status.draft")}</option>
+                      <option value="ready">{t("sessions.form.status.ready")}</option>
+                      <option value="archived">{t("sessions.form.status.archived")}</option>
+                    </Select>
+                  </Field>
+                </div>
 
-              <Field hint={t("sessions.form.statusHint")} label={t("sessions.form.status")}>
-                <Select
-                  value={formState.status}
-                  onChange={(event) => {
-                    isDirtyRef.current = true;
-                    setFormState((current) => ({
-                      ...current,
-                      status: event.target.value as SessionFormState["status"],
-                    }));
-                  }}
-                >
-                  <option value="draft">{t("sessions.form.status.draft")}</option>
-                  <option value="ready">{t("sessions.form.status.ready")}</option>
-                  <option value="archived">{t("sessions.form.status.archived")}</option>
-                </Select>
-              </Field>
+                <div className="min-w-0 flex-1 space-y-5 pl-6">
+                  <Field hint={t("sessions.form.descriptionHint")} label={t("sessions.form.description")}>
+                    <Textarea
+                      className="min-h-32"
+                      placeholder={t("sessions.form.descriptionPlaceholder")}
+                      value={formState.description}
+                      onChange={(event) => {
+                        isDirtyRef.current = true;
+                        setFormState((current) => ({ ...current, description: event.target.value }));
+                      }}
+                    />
+                  </Field>
+                </div>
+              </div>
 
               {feedback ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
+                <div className="mt-4 rounded-lg border border-primary/20 bg-primary/8 px-4 py-2.5 text-[0.82rem] text-primary">
                   {feedback}
                 </div>
               ) : null}
 
               {saveMutation.isPending ? (
-                <p className="text-xs text-[hsl(var(--foreground-soft))]">{t("sessions.syncing")}</p>
+                <p className="mt-4 text-xs text-muted-foreground">{t("sessions.syncing")}</p>
               ) : null}
             </form>
           ) : null}
 
           {selectionStep !== "information" && !selectedSession ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+            <div className="rounded-lg border border-primary/20 bg-primary/8 px-4 py-2.5 text-[0.82rem] text-primary">
               {t("sessions.form.nameHint")}
             </div>
           ) : null}
@@ -935,7 +973,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
             </SelectionWorkspace>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/50 pt-4">
             <Button onClick={() => setIsModalOpen(false)} type="button" variant="soft">
               {t("sessions.selection.close")}
             </Button>
@@ -966,8 +1004,8 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
 function TableEmptyRow({ message }: { message: string }) {
   return (
-    <tr className="border-t border-border/70">
-      <td className="px-5 py-12 text-center text-sm text-[hsl(var(--foreground-soft))]" colSpan={6}>
+    <tr className="border-t border-border/30">
+      <td className="px-5 py-12 text-center text-sm text-muted-foreground/50" colSpan={5}>
         {message}
       </td>
     </tr>
@@ -986,23 +1024,23 @@ function SelectedList({
   const { t } = useTranslation();
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
+      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {t("sessions.selection.selected")}
       </p>
       {items.length === 0 ? (
-        <p className="text-sm text-[hsl(var(--foreground-soft))]">{emptyMessage ?? "Nothing selected yet."}</p>
+        <p className="text-sm text-muted-foreground/70">{emptyMessage ?? "Nothing selected yet."}</p>
       ) : (
         items.map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-[hsl(var(--surface-muted))] px-3 py-3"
+            className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-[hsl(var(--surface-muted))] px-3 py-3"
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 {item.difficulty != null ? <DifficultyBadge value={item.difficulty} /> : null}
                 <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
               </div>
-              <p className="text-xs text-[hsl(var(--foreground-soft))]">{item.meta}</p>
+              <p className="text-xs text-muted-foreground">{item.meta}</p>
             </div>
             <Button size="sm" variant="dangerSoft" onClick={() => onRemove(item.id)}>
               <Trash2 className="h-4 w-4" />
@@ -1173,7 +1211,7 @@ function SessionStepSwitcher({
             key={step.key}
             disabled={step.disabled}
             className={cn(
-              "rounded-[1.25rem] border px-3 py-3 text-left transition",
+              "rounded-xl border px-3 py-3 text-left transition",
               isActive ? step.activeClassName : step.idleClassName,
               step.disabled && "cursor-not-allowed opacity-40",
             )}
@@ -1184,7 +1222,7 @@ function SessionStepSwitcher({
               <div className="space-y-1.5">
                 <span
                   className={cn(
-                    "inline-flex h-8 w-8 items-center justify-center rounded-xl shadow-sm",
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg shadow-sm",
                     step.iconClassName,
                   )}
                 >
@@ -1232,13 +1270,13 @@ function SelectionWorkspace({
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <div className="rounded-[1.5rem] border border-border/80 bg-[hsl(var(--surface-overlay))] p-5">
+      <div className="border-b border-border/40 pb-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {filters ? <div>{filters}</div> : null}
           <label className="relative block min-w-full lg:min-w-80">
-            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="pl-9"
+              className="h-9 rounded-lg pl-8 text-sm"
               placeholder={t("sessions.selection.searchLibrary", { type: title.toLowerCase() })}
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -1263,23 +1301,23 @@ function LibraryList({
   const { t } = useTranslation();
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[hsl(var(--foreground-soft))]">
+      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {t("sessions.selection.library")}
       </p>
       {items.length === 0 ? (
-        <p className="text-sm text-[hsl(var(--foreground-soft))]">{t("sessions.selection.noItems")}</p>
+        <p className="text-sm text-muted-foreground/70">{t("sessions.selection.noItems")}</p>
       ) : (
         items.slice(0, 8).map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-[hsl(var(--surface))] px-3 py-3"
+            className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-[hsl(var(--surface))] px-3 py-3"
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 {item.difficulty != null ? <DifficultyBadge value={item.difficulty} /> : null}
                 <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
               </div>
-              <p className="text-xs text-[hsl(var(--foreground-soft))]">{item.meta}</p>
+              <p className="text-xs text-muted-foreground">{item.meta}</p>
             </div>
             <Button size="sm" variant="soft" onClick={() => onAdd(item.id)}>
               {t("sessions.selection.add")}
@@ -1301,14 +1339,16 @@ function Field({
   label: string;
 }) {
   return (
-    <label className="flex h-full flex-col gap-2">
-      <span className="flex-1">
-        <span className="text-sm font-medium text-foreground">{label}</span>
-        {hint ? (
-          <span className="mt-0.5 block text-xs leading-4 text-[hsl(var(--foreground-soft))]">{hint}</span>
-        ) : null}
+    <label className="space-y-1.5">
+      <span className="block text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
       </span>
-      <span className="block">{children}</span>
+      {hint ? (
+        <span className="block text-xs leading-5 text-muted-foreground">{hint}</span>
+      ) : null}
+      <span className="block">
+        {children}
+      </span>
     </label>
   );
 }
@@ -1370,7 +1410,7 @@ function PromptFilters({
     <div className="flex flex-col gap-3">
       {categories.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
+          <span className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {t("sessions.selection.filterCategory")}
           </span>
           {categories.map((cat) => {
@@ -1381,10 +1421,10 @@ function PromptFilters({
                 type="button"
                 onClick={() => toggleCategory(cat.slug)}
                 className={cn(
-                  "rounded-full border px-2.5 py-0.5 text-xs font-medium transition",
+                  "inline-flex h-9 items-center rounded-lg border px-3 text-[0.82rem] font-medium transition",
                   active
-                    ? "border-[hsl(var(--theme-success-border))] bg-[hsl(var(--theme-success-soft))] text-[hsl(var(--theme-success-foreground))]"
-                    : "border-border/70 bg-[hsl(var(--surface))] text-[hsl(var(--foreground-soft))] hover:border-[hsl(var(--theme-success-border))] hover:bg-[hsl(var(--theme-success-soft)/0.5)]",
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-[hsl(var(--surface))] text-foreground hover:bg-[hsl(var(--surface-muted))]",
                 )}
               >
                 {cat.name}
@@ -1396,7 +1436,7 @@ function PromptFilters({
 
       {difficulties.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--foreground-soft))]">
+          <span className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {t("sessions.selection.filterDifficulty")}
           </span>
           <div className="flex flex-wrap items-center gap-2">

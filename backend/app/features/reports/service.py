@@ -157,14 +157,12 @@ class ReportsService:
             for snapshot in run.model_snapshots
             if snapshot.role == "candidate"
         ]
-        judge_snapshot = next(
-            (snapshot for snapshot in run.model_snapshots if snapshot.role == "judge"),
-            None,
-        )
-        if not candidate_snapshots or judge_snapshot is None:
+        judge_snapshots = [s for s in run.model_snapshots if s.role == "judge"]
+        if not candidate_snapshots or not judge_snapshots:
             raise ReportError(
                 "Run does not contain the snapshots needed for reporting."
             )
+        judge_snapshot = judge_snapshots[0]
         if not run.global_summaries:
             raise ReportError("Run has no aggregated summaries to report.")
 
@@ -266,7 +264,7 @@ class ReportsService:
             report_title=f"{run.name} Report",
             benchmark_session_name=run.name,
             launched_at=run.launched_at,
-            judge_name=judge_snapshot.display_name,
+            judge_name=" · ".join(s.display_name for s in judge_snapshots),
             prompt_count=len(run.prompt_snapshots),
             candidate_count=len(candidate_snapshots),
             summary_matrix=summary_matrix,
@@ -433,7 +431,7 @@ class ReportsService:
             for summary in run.global_summaries
         }
 
-    def _render_html(self, report: RunReportRead) -> str:
+    def _render_html(self, report: RunReportRead) -> str:  # noqa: PLR0914
         best_score = (
             Decimal(report.summary_matrix[0].final_global_score or "0")
             if report.summary_matrix
@@ -445,483 +443,577 @@ class ReportsService:
         scatter_plotly = self._render_scatter_plotly(report)
         category_radar_plotly = self._render_category_radar_plotly(report)
         category_html = self._render_category_breakdown_html(report)
+        bar_chart_plotly = self._render_bar_chart_plotly(report)
 
         best_judge = max((float(r.judge_score) for r in report.summary_matrix if r.judge_score), default=None)
         best_quality = max((float(r.quality_score) for r in report.summary_matrix if r.quality_score), default=None)
         best_cost = min((float(r.total_estimated_cost) for r in report.summary_matrix if r.total_estimated_cost), default=None)
         best_latency = min((r.avg_duration_ms for r in report.summary_matrix if r.avg_duration_ms is not None), default=None)
 
-        def _best_td(value: str, is_best: bool) -> str:
-            if is_best:
-                return f"<td class='best-col'>{escape(value)}</td>"
-            return f"<td>{escape(value)}</td>"
+        def _sc(val_str: str | None) -> str:
+            try:
+                v = float(val_str or "0")
+                if v >= 80:
+                    return "#10b981"
+                if v >= 60:
+                    return "#f59e0b"
+                return "#ef4444"
+            except (ValueError, TypeError):
+                return "#94a3b8"
+
+        def _score_bar_html(val_str: str | None) -> str:
+            try:
+                v = float(val_str or "0")
+                pct = min(100.0, max(0.0, v))
+            except (ValueError, TypeError):
+                v, pct = 0.0, 0.0
+            color = _sc(str(v))
+            return (
+                f"<div class='sb'>"
+                f"<div class='sb-track'><div class='sb-fill' style='width:{pct:.1f}%;background:{color}'></div></div>"
+                f"<span class='sb-num' style='color:{color}'>{escape(val_str or '\u2014')}</span>"
+                f"</div>"
+            )
+
+        def _dim_bar(val_str: str | None, label: str) -> str:
+            try:
+                v = float(val_str or "0")
+                pct = min(100.0, max(0.0, v))
+            except (ValueError, TypeError):
+                v, pct = 0.0, 0.0
+            color = _sc(str(v))
+            return (
+                f"<div class='dim-row'>"
+                f"<span class='dim-lbl'>{escape(label)}</span>"
+                f"<div class='dim-track'><div class='dim-fill' style='width:{pct:.1f}%;background:{color}'></div></div>"
+                f"<span class='dim-val' style='color:{color}'>{escape(val_str or '\u2014')}</span>"
+                f"</div>"
+            )
+
+        _pod_meta = [
+            ("1st", "#eab308", "#fefce8"),
+            ("2nd", "#94a3b8", "#f8fafc"),
+            ("3rd", "#cd7c4b", "#fff7ed"),
+        ]
+        podium_cards_html = ""
+        for pi, row in enumerate(report.summary_matrix[:3]):
+            lbl, color, bg = _pod_meta[pi]
+            podium_cards_html += (
+                f"<div class='pod-card' style='border-top:3px solid {color};background:{bg}'>"
+                f"<span class='pod-rank' style='color:{color}'>{escape(lbl)}</span>"
+                f"<div class='pod-name'>{escape(row.candidate_name)}</div>"
+                f"<div class='pod-score' style='color:{color}'>{escape(row.final_global_score or '\u2014')}</div>"
+                f"<div class='pod-score-lbl'>Global Score</div>"
+                f"<div class='pod-meta'>"
+                f"Judge: <strong>{escape(row.judge_score or '\u2014')}</strong>"
+                f" &nbsp;&middot;&nbsp; Quality: <strong>{escape(row.quality_score or '\u2014')}</strong>"
+                f"</div>"
+                f"</div>"
+            )
 
         summary_rows = ""
         for i, row in enumerate(report.summary_matrix):
             score = Decimal(row.final_global_score or "0")
             delta = score - best_score
-            delta_str = "—" if i == 0 else f"{delta:+.2f}"
-            cost_raw = f"${row.total_estimated_cost}" if row.total_estimated_cost else "—"
-            latency_raw = f"{row.avg_duration_ms} ms" if row.avg_duration_ms is not None else "—"
+            delta_str = "\u2014" if i == 0 else f"{delta:+.2f}"
+            cost_raw = f"${row.total_estimated_cost}" if row.total_estimated_cost else "\u2014"
+            latency_raw = f"{row.avg_duration_ms} ms" if row.avg_duration_ms is not None else "\u2014"
             winner = i == 0
-            is_best_judge = best_judge is not None and row.judge_score and float(row.judge_score) == best_judge
-            is_best_quality = best_quality is not None and row.quality_score and float(row.quality_score) == best_quality
+            _rbs = [
+                "<span class='rb rb-gold'>1</span>",
+                "<span class='rb rb-silver'>2</span>",
+                "<span class='rb rb-bronze'>3</span>",
+            ]
+            rb = _rbs[i] if i < 3 else f"<span class='rb rb-plain'>{i + 1}</span>"
             is_best_cost = best_cost is not None and row.total_estimated_cost and float(row.total_estimated_cost) == best_cost
             is_best_latency = best_latency is not None and row.avg_duration_ms is not None and row.avg_duration_ms == best_latency
+            cost_td = f"<td class='best-col'>{escape(cost_raw)}</td>" if is_best_cost else f"<td>{escape(cost_raw)}</td>"
+            lat_td = f"<td class='best-col'>{escape(latency_raw)}</td>" if is_best_latency else f"<td>{escape(latency_raw)}</td>"
+            delta_cls = "delta-zero" if i == 0 else "delta-neg"
             summary_rows += (
                 f"<tr{'  class=\"winner-row\"' if winner else ''}>"
-                f"<td>{'★ ' if winner else ''}<strong>{escape(row.candidate_name)}</strong></td>"
-                + _best_td(row.judge_score or "—", is_best_judge)
-                + _best_td(row.quality_score or "—", is_best_quality)
-                + _best_td(cost_raw, is_best_cost)
-                + _best_td(latency_raw, is_best_latency)
-                + f"<td><strong>{escape(row.final_global_score or '—')}</strong></td>"
-                f"<td class='{'delta-zero' if i == 0 else 'delta-neg'}'>{escape(delta_str)}</td>"
+                f"<td><div class='cand-cell'>{rb}<strong>{escape(row.candidate_name)}</strong></div></td>"
+                f"<td>{_score_bar_html(row.judge_score)}</td>"
+                f"<td>{_score_bar_html(row.quality_score)}</td>"
+                f"{cost_td}"
+                f"{lat_td}"
+                f"<td>{_score_bar_html(row.final_global_score)}</td>"
+                f"<td class='{delta_cls}'>{escape(delta_str)}</td>"
                 "</tr>"
             )
 
-        candidate_sections = ""
-        for section in report.candidate_sections:
-            cost_raw = f"${section.total_estimated_cost}" if section.total_estimated_cost else "—"
-            latency_raw = f"{section.avg_duration_ms} ms" if section.avg_duration_ms is not None else "—"
-            tps_raw = f"{section.avg_tokens_per_second} tok/s" if section.avg_tokens_per_second else "—"
-            sub_rows = "".join(
-                f"<tr><td>{label}</td><td>{escape(val or '—')}</td></tr>"
-                for label, val in [
-                    ("Relevance", section.average_relevance_score),
-                    ("Accuracy", section.average_accuracy_score),
-                    ("Completeness", section.average_completeness_score),
-                    ("Clarity", section.average_clarity_score),
-                    ("Instruction Following", section.average_instruction_following_score),
-                ]
-            )
-            candidate_sections += (
-                "<section class='candidate'>"
-                f"<h3>{escape(section.candidate_name)}</h3>"
-                f"<p class='muted'>{escape(section.provider_type)} / {escape(section.runtime_type)}</p>"
-                "<div class='stat-row'>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(section.final_global_score or '—')}</span><span class='stat-lbl'>Global Score</span></div>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(latency_raw)}</span><span class='stat-lbl'>Avg Latency</span></div>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(tps_raw)}</span><span class='stat-lbl'>Throughput</span></div>"
-                f"<div class='stat-box'><span class='stat-val'>{escape(cost_raw)}</span><span class='stat-lbl'>Total Cost</span></div>"
-                "</div>"
-                "<table class='sub-scores'>"
-                "<thead><tr><th>Dimension</th><th>Avg Score</th></tr></thead>"
-                f"<tbody>{sub_rows}</tbody>"
-                "</table>"
-                f"<p>{escape(section.global_summary_text or 'No summary available.')}</p>"
-                "<div class='patterns'>"
-                f"<div class='pattern-block strengths-block'><strong>Strengths</strong><p>{escape(section.best_patterns_text or '—')}</p></div>"
-                f"<div class='pattern-block weaknesses-block'><strong>Weaknesses</strong><p>{escape(section.weak_patterns_text or '—')}</p></div>"
-                "</div>"
-                "</section>"
+        candidate_sections_html = ""
+        for ci, section in enumerate(report.candidate_sections):
+            color = _CHART_PALETTE[ci % len(_CHART_PALETTE)]
+            cost_raw = f"${section.total_estimated_cost}" if section.total_estimated_cost else "\u2014"
+            latency_raw = f"{section.avg_duration_ms} ms" if section.avg_duration_ms is not None else "\u2014"
+            tps_raw = f"{section.avg_tokens_per_second} tok/s" if section.avg_tokens_per_second else "\u2014"
+            global_score = section.final_global_score or "\u2014"
+            dims_html = "".join([
+                _dim_bar(section.average_relevance_score, "Relevance"),
+                _dim_bar(section.average_accuracy_score, "Accuracy"),
+                _dim_bar(section.average_completeness_score, "Completeness"),
+                _dim_bar(section.average_clarity_score, "Clarity"),
+                _dim_bar(section.average_instruction_following_score, "Instr. Following"),
+            ])
+            candidate_sections_html += (
+                f"<div class='cand-card'>"
+                f"<div class='cand-hdr' style='border-left:4px solid {color}'>"
+                f"<div>"
+                f"<h3 class='cand-name'>{escape(section.candidate_name)}</h3>"
+                f"<p class='cand-meta'>{escape(section.provider_type)} &nbsp;&middot;&nbsp; {escape(section.runtime_type)}</p>"
+                f"</div>"
+                f"<div class='cand-global-score'>"
+                f"<span class='cgs-num' style='color:{_sc(section.final_global_score)}'>{escape(global_score)}</span>"
+                f"<span class='cgs-lbl'>&thinsp;/ 100</span>"
+                f"</div>"
+                f"</div>"
+                f"<div class='cand-body'>"
+                f"<div class='metric-grid'>"
+                f"<div class='metric-box'><span class='mv'>{escape(latency_raw)}</span><span class='ml'>Avg Latency</span></div>"
+                f"<div class='metric-box'><span class='mv'>{escape(tps_raw)}</span><span class='ml'>Throughput</span></div>"
+                f"<div class='metric-box'><span class='mv'>{escape(cost_raw)}</span><span class='ml'>Total Cost</span></div>"
+                f"<div class='metric-box'><span class='mv' style='color:{_sc(section.average_overall_score)}'>{escape(section.average_overall_score or '\u2014')}</span><span class='ml'>Avg Quality</span></div>"
+                f"</div>"
+                f"<div class='dims-block'>"
+                f"<p class='dims-title'>Score Dimensions</p>"
+                f"{dims_html}"
+                f"</div>"
+                f"<div class='patterns-grid'>"
+                f"<div class='pblock pblock-green'><strong>Strengths</strong><p>{escape(section.best_patterns_text or '\u2014')}</p></div>"
+                f"<div class='pblock pblock-red'><strong>Weaknesses</strong><p>{escape(section.weak_patterns_text or '\u2014')}</p></div>"
+                f"</div>"
+                f"<p class='cand-summary-text'>{escape(section.global_summary_text or 'No summary available.')}</p>"
+                f"</div>"
+                f"</div>"
             )
 
-        prompt_sections = ""
-        for section in report.prompt_sections:
+        prompt_sections_html = ""
+        for pi, section in enumerate(report.prompt_sections):
             cmp_rows = ""
             for c in sorted(section.candidates, key=lambda x: int(x.ranking_in_batch or 999)):
                 try:
                     q_per_tok = (
                         f"{float(c.overall_score) / c.total_tokens * 100:.2f}"
                         if c.overall_score and c.total_tokens
-                        else "—"
+                        else "\u2014"
                     )
                 except (ZeroDivisionError, ValueError):
-                    q_per_tok = "—"
+                    q_per_tok = "\u2014"
                 cmp_rows += (
                     f"<tr>"
                     f"<td>{escape(c.candidate_name)}</td>"
-                    f"<td><strong>{escape(c.overall_score or '—')}</strong></td>"
-                    f"<td>#{escape(str(c.ranking_in_batch or '—'))}</td>"
-                    f"<td>{escape(str(c.duration_ms) + ' ms' if c.duration_ms else '—')}</td>"
-                    f"<td>{escape(str(c.total_tokens) if c.total_tokens else '—')}</td>"
-                    f"<td>{escape('$' + c.estimated_cost if c.estimated_cost else '—')}</td>"
+                    f"<td><strong style='color:{_sc(c.overall_score)}'>{escape(c.overall_score or '\u2014')}</strong></td>"
+                    f"<td>#{escape(str(c.ranking_in_batch or '\u2014'))}</td>"
+                    f"<td>{escape(str(c.duration_ms) + ' ms' if c.duration_ms else '\u2014')}</td>"
+                    f"<td>{escape(str(c.total_tokens) if c.total_tokens else '\u2014')}</td>"
+                    f"<td>{escape('$' + c.estimated_cost if c.estimated_cost else '\u2014')}</td>"
                     f"<td>{escape(q_per_tok)}</td>"
                     "</tr>"
                 )
-            sys_prompt_html = (
-                f"<p class='prompt-label'>System prompt</p><pre class='sys-pre'>{escape(section.system_prompt_text)}</pre>"
+            sys_pre = (
+                f"<p class='prompt-label'>System Prompt</p><pre class='pre-sys'>{escape(section.system_prompt_text)}</pre>"
                 if section.system_prompt_text
                 else ""
             )
-            eval_notes_html = (
-                f"<p class='eval-notes'><strong>Evaluation criteria:</strong> {escape(section.evaluation_notes)}</p>"
+            eval_note = (
+                f"<div class='eval-note'><strong>Evaluation criteria:</strong> {escape(section.evaluation_notes)}</div>"
                 if section.evaluation_notes
                 else ""
             )
-            responses_html = ""
+            resp_html = ""
             for c in section.candidates:
-                strengths_html = (
-                    f"<p class='strengths'><strong>Strengths:</strong> {escape(c.strengths_text)}</p>"
-                    if c.strengths_text
-                    else ""
-                )
-                weaknesses_html = (
-                    f"<p class='weaknesses'><strong>Weaknesses:</strong> {escape(c.weaknesses_text)}</p>"
-                    if c.weaknesses_text
-                    else ""
-                )
-                responses_html += (
-                    "<article class='response'>"
+                s_html = f"<p class='resp-s'><strong>Strengths:</strong> {escape(c.strengths_text)}</p>" if c.strengths_text else ""
+                w_html = f"<p class='resp-w'><strong>Weaknesses:</strong> {escape(c.weaknesses_text)}</p>" if c.weaknesses_text else ""
+                resp_html += (
+                    f"<div class='resp-card'>"
+                    f"<div class='resp-card-hdr'>"
                     f"<h4>{escape(c.candidate_name)}</h4>"
-                    f"<pre>{escape(c.normalized_response_text or 'No response')}</pre>"
-                    f"{strengths_html}"
-                    f"{weaknesses_html}"
-                    f"<p class='feedback'>{escape(c.detailed_feedback or 'No detailed feedback')}</p>"
-                    "</article>"
+                    f"<span class='resp-score-badge' style='background:{_sc(c.overall_score)}22;color:{_sc(c.overall_score)};border-color:{_sc(c.overall_score)}44'>"
+                    f"{escape(c.overall_score or '\u2014')}</span>"
+                    f"</div>"
+                    f"<pre class='resp-pre'>{escape(c.normalized_response_text or 'No response')}</pre>"
+                    f"{s_html}{w_html}"
+                    f"<p class='resp-feedback'>{escape(c.detailed_feedback or 'No detailed feedback')}</p>"
+                    f"</div>"
                 )
-
-            prompt_sections += (
-                "<section class='prompt'>"
-                f"<h3>{escape(section.prompt_name)}</h3>"
-                f"<p><span class='badge'>{escape(section.category_name)}</span></p>"
-                f"{sys_prompt_html}"
-                "<p class='prompt-label'>User prompt</p>"
-                f"<pre>{escape(section.user_prompt_text)}</pre>"
-                f"{eval_notes_html}"
-                "<table class='comparison'>"
-                "<thead><tr><th>Candidate</th><th>Score</th><th>Rank</th><th>Latency</th><th>Tokens</th><th>Cost</th><th title='Quality points per 100 tokens consumed'>Qual/100 tok</th></tr></thead>"
-                f"<tbody>{cmp_rows}</tbody>"
-                "</table>"
-                f"{responses_html}"
-                "</section>"
+            best_in_prompt = max(
+                (float(c.overall_score) for c in section.candidates if c.overall_score),
+                default=None,
             )
+            top_score_html = (
+                f"<span class='prompt-top-score' style='color:{_sc(str(best_in_prompt))}'>{best_in_prompt:.1f}</span>"
+                if best_in_prompt is not None
+                else ""
+            )
+            prompt_sections_html += (
+                f"<div class='prompt-card' id='p{pi}'>"
+                f"<div class='prompt-hdr' onclick='tp(this)'>"
+                f"<div class='prompt-hdr-l'>"
+                f"<span class='prompt-num'>#{pi + 1}</span>"
+                f"<div>"
+                f"<div class='prompt-title'>{escape(section.prompt_name)}</div>"
+                f"<span class='badge'>{escape(section.category_name)}</span>"
+                f"</div>"
+                f"</div>"
+                f"<div class='prompt-hdr-r'>{top_score_html}<span class='chevron'>&#x25BE;</span></div>"
+                f"</div>"
+                f"<div class='prompt-body'>"
+                f"{sys_pre}"
+                f"<p class='prompt-label'>User Prompt</p>"
+                f"<pre class='pre-user'>{escape(section.user_prompt_text)}</pre>"
+                f"{eval_note}"
+                f"<div class='tbl-wrap'>"
+                f"<table class='comparison'>"
+                f"<thead><tr><th>Candidate</th><th>Score</th><th>Rank</th><th>Latency</th>"
+                f"<th>Tokens</th><th>Cost</th><th title='Quality points per 100 tokens'>Qual/100 tok</th></tr></thead>"
+                f"<tbody>{cmp_rows}</tbody>"
+                f"</table>"
+                f"</div>"
+                f"<div class='resp-grid'>{resp_html}</div>"
+                f"</div>"
+                f"</div>"
+            )
+
+        launched_str = escape(report.launched_at.strftime("%B %d, %Y · %H:%M UTC"))
+
+        _judge_names = [j.strip() for j in report.judge_name.split(" · ") if j.strip()]
+        judges_kpi_html = "".join(
+            f"<div class='judge-item'>"
+            f"<svg class='judge-icon' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'>"
+            f"<path d='M8 1v14M4 5l4-4 4 4M3 12h10' stroke='#3b82f6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/>"
+            f"</svg>"
+            f"<span>{escape(j)}</span>"
+            f"</div>"
+            for j in _judge_names
+        )
+        judges_label = "Judges" if len(_judge_names) > 1 else "Judge"
 
         return f"""<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{escape(report.report_title)}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
-    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-    <style>
-      :root {{
-        --ink: #0f172a;
-        --ink-soft: #334155;
-        --muted: #64748b;
-        --line: #e2e8f0;
-        --panel: #f8fafc;
-        --primary: #3b82f6;
-        --primary-light: #eff6ff;
-        --primary-border: #bfdbfe;
-        --accent-light: #f0f9ff;
-        --green-bg: #dcfce7;
-        --red-bg: #fee2e2;
-        --yellow-bg: #fefce8;
-        --radius: 8px;
-        --shadow: 0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
-        --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
-      }}
-      * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-      body {{
-        padding: 40px 48px;
-        font-family: 'Manrope', system-ui, -apple-system, sans-serif;
-        color: var(--ink);
-        background: #f1f5f9;
-        line-height: 1.65;
-        font-size: 14px;
-      }}
-      h1 {{
-        font-family: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
-        font-size: 1.9rem;
-        font-weight: 700;
-        margin-bottom: 4px;
-        letter-spacing: -0.025em;
-      }}
-      h2 {{
-        font-family: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
-        font-size: 0.72rem;
-        font-weight: 700;
-        margin: 36px 0 14px;
-        border-bottom: 1px solid var(--line);
-        padding-bottom: 8px;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }}
-      h3 {{ font-size: 1rem; font-weight: 600; margin-bottom: 8px; }}
-      h4 {{ font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; color: var(--primary); }}
-      p {{ margin-bottom: 8px; }}
-      .muted {{ color: var(--muted); font-size: 0.85rem; margin-bottom: 12px; }}
-      .hero {{
-        background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        padding: 28px 32px;
-        margin-bottom: 32px;
-        box-shadow: var(--shadow-md);
-      }}
-      .meta {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }}
-      .meta div {{
-        border: 1px solid var(--line);
-        background: white;
-        padding: 12px 16px;
-        border-radius: 6px;
-        font-size: 0.875rem;
-      }}
-      .meta div strong {{
-        color: var(--muted);
-        font-weight: 600;
-        display: block;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-bottom: 3px;
-      }}
-      table {{
-        width: 100%;
-        border-collapse: collapse;
-        margin: 14px 0 24px;
-        font-size: 0.875rem;
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        overflow: hidden;
-        background: white;
-        box-shadow: var(--shadow);
-      }}
-      th, td {{ border-bottom: 1px solid var(--line); padding: 10px 14px; text-align: left; }}
-      th {{
-        background: var(--panel);
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }}
-      tr:last-child td {{ border-bottom: none; }}
-      tbody tr:hover td {{ background: #f8fafc; }}
-      .winner-row td {{ background: var(--yellow-bg) !important; }}
-      .winner-row td:first-child {{ border-left: 3px solid #eab308; padding-left: 11px; }}
-      .delta-zero {{ color: var(--muted); }}
-      .delta-neg {{ color: #dc2626; font-weight: 600; }}
-      .best-col {{ background: #dcfce7 !important; color: #15803d; font-weight: 700; }}
-      .candidate-grid, .prompt-grid {{ display: grid; gap: 20px; }}
-      .candidate {{
-        border: 1px solid var(--line);
-        background: white;
-        padding: 24px;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-      }}
-      .stat-row {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }}
-      .stat-box {{
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 6px;
-        padding: 12px 14px;
-        text-align: center;
-      }}
-      .stat-val {{
-        display: block;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--primary);
-        font-family: 'Space Grotesk', system-ui, sans-serif;
-      }}
-      .stat-lbl {{
-        display: block;
-        font-size: 0.68rem;
-        color: var(--muted);
-        margin-top: 3px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        font-weight: 600;
-      }}
-      table.sub-scores {{ margin: 0 0 14px; box-shadow: none; }}
-      table.sub-scores td:first-child {{ color: var(--muted); font-size: 0.85rem; font-weight: 500; }}
-      .patterns {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }}
-      .pattern-block {{ padding: 14px 16px; border-radius: 6px; font-size: 0.875rem; }}
-      .strengths-block {{ background: var(--green-bg); border-left: 3px solid #22c55e; }}
-      .weaknesses-block {{ background: var(--red-bg); border-left: 3px solid #ef4444; }}
-      .pattern-block strong {{
-        display: block;
-        margin-bottom: 6px;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--ink-soft);
-      }}
-      .prompt {{
-        border: 1px solid var(--line);
-        background: white;
-        padding: 24px;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-      }}
-      .badge {{
-        display: inline-block;
-        background: var(--accent-light);
-        color: #0369a1;
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 2px 10px;
-        border-radius: 20px;
-        margin-bottom: 12px;
-        border: 1px solid #bae6fd;
-      }}
-      .prompt-label {{
-        font-size: 0.68rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--muted);
-        margin-bottom: 4px;
-      }}
-      pre {{
-        white-space: pre-wrap;
-        word-break: break-word;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        padding: 12px 16px;
-        border-radius: 6px;
-        font-size: 0.82rem;
-        margin-bottom: 12px;
-        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-        line-height: 1.55;
-      }}
-      pre.sys-pre {{ background: #fffbeb; border-color: #fde68a; }}
-      .eval-notes {{ font-size: 0.875rem; color: var(--muted); margin-bottom: 10px; }}
-      table.comparison {{ margin: 12px 0 18px; }}
-      .response {{
-        border: 1px solid var(--line);
-        padding: 18px;
-        margin-top: 12px;
-        border-radius: 6px;
-        background: white;
-      }}
-      .response h4 {{ margin-bottom: 10px; }}
-      p.strengths {{ background: var(--green-bg); border-left: 3px solid #22c55e; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; margin-bottom: 6px; }}
-      p.weaknesses {{ background: var(--red-bg); border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; margin-bottom: 6px; }}
-      p.feedback {{ font-size: 0.875rem; color: var(--muted); margin-top: 8px; }}
-      .bias-notice {{
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-left: 4px solid #f59e0b;
-        padding: 12px 16px;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        margin-bottom: 16px;
-      }}
-      .weighting-legend {{
-        background: white;
-        border: 1px solid var(--line);
-        padding: 12px 18px;
-        border-radius: var(--radius);
-        font-size: 0.875rem;
-        margin-bottom: 18px;
-        display: flex;
-        gap: 18px;
-        flex-wrap: wrap;
-        align-items: center;
-        box-shadow: var(--shadow);
-      }}
-      .weight-pill {{
-        background: var(--primary-light);
-        color: var(--primary);
-        font-weight: 700;
-        padding: 2px 10px;
-        border-radius: 20px;
-        font-size: 0.78rem;
-        border: 1px solid var(--primary-border);
-      }}
-      .charts-grid {{
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        margin-bottom: 14px;
-      }}
-      .chart-box {{
-        border: 1px solid var(--line);
-        background: white;
-        padding: 20px;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-      }}
-      .chart-box h3 {{ font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }}
-      @media print {{
-        body {{ padding: 0; background: white; font-size: 13px; }}
-        .hero {{ background: white; box-shadow: none; border-radius: 0; border: none; border-bottom: 2px solid var(--line); padding: 20px 0; margin-bottom: 20px; }}
-        .candidate, .prompt {{ box-shadow: none; }}
-        table {{ box-shadow: none; }}
-        h2 {{ margin: 24px 0 10px; }}
-        .charts-grid {{ grid-template-columns: 1fr; gap: 16px; }}
-        .prompt {{ page-break-inside: avoid; }}
-        .candidate {{ page-break-inside: avoid; }}
-      }}
-    </style>
-  </head>
-  <body>
-    <section class="hero">
-      <h1>{escape(report.report_title)}</h1>
-      <p class="muted">{escape(report.benchmark_session_name)}</p>
-      <div class="meta">
-        <div><strong>Run timestamp</strong>{escape(report.launched_at.isoformat())}</div>
-        <div><strong>Judge</strong>{escape(report.judge_name)}</div>
-        <div><strong>Prompts</strong>{report.prompt_count}</div>
-        <div><strong>Candidates</strong>{report.candidate_count}</div>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>{escape(report.report_title)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root {{
+      --ink:#0f172a; --ink-s:#334155; --muted:#64748b; --muted-l:#94a3b8;
+      --line:#e2e8f0; --line-l:#f1f5f9; --panel:#f8fafc; --white:#fff;
+      --page:#f1f5f9; --primary:#3b82f6; --primary-s:#eff6ff; --primary-b:#bfdbfe;
+      --ok:#10b981; --ok-s:#dcfce7; --warn:#f59e0b; --warn-s:#fefce8;
+      --bad:#ef4444; --bad-s:#fee2e2; --gold:#eab308;
+      --r:12px; --rs:8px; --rx:4px;
+      --sh:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.04);
+      --sh-md:0 4px 12px rgba(15,23,42,.08),0 2px 4px rgba(15,23,42,.04);
+      --sh-lg:0 10px 28px rgba(15,23,42,.10),0 4px 10px rgba(15,23,42,.05);
+    }}
+    *{{box-sizing:border-box;margin:0;padding:0}}
+    html{{scroll-behavior:smooth}}
+    body{{font-family:'Manrope',system-ui,sans-serif;color:var(--ink);background:var(--page);line-height:1.65;font-size:14px}}
+    a{{color:var(--primary);text-decoration:none}}
+    /* ── Nav ── */
+    .nav{{
+      position:sticky;top:0;z-index:200;background:#0f172a;
+      border-bottom:1px solid rgba(255,255,255,.07);padding:0 32px;
+      display:flex;align-items:center;gap:4px;box-shadow:0 2px 12px rgba(0,0,0,.25);
+    }}
+    .nav-brand{{
+      font-family:'Space Grotesk',sans-serif;font-size:.95rem;font-weight:700;color:#f1f5f9;
+      padding:13px 20px 13px 0;margin-right:4px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;
+    }}
+    .nav-brand em{{color:#3b82f6;font-style:normal}}
+    .nav a{{color:#64748b;font-size:.78rem;font-weight:500;padding:13px 12px;transition:color .15s;white-space:nowrap}}
+    .nav a:hover{{color:#e2e8f0}}
+    .nav-end{{margin-left:auto;color:#475569;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}}
+    /* ── Layout ── */
+    .wrap{{max-width:1160px;margin:0 auto;padding:28px 20px 72px}}
+    /* ── Hero ── */
+    .hero{{
+      background:linear-gradient(135deg,#1e293b 0%,#0f172a 55%,#162032 100%);
+      border-radius:var(--r);padding:36px 40px 32px;margin-bottom:24px;
+      box-shadow:var(--sh-lg);position:relative;overflow:hidden;
+    }}
+    .hero::after{{
+      content:'';position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(ellipse 70% 80% at 80% 40%,rgba(59,130,246,.14) 0%,transparent 65%);
+    }}
+    .hero-inner{{position:relative;z-index:1}}
+    .hero h1{{
+      font-family:'Space Grotesk',sans-serif;font-size:1.85rem;font-weight:700;
+      color:#f1f5f9;letter-spacing:-.03em;margin-bottom:4px;
+    }}
+    .hero-sub{{color:#475569;font-size:.88rem;margin-bottom:22px}}
+    .hero-kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}}
+    .kpi{{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:var(--rs);padding:14px 16px}}
+    .kpi strong{{display:block;font-size:.62rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.09em;margin-bottom:6px}}
+    .kpi span{{color:#e2e8f0;font-weight:600;font-size:.92rem}}
+    .judge-list{{display:flex;flex-direction:column;gap:6px;margin-top:2px}}
+    .judge-item{{display:flex;align-items:center;gap:7px;color:#e2e8f0;font-weight:600;font-size:.88rem;line-height:1.2}}
+    .judge-icon{{width:14px;height:14px;flex-shrink:0;opacity:.8}}
+    /* ── Section card ── */
+    .card{{background:var(--white);border-radius:var(--r);box-shadow:var(--sh-md);margin-bottom:22px;overflow:hidden}}
+    .card-hdr{{padding:18px 26px 16px;border-bottom:1px solid var(--line-l);display:flex;align-items:baseline;gap:12px}}
+    .card-hdr h2{{
+      font-family:'Space Grotesk',sans-serif;font-size:.68rem;font-weight:700;
+      text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+    }}
+    .card-body{{padding:20px 26px 24px}}
+    /* ── Bias notice ── */
+    .bias-notice{{
+      background:#fffbeb;border:1px solid #fde68a;border-left:4px solid var(--warn);
+      padding:12px 16px;border-radius:var(--rs);font-size:.875rem;margin-bottom:8px;
+    }}
+    /* ── Podium ── */
+    .podium{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}}
+    .pod-card{{border-radius:var(--rs);padding:16px 18px;border:1px solid var(--line);box-shadow:var(--sh)}}
+    .pod-rank{{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}}
+    .pod-name{{font-size:.92rem;font-weight:700;color:var(--ink);margin-bottom:6px;line-height:1.3}}
+    .pod-score{{font-family:'Space Grotesk',sans-serif;font-size:2.4rem;font-weight:700;line-height:1;margin-bottom:1px}}
+    .pod-score-lbl{{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}}
+    .pod-meta{{font-size:.75rem;color:var(--muted)}}
+    /* ── Weighting legend ── */
+    .wt-legend{{
+      display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:10px 14px;
+      background:var(--primary-s);border-radius:var(--rs);border:1px solid var(--primary-b);
+      font-size:.8rem;color:var(--ink-s);margin-bottom:16px;
+    }}
+    .wt-pill{{background:var(--primary);color:#fff;font-weight:700;font-size:.72rem;padding:2px 8px;border-radius:20px}}
+    /* ── Tables ── */
+    .tbl-wrap{{overflow-x:auto}}
+    table{{width:100%;border-collapse:collapse;font-size:.875rem;background:var(--white)}}
+    th{{
+      background:var(--panel);padding:9px 14px;text-align:left;font-size:.65rem;
+      font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+      border-bottom:2px solid var(--line);white-space:nowrap;
+    }}
+    td{{padding:9px 14px;border-bottom:1px solid var(--line-l)}}
+    tr:last-child td{{border-bottom:none}}
+    tbody tr:hover td{{background:#fafbfc}}
+    .winner-row td{{background:var(--warn-s)!important}}
+    .winner-row td:first-child{{border-left:3px solid var(--gold);padding-left:11px}}
+    .best-col{{background:var(--ok-s)!important;color:#15803d;font-weight:700}}
+    .delta-zero{{color:var(--muted)}}
+    .delta-neg{{color:#dc2626;font-weight:600}}
+    .rb{{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:.65rem;font-weight:700;flex-shrink:0}}
+    .rb-gold{{background:#fefce8;color:#92400e;border:1px solid #fde68a}}
+    .rb-silver{{background:var(--panel);color:#64748b;border:1px solid #cbd5e1}}
+    .rb-bronze{{background:#fff7ed;color:#9a3412;border:1px solid #fdba74}}
+    .rb-plain{{background:var(--panel);color:var(--muted);border:1px solid var(--line)}}
+    .cand-cell{{display:flex;align-items:center;gap:8px}}
+    .sb{{display:flex;align-items:center;gap:8px;min-width:90px}}
+    .sb-track{{flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden}}
+    .sb-fill{{height:100%;border-radius:3px}}
+    .sb-num{{font-weight:700;font-size:.8rem;min-width:3.2ch;text-align:right}}
+    /* ── Charts ── */
+    .chart-full{{margin-bottom:16px}}
+    .charts-3{{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}}
+    .chart-box{{border:1px solid var(--line);border-radius:var(--rs);padding:16px 18px;background:var(--panel)}}
+    .chart-box h3{{font-size:.85rem;font-weight:600;color:var(--ink-s);margin-bottom:2px}}
+    .chart-desc{{font-size:.72rem;color:var(--muted);margin-bottom:8px}}
+    /* ── Candidate cards ── */
+    .cand-grid{{display:grid;gap:16px}}
+    .cand-card{{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--white);box-shadow:var(--sh)}}
+    .cand-hdr{{
+      padding:18px 22px;display:flex;justify-content:space-between;align-items:center;
+      background:var(--panel);border-bottom:1px solid var(--line);
+    }}
+    .cand-name{{font-size:1rem;font-weight:700;margin-bottom:3px}}
+    .cand-meta{{font-size:.78rem;color:var(--muted)}}
+    .cand-global-score{{text-align:right;padding-left:16px}}
+    .cgs-num{{font-family:'Space Grotesk',sans-serif;font-size:2.1rem;font-weight:700;line-height:1}}
+    .cgs-lbl{{font-size:.68rem;color:var(--muted)}}
+    .cand-body{{padding:18px 22px}}
+    .metric-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}}
+    .metric-box{{background:var(--panel);border:1px solid var(--line);border-radius:var(--rs);padding:12px 14px;text-align:center}}
+    .mv{{display:block;font-family:'Space Grotesk',sans-serif;font-size:.95rem;font-weight:700;color:var(--primary);margin-bottom:3px}}
+    .ml{{display:block;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}}
+    .dims-block{{margin-bottom:16px}}
+    .dims-title{{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}}
+    .dim-row{{display:flex;align-items:center;gap:10px;margin-bottom:7px}}
+    .dim-lbl{{font-size:.78rem;color:var(--ink-s);width:130px;flex-shrink:0;font-weight:500}}
+    .dim-track{{flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}}
+    .dim-fill{{height:100%;border-radius:3px}}
+    .dim-val{{font-size:.78rem;font-weight:700;min-width:3ch;text-align:right}}
+    .patterns-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}}
+    .pblock{{padding:12px 14px;border-radius:var(--rs);font-size:.875rem}}
+    .pblock strong{{display:block;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-s);margin-bottom:6px}}
+    .pblock p{{color:var(--ink-s);line-height:1.55}}
+    .pblock-green{{background:var(--ok-s);border-left:3px solid var(--ok)}}
+    .pblock-red{{background:var(--bad-s);border-left:3px solid var(--bad)}}
+    .cand-summary-text{{font-size:.85rem;color:var(--muted);margin-top:6px;line-height:1.6}}
+    /* ── Prompt cards ── */
+    .prompt-card{{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--white);box-shadow:var(--sh);margin-bottom:10px}}
+    .prompt-hdr{{
+      padding:14px 20px;display:flex;justify-content:space-between;align-items:center;
+      cursor:pointer;user-select:none;background:var(--white);transition:background .15s;
+    }}
+    .prompt-hdr:hover{{background:var(--panel)}}
+    .prompt-hdr-l{{display:flex;align-items:flex-start;gap:12px}}
+    .prompt-num{{
+      font-size:.68rem;font-weight:700;color:var(--muted-l);font-family:'Space Grotesk',sans-serif;
+      background:var(--panel);border:1px solid var(--line);border-radius:var(--rx);
+      padding:3px 7px;flex-shrink:0;margin-top:1px;
+    }}
+    .prompt-title{{font-size:.88rem;font-weight:600;color:var(--ink);margin-bottom:3px}}
+    .badge{{
+      display:inline-block;background:var(--primary-s);color:#0369a1;font-size:.7rem;
+      font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid var(--primary-b);
+    }}
+    .prompt-hdr-r{{display:flex;align-items:center;gap:10px}}
+    .prompt-top-score{{font-family:'Space Grotesk',sans-serif;font-size:.95rem;font-weight:700}}
+    .chevron{{font-size:.75rem;color:var(--muted-l);transition:transform .2s;display:inline-block}}
+    .prompt-card.open .chevron{{transform:rotate(180deg)}}
+    .prompt-body{{display:none;border-top:1px solid var(--line-l);padding:18px 20px}}
+    .prompt-card.open .prompt-body{{display:block}}
+    .prompt-label{{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;margin-top:2px}}
+    pre{{
+      white-space:pre-wrap;word-break:break-word;background:var(--panel);border:1px solid var(--line);
+      padding:11px 14px;border-radius:var(--rs);font-size:.8rem;margin-bottom:12px;
+      font-family:'Cascadia Code','Fira Code',Consolas,monospace;line-height:1.5;
+    }}
+    .pre-sys{{background:#fffbeb;border-color:#fde68a}}
+    .eval-note{{
+      font-size:.83rem;color:var(--ink-s);margin-bottom:12px;padding:8px 12px;
+      background:var(--panel);border-radius:var(--rs);border-left:3px solid var(--primary);
+    }}
+    .resp-grid{{display:grid;gap:10px;margin-top:4px}}
+    .resp-card{{border:1px solid var(--line);border-radius:var(--rs);overflow:hidden}}
+    .resp-card-hdr{{
+      padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line);
+      display:flex;justify-content:space-between;align-items:center;
+    }}
+    .resp-card-hdr h4{{font-size:.85rem;font-weight:600;color:var(--primary)}}
+    .resp-score-badge{{font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:20px;border:1px solid transparent}}
+    .resp-pre{{margin:0;border:none;border-radius:0;border-bottom:1px solid var(--line-l);background:var(--white)}}
+    .resp-s,.resp-w{{font-size:.83rem;margin:8px 14px;padding:6px 10px;border-radius:var(--rx);border-left:3px solid}}
+    .resp-s{{background:var(--ok-s);border-color:var(--ok)}}
+    .resp-w{{background:var(--bad-s);border-color:var(--bad)}}
+    .resp-feedback{{font-size:.8rem;color:var(--muted);padding:8px 14px 12px}}
+    .expand-btn{{
+      font-size:.72rem;font-weight:600;color:var(--primary);border:1px solid var(--primary-b);
+      background:var(--primary-s);padding:4px 12px;border-radius:20px;cursor:pointer;margin-left:auto;
+    }}
+    .expand-btn:hover{{background:var(--primary-b)}}
+    .page-foot{{text-align:center;padding:18px;color:var(--muted-l);font-size:.75rem;border-top:1px solid var(--line);margin-top:4px}}
+    /* ── Print ── */
+    @media print {{
+      body{{background:#fff;font-size:12px}}
+      .nav{{display:none}}
+      .wrap{{padding:0;max-width:100%}}
+      .hero{{border-radius:0;box-shadow:none;padding:24px 28px}}
+      .card{{box-shadow:none;margin-bottom:14px}}
+      .prompt-card{{page-break-inside:avoid}}
+      .prompt-body{{display:block!important}}
+      .chevron,.expand-btn{{display:none}}
+      .cand-card{{page-break-inside:avoid}}
+      .charts-3{{grid-template-columns:1fr}}
+    }}
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-brand"><em>Bench</em>Forge</div>
+    <a href="#summary">Summary</a>
+    <a href="#charts">Charts</a>
+    <a href="#candidates">Candidates</a>
+    <a href="#prompts">Prompts</a>
+    <div class="nav-end">{escape(report.report_title)}</div>
+  </nav>
+  <div class="wrap">
+    <header class="hero">
+      <div class="hero-inner">
+        <h1>{escape(report.report_title)}</h1>
+        <p class="hero-sub">{escape(report.benchmark_session_name)}</p>
+        <div class="hero-kpis">
+          <div class="kpi"><strong>Run Timestamp</strong><span>{launched_str}</span></div>
+          <div class="kpi"><strong>{judges_label}</strong><div class="judge-list">{judges_kpi_html}</div></div>
+          <div class="kpi"><strong>Prompts</strong><span>{report.prompt_count}</span></div>
+          <div class="kpi"><strong>Candidates</strong><span>{report.candidate_count}</span></div>
+        </div>
       </div>
-    </section>
+    </header>
     {judge_bias_html}
-    <section>
-      <h2>Executive Summary</h2>
-      <div class="weighting-legend">
-        <span><strong>Global Score formula:</strong></span>
-        <span><span class="weight-pill">{_QUALITY_WEIGHT_PCT}%</span> Judge Score (holistic quality)</span>
-        <span>+</span>
-        <span><span class="weight-pill">{_COST_WEIGHT_PCT}%</span> Cost Score (normalised inverse)</span>
-        <span>+</span>
-        <span><span class="weight-pill">{_PERFORMANCE_WEIGHT_PCT}%</span> Performance Score (latency + throughput, normalised)</span>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Candidate</th>
-            <th>Judge score</th>
-            <th>Quality score</th>
-            <th>Total cost</th>
-            <th>Avg latency</th>
-            <th>Global score</th>
-            <th>Δ vs leader</th>
-          </tr>
-        </thead>
-        <tbody>{summary_rows}</tbody>
-      </table>
-      {f'<h3 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin:20px 0 8px">Score by Category</h3>{category_html}' if category_html else ''}
-    </section>
-    <section>
-      <h2>Visual Analysis</h2>
-      <div class="charts-grid">
-        <div class="chart-box">
-          <h3>Sub-Score Radar</h3>
-          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Dimension-level averages — shows the "personality" of each model.</p>
-          {radar_plotly}
+    <section class="card" id="summary">
+      <div class="card-hdr"><h2>Executive Summary</h2></div>
+      <div class="card-body">
+        {f'<div class="podium">{podium_cards_html}</div>' if podium_cards_html else ''}
+        <div class="wt-legend">
+          <strong>Score formula:</strong>
+          <span class="wt-pill">{_QUALITY_WEIGHT_PCT}%</span> Judge Score
+          <span style="color:var(--muted)">+</span>
+          <span class="wt-pill">{_COST_WEIGHT_PCT}%</span> Cost Score
+          <span style="color:var(--muted)">+</span>
+          <span class="wt-pill">{_PERFORMANCE_WEIGHT_PCT}%</span> Performance Score
         </div>
-        <div class="chart-box">
-          <h3>Efficiency Frontier — Latency vs Quality</h3>
-          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Upper-left is ideal: high quality at low latency.</p>
-          {scatter_plotly}
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Candidate</th><th>Judge Score</th><th>Quality Score</th>
+              <th>Total Cost</th><th>Avg Latency</th><th>Global Score</th><th>&#916; vs Leader</th>
+            </tr></thead>
+            <tbody>{summary_rows}</tbody>
+          </table>
         </div>
-        <div class="chart-box">
-          <h3>Category Efficiency Radar</h3>
-          <p class="muted" style="font-size:0.8rem;margin-bottom:6px">Average judge score per prompt category.</p>
-          {category_radar_plotly}
-        </div>
+        {f'<h3 style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:22px 0 8px">Score by Category</h3>{category_html}' if category_html else ''}
       </div>
     </section>
-    <section>
-      <h2>Candidate Sections</h2>
-      <div class="candidate-grid">{candidate_sections}</div>
+    <section class="card" id="charts">
+      <div class="card-hdr"><h2>Visual Analysis</h2></div>
+      <div class="card-body">
+        <div class="chart-full">
+          <div class="chart-box">
+            <h3>Score Comparison &mdash; All Models</h3>
+            <p class="chart-desc">Global, Judge and Quality scores for every candidate at a glance.</p>
+            {bar_chart_plotly}
+          </div>
+        </div>
+        <div class="charts-3">
+          <div class="chart-box">
+            <h3>Sub-Score Radar</h3>
+            <p class="chart-desc">Dimension-level averages &mdash; the personality of each model.</p>
+            {radar_plotly}
+          </div>
+          <div class="chart-box">
+            <h3>Efficiency Frontier</h3>
+            <p class="chart-desc">Upper-left ideal: high quality at low latency.</p>
+            {scatter_plotly}
+          </div>
+          <div class="chart-box">
+            <h3>Category Radar</h3>
+            <p class="chart-desc">Average judge score per prompt category.</p>
+            {category_radar_plotly}
+          </div>
+        </div>
+      </div>
     </section>
-    <section>
-      <h2>Prompt Sections</h2>
-      <div class="prompt-grid">{prompt_sections}</div>
+    <section class="card" id="candidates">
+      <div class="card-hdr"><h2>Candidate Analysis</h2></div>
+      <div class="card-body">
+        <div class="cand-grid">{candidate_sections_html}</div>
+      </div>
     </section>
-  </body>
+    <section class="card" id="prompts">
+      <div class="card-hdr">
+        <h2>Prompt Details</h2>
+        <button class="expand-btn" onclick="expandAll()">Expand All</button>
+      </div>
+      <div class="card-body" style="padding-top:12px">
+        {prompt_sections_html}
+      </div>
+    </section>
+    <footer class="page-foot">
+      Generated by <strong>BenchForge</strong> &mdash; Open-source LLM Benchmarking &nbsp;&middot;&nbsp; {launched_str}
+    </footer>
+  </div>
+  <script>
+    function tp(h) {{ h.closest('.prompt-card').classList.toggle('open'); }}
+    function expandAll() {{ document.querySelectorAll('.prompt-card').forEach(c => c.classList.add('open')); }}
+  </script>
+</body>
 </html>"""
 
     async def _render_pdf(self, html: str, output_path: Path) -> None:
@@ -988,18 +1080,18 @@ class ReportsService:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             legend=dict(
-                font=dict(family="Manrope, sans-serif", size=10.5, color="#334155"),
-                bgcolor="rgba(255,255,255,0.9)",
+                font=dict(family="Manrope, sans-serif", size=10, color="#334155"),
+                bgcolor="rgba(255,255,255,0.92)",
                 bordercolor="#e2e8f0",
                 borderwidth=1,
                 orientation="h",
-                yanchor="bottom",
-                y=-0.22,
+                yanchor="top",
+                y=-0.08,
                 xanchor="center",
                 x=0.5,
             ),
-            margin=dict(l=30, r=30, t=10, b=55),
-            height=310,
+            margin=dict(l=20, r=20, t=10, b=70),
+            height=360,
             font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
         )
 
@@ -1093,67 +1185,31 @@ class ReportsService:
             return "<p class='muted'>No latency data available for efficiency chart.</p>"
 
         fig = go.Figure()
-
         for ci, (name, lat, qual) in enumerate(data):
             color = _CHART_PALETTE[ci % len(_CHART_PALETTE)]
             fig.add_trace(go.Scatter(
                 x=[lat],
                 y=[qual],
                 mode="markers",
-                marker=dict(
-                    size=18,
-                    color=color,
-                    line=dict(color="white", width=2.5),
-                    opacity=0.92,
-                ),
+                marker=dict(size=16, color=color, line=dict(color="white", width=2.5), opacity=0.92),
                 name=name,
-                hovertemplate="<b>%{fullData.name}</b><br>Latency: %{x:.0f} ms<br>Quality: %{y:.1f}<extra></extra>",
-            ))
-
-        offsets = self._scatter_label_offsets([(lat, qual) for _, lat, qual in data])
-        annotations = []
-        for ci, ((name, lat, qual), (ax, ay)) in enumerate(zip(data, offsets)):
-            color = _CHART_PALETTE[ci % len(_CHART_PALETTE)]
-            annotations.append(dict(
-                x=lat,
-                y=qual,
-                xref="x",
-                yref="y",
-                text=f"<b>{escape(name)}</b><br><span style='color:#64748b;font-size:9px'>{lat:,} ms &nbsp;·&nbsp; q={qual:.1f}</span>",
-                showarrow=True,
-                arrowhead=2,
-                arrowsize=0.8,
-                arrowwidth=1.4,
-                arrowcolor=color,
-                ax=ax,
-                ay=ay,
-                axref="pixel",
-                ayref="pixel",
-                font=dict(size=10, color="#1e293b", family="Manrope, sans-serif"),
-                bgcolor="rgba(255,255,255,0.94)",
-                bordercolor=color,
-                borderwidth=1.5,
-                borderpad=5,
-                align="left",
+                hovertemplate=(
+                    f"<b>{escape(name)}</b><br>"
+                    "Latency: %{x:,.0f} ms<br>"
+                    "Quality: %{y:.1f}<extra></extra>"
+                ),
             ))
 
         fig.update_layout(
-            annotations=annotations,
             xaxis=dict(
-                title=dict(
-                    text="Latency (ms) — lower is faster →",
-                    font=dict(size=11, family="Manrope, sans-serif", color="#64748b"),
-                ),
+                title=dict(text="Latency (ms) — lower is faster →", font=dict(size=11, family="Manrope, sans-serif", color="#64748b")),
                 gridcolor="#f1f5f9",
                 linecolor="#e2e8f0",
                 tickfont=dict(size=9.5, color="#94a3b8", family="Manrope, sans-serif"),
                 zeroline=False,
             ),
             yaxis=dict(
-                title=dict(
-                    text="Quality score ↑",
-                    font=dict(size=11, family="Manrope, sans-serif", color="#64748b"),
-                ),
+                title=dict(text="Quality score ↑", font=dict(size=11, family="Manrope, sans-serif", color="#64748b")),
                 gridcolor="#f1f5f9",
                 linecolor="#e2e8f0",
                 tickfont=dict(size=9.5, color="#94a3b8", family="Manrope, sans-serif"),
@@ -1163,19 +1219,19 @@ class ReportsService:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(248,250,252,0.6)",
             legend=dict(
-                font=dict(family="Manrope, sans-serif", size=10.5, color="#334155"),
-                bgcolor="rgba(255,255,255,0.9)",
+                font=dict(family="Manrope, sans-serif", size=10, color="#334155"),
+                bgcolor="rgba(255,255,255,0.92)",
                 bordercolor="#e2e8f0",
                 borderwidth=1,
                 orientation="h",
-                yanchor="bottom",
-                y=-0.30,
+                yanchor="top",
+                y=-0.18,
                 xanchor="center",
                 x=0.5,
             ),
             showlegend=True,
-            margin=dict(l=55, r=20, t=20, b=80),
-            height=370,
+            margin=dict(l=55, r=20, t=10, b=80),
+            height=360,
             font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
         )
 
@@ -1185,6 +1241,61 @@ class ReportsService:
             include_plotlyjs=False,
             config={"responsive": True, "displayModeBar": False},
         )
+
+    def _render_bar_chart_plotly(self, report: RunReportRead) -> str:
+        rows = report.summary_matrix
+        if not rows:
+            return "<p class='muted' style='padding:8px 0'>No data available.</p>"
+
+        rev = list(reversed(rows))
+        candidates = [r.candidate_name for r in rev]
+
+        def _fv(attr: str) -> list[float]:
+            return [float(getattr(r, attr) or "0") for r in rev]
+
+        fig = go.Figure()
+        for scores, name, color in [
+            (_fv("final_global_score"), "Global Score", "#3b82f6"),
+            (_fv("judge_score"), "Judge Score", "#10b981"),
+            (_fv("quality_score"), "Quality Score", "#a855f7"),
+        ]:
+            fig.add_trace(go.Bar(
+                y=candidates, x=scores, name=name,
+                orientation="h", opacity=0.88,
+                marker=dict(color=color, line_width=0),
+                hovertemplate=f"<b>%{{y}}</b><br>{name}: %{{x:.2f}}<extra></extra>",
+            ))
+
+        n = len(candidates)
+        height = max(220, 70 + n * 48)
+        fig.update_layout(
+            barmode="group",
+            xaxis=dict(
+                range=[0, 100], gridcolor="#f1f5f9", linecolor="#e2e8f0",
+                tickfont=dict(size=9.5, color="#94a3b8", family="Manrope, sans-serif"),
+                zeroline=False,
+            ),
+            yaxis=dict(
+                tickfont=dict(size=10.5, color="#334155", family="Manrope, sans-serif"),
+            ),
+            legend=dict(
+                font=dict(family="Manrope, sans-serif", size=10.5, color="#334155"),
+                bgcolor="rgba(255,255,255,.9)", bordercolor="#e2e8f0", borderwidth=1,
+                orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=10, r=20, t=44, b=20),
+            height=height,
+            font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
+        )
+        return pio.to_html(
+            fig,
+            full_html=False,
+            include_plotlyjs=False,
+            config={"responsive": True, "displayModeBar": False},
+        )
+
 
     def generate_summary_svg(self, report: RunReportRead) -> str:
         """Generate a 1200×630 LinkedIn-ready summary card SVG."""
@@ -1369,18 +1480,18 @@ class ReportsService:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             legend=dict(
-                font=dict(family="Manrope, sans-serif", size=10.5, color="#334155"),
-                bgcolor="rgba(255,255,255,0.9)",
+                font=dict(family="Manrope, sans-serif", size=10, color="#334155"),
+                bgcolor="rgba(255,255,255,0.92)",
                 bordercolor="#e2e8f0",
                 borderwidth=1,
                 orientation="h",
-                yanchor="bottom",
-                y=-0.22,
+                yanchor="top",
+                y=-0.08,
                 xanchor="center",
                 x=0.5,
             ),
-            margin=dict(l=30, r=30, t=10, b=55),
-            height=310,
+            margin=dict(l=20, r=20, t=10, b=70),
+            height=360,
             font=dict(family="Manrope, system-ui, sans-serif", color="#334155"),
         )
 
@@ -1413,14 +1524,19 @@ class ReportsService:
 
         headers = "<th>Model</th>" + "".join(f"<th>{escape(cat)}</th>" for cat in sorted_cats)
 
+        # Best score per column (category), not per row
+        best_per_cat = {
+            cat: max((avgs_by_cat[cat][n] for n in candidate_names if avgs_by_cat[cat][n] is not None), default=None)
+            for cat in sorted_cats
+        }
+
         rows = ""
         for name in candidate_names:
-            row_vals = [avgs_by_cat[cat][name] for cat in sorted_cats]
-            best_in_row = max((v for v in row_vals if v is not None), default=None)
             rows += f"<tr><td><strong>{escape(name)}</strong></td>"
-            for val in row_vals:
+            for cat in sorted_cats:
+                val = avgs_by_cat[cat][name]
                 if val is not None:
-                    is_best = best_in_row is not None and val == best_in_row
+                    is_best = best_per_cat[cat] is not None and val == best_per_cat[cat]
                     rows += f"<td{'  class=\"best-col\"' if is_best else ''}>{val:.1f}</td>"
                 else:
                     rows += "<td>—</td>"
