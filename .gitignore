@@ -18,4 +18,4 @@ htmlcov/
 backend/.venv/
 frontend/.env.local
 artifacts/
-
+backend/generated_reports/

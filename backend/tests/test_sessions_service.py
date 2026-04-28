@@ -7,6 +7,7 @@ from app.features.sessions.service import (
     BenchmarkSessionNotFoundError,
     SessionService,
     SessionValidationError,
+    serialize_prompt_item,
 )
 
 
@@ -109,3 +110,22 @@ def test_validate_candidate_role_rejects_non_candidate() -> None:
 
     with pytest.raises(SessionValidationError):
         service._validate_model_for_candidate(model_profile, 9)
+
+
+def test_serialize_prompt_item_includes_scenario_picker_metadata() -> None:
+    item = SimpleNamespace(id=1, prompt_id=9, display_order=2)
+    prompt = SimpleNamespace(
+        name="Scenario",
+        category=SimpleNamespace(name="Code Debug"),
+        cost_tier="low",
+        estimated_input_tokens=320,
+        scenario_type="code_debug",
+    )
+
+    result = serialize_prompt_item(item, prompt)
+
+    assert result.prompt_name == "Scenario"
+    assert result.category_name == "Code Debug"
+    assert result.cost_tier == "low"
+    assert result.estimated_input_tokens == 320
+    assert result.scenario_type == "code_debug"

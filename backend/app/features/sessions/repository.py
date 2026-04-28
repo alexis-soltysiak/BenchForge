@@ -50,7 +50,12 @@ class SessionRepository:
         return result.scalar_one_or_none()
 
     async def get_prompt(self, prompt_id: int) -> Prompt | None:
-        return await self.session.get(Prompt, prompt_id)
+        result = await self.session.execute(
+            select(Prompt)
+            .where(Prompt.id == prompt_id)
+            .options(selectinload(Prompt.category))
+        )
+        return result.scalar_one_or_none()
 
     async def get_model_profile(self, model_profile_id: int) -> ModelProfile | None:
         return await self.session.get(ModelProfile, model_profile_id)
@@ -72,4 +77,3 @@ class SessionRepository:
 
     async def commit(self) -> None:
         await self.session.commit()
-

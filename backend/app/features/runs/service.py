@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
+from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +21,12 @@ from app.features.runs.schemas import (
     RunRead,
     RunStatusRead,
 )
-from app.features.sessions.models import BenchmarkSession
+from app.features.prompts.rendering import render_scenario_prompt
+from app.features.sessions.models import (
+    BenchmarkSession,
+    BenchmarkSessionCandidate,
+    BenchmarkSessionJudge,
+)
 
 
 class RunNotFoundError(ValueError):
@@ -44,6 +50,19 @@ def serialize_prompt_snapshot(
         system_prompt_text=snapshot.system_prompt_text,
         user_prompt_text=snapshot.user_prompt_text,
         evaluation_notes=snapshot.evaluation_notes,
+        scenario_type=snapshot.scenario_type,
+        objective=snapshot.objective,
+        context=snapshot.context,
+        input_artifacts_jsonb=snapshot.input_artifacts_jsonb,
+        constraints_jsonb=snapshot.constraints_jsonb,
+        expected_behavior_jsonb=snapshot.expected_behavior_jsonb,
+        gold_facts_jsonb=snapshot.gold_facts_jsonb,
+        judge_rubric_jsonb=snapshot.judge_rubric_jsonb,
+        estimated_input_tokens=snapshot.estimated_input_tokens,
+        expected_output_format=snapshot.expected_output_format,
+        cost_tier=snapshot.cost_tier,
+        weight=snapshot.weight,
+        version=snapshot.version,
         snapshot_order=snapshot.snapshot_order,
         difficulty=difficulty,
     )
@@ -209,13 +228,17 @@ class RunService:
                 raise RunLaunchValidationError(
                     f"Prompt {item.prompt_id} is missing or archived."
                 )
-        for item in [*benchmark_session.candidates, *benchmark_session.judges]:
+        model_items = cast(
+            list[BenchmarkSessionCandidate | BenchmarkSessionJudge],
+            [*benchmark_session.candidates, *benchmark_session.judges],
+        )
+        for model_item in model_items:
             model_profile = await self.repository.get_model_profile(
-                item.model_profile_id
+                model_item.model_profile_id
             )
             if model_profile is None or model_profile.is_archived:
                 raise RunLaunchValidationError(
-                    f"Model profile {item.model_profile_id} is missing or archived."
+                    f"Model profile {model_item.model_profile_id} is missing or archived."
                 )
 
     async def _build_run_snapshot(
@@ -265,8 +288,21 @@ class RunService:
             name=prompt.name,
             category_name=prompt.category.name if prompt.category else "Unknown",
             system_prompt_text=prompt.system_prompt_text,
-            user_prompt_text=prompt.user_prompt_text,
+            user_prompt_text=render_scenario_prompt(prompt),
             evaluation_notes=prompt.evaluation_notes,
+            scenario_type=prompt.scenario_type,
+            objective=prompt.objective,
+            context=prompt.context,
+            input_artifacts_jsonb=prompt.input_artifacts_jsonb,
+            constraints_jsonb=prompt.constraints_jsonb,
+            expected_behavior_jsonb=prompt.expected_behavior_jsonb,
+            gold_facts_jsonb=prompt.gold_facts_jsonb,
+            judge_rubric_jsonb=prompt.judge_rubric_jsonb,
+            estimated_input_tokens=prompt.estimated_input_tokens,
+            expected_output_format=prompt.expected_output_format,
+            cost_tier=prompt.cost_tier,
+            weight=prompt.weight,
+            version=prompt.version,
             snapshot_order=snapshot_order,
         )
 

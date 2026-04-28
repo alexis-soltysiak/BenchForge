@@ -101,6 +101,6 @@ async def archive_prompt(
 @router.post("/prompts/reset-builtin", response_model=dict)
 async def reset_builtin_prompts(
     service: PromptService = Depends(get_prompt_service),
-) -> dict:
+) -> dict[str, int]:
     count = await service.wipe_and_reset_builtin_prompts()
     return {"recreated": count}

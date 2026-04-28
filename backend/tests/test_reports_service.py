@@ -110,10 +110,119 @@ async def test_generate_report_writes_html_and_completes_run(tmp_path: Path) -> 
 
     assert artifact.report_status == "completed"
     assert artifact.html_report_path is not None
-    assert artifact.pdf_report_path is not None
     assert Path(artifact.html_report_path).exists()
-    assert Path(artifact.pdf_report_path).exists()
+    assert artifact.pdf_report_path is None
     assert run.status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_generate_report_aggregates_missing_summaries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = ReportsService(SimpleNamespace(), output_dir=tmp_path)
+    run = build_run()
+    summaries = run.global_summaries
+    run.global_summaries = []
+    aggregate_calls: list[tuple[int, bool]] = []
+
+    async def fake_aggregate_run(
+        self,
+        run_id: int,
+        *,
+        generate_report: bool = True,
+    ) -> None:
+        aggregate_calls.append((run_id, generate_report))
+        run.global_summaries = summaries
+
+    monkeypatch.setattr(
+        "app.features.aggregation.service.AggregationService.aggregate_run",
+        fake_aggregate_run,
+    )
+
+    class Repository:
+        async def get_run(self, run_id: int):
+            return run
+
+        async def commit(self) -> None:
+            return None
+
+    service.repository = Repository()  # type: ignore[assignment]
+
+    artifact = await service.generate_report(1)
+
+    assert aggregate_calls == [(1, False)]
+    assert artifact.report_status == "completed"
+    assert artifact.html_report_path is not None
+
+
+@pytest.mark.asyncio
+async def test_generate_report_succeeds_when_aggregation_cannot_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = ReportsService(SimpleNamespace(), output_dir=tmp_path)
+    run = build_run()
+    run.global_summaries = []
+
+    async def fake_aggregate_run(
+        self,
+        run_id: int,
+        *,
+        generate_report: bool = True,
+    ) -> None:
+        from app.features.aggregation.service import AggregationError
+
+        raise AggregationError("not ready")
+
+    monkeypatch.setattr(
+        "app.features.aggregation.service.AggregationService.aggregate_run",
+        fake_aggregate_run,
+    )
+
+    class Repository:
+        async def get_run(self, run_id: int):
+            return run
+
+        async def commit(self) -> None:
+            return None
+
+    service.repository = Repository()  # type: ignore[assignment]
+
+    artifact = await service.generate_report(1)
+
+    assert artifact.report_status == "completed"
+    assert artifact.html_report_path is not None
+    assert Path(artifact.html_report_path).exists()
+
+
+@pytest.mark.asyncio
+async def test_generate_report_writes_minimal_html_when_rendering_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = ReportsService(SimpleNamespace(), output_dir=tmp_path)
+    run = build_run()
+
+    def fail_render(report) -> str:
+        raise RuntimeError("broken chart")
+
+    monkeypatch.setattr(service, "_render_html", fail_render)
+
+    class Repository:
+        async def get_run(self, run_id: int):
+            return run
+
+        async def commit(self) -> None:
+            return None
+
+    service.repository = Repository()  # type: ignore[assignment]
+
+    artifact = await service.generate_report(1)
+
+    assert artifact.report_status == "completed"
+    assert artifact.html_report_path is not None
+    assert "fallback artifact" in Path(artifact.html_report_path).read_text()
 
 
 @pytest.mark.asyncio

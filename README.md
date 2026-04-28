@@ -7,6 +7,10 @@ scoring, and polished reports.
 This repository includes the core application flow for building benchmark sessions,
 running evaluations, scoring outputs with a judge model, and generating reports.
 
+<p align="center">
+  <img src="docs/readme_images/image%200.png" alt="BenchForge home page">
+</p>
+
 <table>
   <tr>
     <td><img src="docs/readme_images/image1.png" alt="BenchForge screenshot 1"></td>

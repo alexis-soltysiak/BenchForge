@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -18,6 +19,7 @@ class JudgeEvaluationCandidateRead(BaseModel):
     weaknesses_text: str | None
     short_feedback: str | None
     detailed_feedback: str | None
+    detailed_scores_jsonb: dict[str, Any] | None = None
     judge_confidence_score: str | None
 
 

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import math
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 from html import escape
 from pathlib import Path
+from types import SimpleNamespace
 
 import plotly.graph_objects as go
 import plotly.io as pio
@@ -76,16 +80,30 @@ class ReportsService:
         run = await self.repository.get_run(run_id)
         if run is None:
             raise ReportError(f"Run {run_id} not found.")
-        report = self._build_report_view_model(run)
-        html = self._render_html(report)
+        run = await self._ensure_global_summaries(run_id, run)
+        try:
+            report = self._build_report_view_model(run)
+            html = self._render_html(report)
+        except Exception as exc:
+            html = self._render_minimal_report(run, exc)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         html_output_path = self.output_dir / f"run-{run.id}.html"
         pdf_output_path = self.output_dir / f"run-{run.id}.pdf"
         html_output_path.write_text(html, encoding="utf-8")
-        await self._render_pdf(html, pdf_output_path)
+        pdf_report_path: str | None = None
+        if self._pdf_reports_enabled():
+            try:
+                await asyncio.wait_for(
+                    self._render_pdf(html, pdf_output_path),
+                    timeout=15,
+                )
+                pdf_report_path = str(pdf_output_path)
+            except Exception:
+                if pdf_output_path.exists():
+                    pdf_output_path.unlink()
 
         run.html_report_path = str(html_output_path)
-        run.pdf_report_path = str(pdf_output_path)
+        run.pdf_report_path = pdf_report_path
         run.report_status = "completed"
         run.status = "completed"
         await self.repository.commit()
@@ -95,6 +113,101 @@ class ReportsService:
             html_report_path=run.html_report_path,
             pdf_report_path=run.pdf_report_path,
         )
+
+    def _pdf_reports_enabled(self) -> bool:
+        return os.getenv("BENCHFORGE_ENABLE_PDF_REPORTS", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+
+    def _render_minimal_report(self, run: SessionRun, error: Exception) -> str:
+        title = escape(f"{getattr(run, 'name', f'Run {run.id}')} Report")
+        prompt_count = len(getattr(run, "prompt_snapshots", []))
+        response_count = len(getattr(run, "candidate_responses", []))
+        error_text = escape(str(error) or error.__class__.__name__)
+        return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{title}</title>
+  <style>
+    body {{
+      font-family: Inter, system-ui, sans-serif;
+      margin: 40px;
+      color: #0f172a;
+      background: #f8fafc;
+    }}
+    main {{
+      max-width: 960px;
+      margin: 0 auto;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 28px;
+    }}
+    h1 {{ margin: 0 0 12px; font-size: 30px; }}
+    p {{ color: #475569; line-height: 1.55; }}
+    .grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }}
+    .box {{ border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; }}
+    .label {{ color: #64748b; font-size: 12px; text-transform: uppercase; }}
+    .value {{ font-size: 22px; font-weight: 700; margin-top: 4px; }}
+    pre {{
+      white-space: pre-wrap;
+      background: #f1f5f9;
+      border-radius: 12px;
+      padding: 14px;
+      color: #334155;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{title}</h1>
+    <p>The full report could not be rendered, so BenchForge generated this
+    fallback artifact with the available run metadata.</p>
+    <div class="grid">
+      <div class="box">
+        <div class="label">Run ID</div><div class="value">{run.id}</div>
+      </div>
+      <div class="box">
+        <div class="label">Scenarios</div><div class="value">{prompt_count}</div>
+      </div>
+      <div class="box">
+        <div class="label">Responses</div><div class="value">{response_count}</div>
+      </div>
+    </div>
+    <h2>Render issue</h2>
+    <pre>{error_text}</pre>
+  </main>
+</body>
+</html>"""
+
+    async def _ensure_global_summaries(
+        self,
+        run_id: int,
+        run: SessionRun,
+    ) -> SessionRun:
+        if run.global_summaries:
+            return run
+
+        from app.features.aggregation.service import (
+            AggregationError,
+            AggregationService,
+        )
+
+        try:
+            await AggregationService(self.session).aggregate_run(
+                run_id,
+                generate_report=False,
+            )
+        except AggregationError:
+            return run
+
+        refreshed_run = await self.repository.get_run(run_id)
+        if refreshed_run is None:
+            raise ReportError(f"Run {run_id} not found.")
+        return refreshed_run
 
     async def get_report_html(self, run_id: int) -> tuple[str, str]:
         run = await self.repository.get_run(run_id)
@@ -158,14 +271,74 @@ class ReportsService:
             if snapshot.role == "candidate"
         ]
         judge_snapshots = [s for s in run.model_snapshots if s.role == "judge"]
-        if not candidate_snapshots or not judge_snapshots:
-            raise ReportError(
-                "Run does not contain the snapshots needed for reporting."
+        if run.global_summaries:
+            summary_matrix = self._build_summary_matrix_from_summaries(run)
+            candidate_sections = self._build_candidate_sections_from_summaries(run)
+        else:
+            summary_matrix = self._build_fallback_summary_matrix(
+                run,
+                candidate_snapshots,
             )
-        judge_snapshot = judge_snapshots[0]
-        if not run.global_summaries:
-            raise ReportError("Run has no aggregated summaries to report.")
+            candidate_sections = self._build_fallback_candidate_sections(
+                run,
+                candidate_snapshots,
+            )
 
+        prompt_sections = [
+            ReportPromptSectionRead(
+                prompt_snapshot_id=prompt.id,
+                prompt_name=prompt.name,
+                category_name=getattr(prompt, "category_name", "Uncategorized"),
+                system_prompt_text=getattr(prompt, "system_prompt_text", None),
+                user_prompt_text=getattr(prompt, "user_prompt_text", ""),
+                evaluation_notes=getattr(prompt, "evaluation_notes", None),
+                scenario_type=getattr(prompt, "scenario_type", None),
+                constraints_jsonb=getattr(prompt, "constraints_jsonb", None),
+                gold_facts_jsonb=getattr(prompt, "gold_facts_jsonb", None),
+                judge_rubric_jsonb=getattr(prompt, "judge_rubric_jsonb", None),
+                expected_output_format=getattr(prompt, "expected_output_format", None),
+                cost_tier=getattr(prompt, "cost_tier", None),
+                weight=getattr(prompt, "weight", None),
+                version=getattr(prompt, "version", None),
+                candidates=[
+                    self._build_prompt_candidate(run, response)
+                    for response in sorted(
+                        [
+                            item
+                            for item in run.candidate_responses
+                            if item.prompt_snapshot_id == prompt.id
+                        ],
+                        key=lambda item: self._model_name(run, item.model_snapshot_id),
+                    )
+                ],
+            )
+            for prompt in sorted(
+                run.prompt_snapshots,
+                key=lambda item: getattr(item, "snapshot_order", 0),
+            )
+        ]
+
+        return RunReportRead(
+            run_id=run.id,
+            report_title=f"{run.name} Report",
+            benchmark_session_name=run.name,
+            launched_at=run.launched_at,
+            judge_name=(
+                " · ".join(s.display_name for s in judge_snapshots)
+                if judge_snapshots
+                else "No judge selected"
+            ),
+            prompt_count=len(run.prompt_snapshots),
+            candidate_count=len(candidate_snapshots),
+            summary_matrix=summary_matrix,
+            candidate_sections=candidate_sections,
+            prompt_sections=prompt_sections,
+        )
+
+    def _build_summary_matrix_from_summaries(
+        self,
+        run: SessionRun,
+    ) -> list[ReportSummaryRowRead]:
         cost_scores = self._normalize_inverse(
             {
                 summary.model_snapshot_id: (
@@ -177,8 +350,7 @@ class ReportsService:
             }
         )
         performance_scores = self._normalize_performance(run)
-
-        summary_matrix = [
+        return [
             ReportSummaryRowRead(
                 model_snapshot_id=summary.model_snapshot_id,
                 candidate_name=self._model_name(run, summary.model_snapshot_id),
@@ -197,7 +369,11 @@ class ReportsService:
             )
         ]
 
-        candidate_sections = [
+    def _build_candidate_sections_from_summaries(
+        self,
+        run: SessionRun,
+    ) -> list[ReportCandidateSectionRead]:
+        return [
             ReportCandidateSectionRead(
                 model_snapshot_id=summary.model_snapshot_id,
                 candidate_name=self._model_name(run, summary.model_snapshot_id),
@@ -233,44 +409,176 @@ class ReportsService:
             )
         ]
 
-        prompt_sections = [
-            ReportPromptSectionRead(
-                prompt_snapshot_id=prompt.id,
-                prompt_name=prompt.name,
-                category_name=prompt.category_name,
-                system_prompt_text=prompt.system_prompt_text,
-                user_prompt_text=prompt.user_prompt_text,
-                evaluation_notes=prompt.evaluation_notes,
-                candidates=[
-                    self._build_prompt_candidate(run, response)
-                    for response in sorted(
-                        [
-                            item
-                            for item in run.candidate_responses
-                            if item.prompt_snapshot_id == prompt.id
-                        ],
-                        key=lambda item: self._model_name(run, item.model_snapshot_id),
-                    )
-                ],
+    def _build_fallback_summary_matrix(
+        self,
+        run: SessionRun,
+        candidate_snapshots: list,
+    ) -> list[ReportSummaryRowRead]:
+        rows = [
+            self._build_fallback_summary_row(run, snapshot)
+            for snapshot in candidate_snapshots
+        ]
+        return sorted(
+            rows,
+            key=lambda item: Decimal(item.final_global_score or "0"),
+            reverse=True,
+        )
+
+    def _build_fallback_candidate_sections(
+        self,
+        run: SessionRun,
+        candidate_snapshots: list,
+    ) -> list[ReportCandidateSectionRead]:
+        return [
+            ReportCandidateSectionRead(
+                model_snapshot_id=row.model_snapshot_id,
+                candidate_name=row.candidate_name,
+                provider_type=getattr(snapshot, "provider_type", "unknown"),
+                runtime_type=getattr(snapshot, "runtime_type", "unknown"),
+                average_overall_score=row.judge_score,
+                average_relevance_score=row.quality_score,
+                average_accuracy_score=row.quality_score,
+                average_completeness_score=row.quality_score,
+                average_clarity_score=row.quality_score,
+                average_instruction_following_score=row.quality_score,
+                avg_duration_ms=row.avg_duration_ms,
+                avg_total_tokens=self._average_response_tokens(
+                    run,
+                    snapshot.id,
+                ),
+                avg_tokens_per_second=self._average_response_tokens_per_second(
+                    run,
+                    snapshot.id,
+                ),
+                total_estimated_cost=row.total_estimated_cost,
+                global_summary_text="Fallback report generated before aggregation.",
+                best_patterns_text=None,
+                weak_patterns_text=None,
+                final_global_score=row.final_global_score,
             )
-            for prompt in sorted(
-                run.prompt_snapshots,
-                key=lambda item: item.snapshot_order,
-            )
+            for snapshot in candidate_snapshots
+            for row in [self._build_fallback_summary_row(run, snapshot)]
         ]
 
-        return RunReportRead(
-            run_id=run.id,
-            report_title=f"{run.name} Report",
-            benchmark_session_name=run.name,
-            launched_at=run.launched_at,
-            judge_name=" · ".join(s.display_name for s in judge_snapshots),
-            prompt_count=len(run.prompt_snapshots),
-            candidate_count=len(candidate_snapshots),
-            summary_matrix=summary_matrix,
-            candidate_sections=candidate_sections,
-            prompt_sections=prompt_sections,
+    def _build_fallback_summary_row(
+        self,
+        run: SessionRun,
+        snapshot,
+    ) -> ReportSummaryRowRead:
+        responses = self._candidate_responses_for_snapshot(run, snapshot.id)
+        score = self._average_absolute_score(run, snapshot.id)
+        avg_duration_ms = self._average_response_duration(run, snapshot.id)
+        total_cost = self._total_response_cost(responses)
+        return ReportSummaryRowRead(
+            model_snapshot_id=snapshot.id,
+            candidate_name=getattr(snapshot, "display_name", f"Model {snapshot.id}"),
+            judge_score=score,
+            quality_score=score,
+            cost_score="0.00",
+            performance_score="0.00",
+            final_global_score=score,
+            avg_duration_ms=avg_duration_ms,
+            total_estimated_cost=total_cost,
         )
+
+    def _candidate_responses_for_snapshot(
+        self,
+        run: SessionRun,
+        model_snapshot_id: int,
+    ) -> list:
+        return [
+            response
+            for response in run.candidate_responses
+            if response.model_snapshot_id == model_snapshot_id
+        ]
+
+    def _average_absolute_score(
+        self,
+        run: SessionRun,
+        model_snapshot_id: int,
+    ) -> str:
+        response_ids = {
+            response.id
+            for response in self._candidate_responses_for_snapshot(
+                run,
+                model_snapshot_id,
+            )
+        }
+        scores = [
+            Decimal(str(candidate.overall_score))
+            for batch in run.judge_batches
+            if getattr(batch, "batch_type", "absolute") == "absolute"
+            and batch.evaluation is not None
+            for candidate in batch.evaluation.candidates
+            if candidate.candidate_response_id in response_ids
+            and candidate.overall_score is not None
+        ]
+        if not scores:
+            return "0.00"
+        return str((sum(scores) / len(scores)).quantize(Decimal("0.01")))
+
+    def _average_response_duration(
+        self,
+        run: SessionRun,
+        model_snapshot_id: int,
+    ) -> int | None:
+        values = [
+            response.metric.duration_ms
+            for response in self._candidate_responses_for_snapshot(
+                run,
+                model_snapshot_id,
+            )
+            if response.metric is not None and response.metric.duration_ms is not None
+        ]
+        if not values:
+            return None
+        return round(sum(values) / len(values))
+
+    def _average_response_tokens(
+        self,
+        run: SessionRun,
+        model_snapshot_id: int,
+    ) -> int | None:
+        values = [
+            response.metric.total_tokens
+            for response in self._candidate_responses_for_snapshot(
+                run,
+                model_snapshot_id,
+            )
+            if response.metric is not None and response.metric.total_tokens is not None
+        ]
+        if not values:
+            return None
+        return round(sum(values) / len(values))
+
+    def _average_response_tokens_per_second(
+        self,
+        run: SessionRun,
+        model_snapshot_id: int,
+    ) -> str | None:
+        values = [
+            Decimal(str(response.metric.tokens_per_second))
+            for response in self._candidate_responses_for_snapshot(
+                run,
+                model_snapshot_id,
+            )
+            if response.metric is not None
+            and getattr(response.metric, "tokens_per_second", None) is not None
+        ]
+        if not values:
+            return None
+        return str((sum(values) / len(values)).quantize(Decimal("0.01")))
+
+    def _total_response_cost(self, responses: list) -> str | None:
+        values = [
+            Decimal(str(response.metric.estimated_cost))
+            for response in responses
+            if response.metric is not None
+            and response.metric.estimated_cost is not None
+        ]
+        if not values:
+            return None
+        return str(sum(values).quantize(Decimal("0.000001")))
 
     def _build_prompt_candidate(
         self,
@@ -281,7 +589,8 @@ class ReportsService:
             (
                 candidate
                 for batch in run.judge_batches
-                if batch.batch_type == "absolute" and batch.evaluation is not None
+                if getattr(batch, "batch_type", "absolute") == "absolute"
+                and batch.evaluation is not None
                 for candidate in batch.evaluation.candidates
                 if candidate.candidate_response_id == response.id
             ),
@@ -328,13 +637,50 @@ class ReportsService:
                 if evaluation_candidate is not None
                 else None
             ),
+            detailed_scores_jsonb=(
+                getattr(evaluation_candidate, "detailed_scores_jsonb", None)
+                if evaluation_candidate is not None
+                else None
+            ),
         )
+
+    def _render_report_scenario_context(self, section: ReportPromptSectionRead) -> str:
+        blocks: list[str] = []
+        if section.expected_output_format:
+            blocks.append(
+                "<div class='scenario-block'><strong>Expected output</strong>"
+                f"<p>{escape(section.expected_output_format)}</p></div>"
+            )
+        for title, value in [
+            ("Constraints", section.constraints_jsonb),
+            ("Gold facts", section.gold_facts_jsonb),
+            ("Judge rubric", section.judge_rubric_jsonb),
+        ]:
+            if value:
+                blocks.append(
+                    f"<div class='scenario-block'><strong>{escape(title)}</strong>"
+                    "<pre>"
+                    f"{escape(json.dumps(value, indent=2, ensure_ascii=False))}"
+                    "</pre>"
+                    "</div>"
+                )
+        if not blocks:
+            return ""
+        return "<div class='scenario-context'>" + "".join(blocks) + "</div>"
 
     def _model_snapshot(self, run: SessionRun, model_snapshot_id: int):
         return next(
-            snapshot
-            for snapshot in run.model_snapshots
-            if snapshot.id == model_snapshot_id
+            (
+                snapshot
+                for snapshot in run.model_snapshots
+                if snapshot.id == model_snapshot_id
+            ),
+            SimpleNamespace(
+                id=model_snapshot_id,
+                display_name=f"Model {model_snapshot_id}",
+                provider_type="unknown",
+                runtime_type="unknown",
+            ),
         )
 
     def _model_name(self, run: SessionRun, model_snapshot_id: int) -> str:
@@ -621,10 +967,27 @@ class ReportsService:
                 if section.evaluation_notes
                 else ""
             )
+            meta_badges = "".join(
+                f"<span class='badge'>{escape(value)}</span>"
+                for value in [
+                    section.category_name,
+                    section.scenario_type,
+                    f"cost {section.cost_tier}" if section.cost_tier else None,
+                    f"weight {section.weight}" if section.weight else None,
+                    f"v{section.version}" if section.version else None,
+                ]
+                if value
+            )
+            scenario_context = self._render_report_scenario_context(section)
             resp_html = ""
             for c in section.candidates:
                 s_html = f"<p class='resp-s'><strong>Strengths:</strong> {escape(c.strengths_text)}</p>" if c.strengths_text else ""
                 w_html = f"<p class='resp-w'><strong>Weaknesses:</strong> {escape(c.weaknesses_text)}</p>" if c.weaknesses_text else ""
+                scores_html = (
+                    f"<pre class='criterion-pre'>{escape(json.dumps(c.detailed_scores_jsonb, indent=2, ensure_ascii=False))}</pre>"
+                    if c.detailed_scores_jsonb
+                    else ""
+                )
                 resp_html += (
                     f"<div class='resp-card'>"
                     f"<div class='resp-card-hdr'>"
@@ -634,6 +997,7 @@ class ReportsService:
                     f"</div>"
                     f"<pre class='resp-pre'>{escape(c.normalized_response_text or 'No response')}</pre>"
                     f"{s_html}{w_html}"
+                    f"{scores_html}"
                     f"<p class='resp-feedback'>{escape(c.detailed_feedback or 'No detailed feedback')}</p>"
                     f"</div>"
                 )
@@ -653,7 +1017,7 @@ class ReportsService:
                 f"<span class='prompt-num'>#{pi + 1}</span>"
                 f"<div>"
                 f"<div class='prompt-title'>{escape(section.prompt_name)}</div>"
-                f"<span class='badge'>{escape(section.category_name)}</span>"
+                f"<div class='badge-row'>{meta_badges}</div>"
                 f"</div>"
                 f"</div>"
                 f"<div class='prompt-hdr-r'>{top_score_html}<span class='chevron'>&#x25BE;</span></div>"
@@ -663,6 +1027,7 @@ class ReportsService:
                 f"<p class='prompt-label'>User Prompt</p>"
                 f"<pre class='pre-user'>{escape(section.user_prompt_text)}</pre>"
                 f"{eval_note}"
+                f"{scenario_context}"
                 f"<div class='tbl-wrap'>"
                 f"<table class='comparison'>"
                 f"<thead><tr><th>Candidate</th><th>Score</th><th>Rank</th><th>Latency</th>"
@@ -796,6 +1161,17 @@ class ReportsService:
     .winner-row td{{background:var(--warn-s)!important}}
     .winner-row td:first-child{{border-left:3px solid var(--gold);padding-left:11px}}
     .best-col{{background:var(--ok-s)!important;color:#15803d;font-weight:700}}
+    .category-table{{table-layout:fixed;font-size:.76rem}}
+    .category-table th,.category-table td{{padding:7px 8px;text-align:center;vertical-align:middle}}
+    .category-table th{{
+      white-space:normal;line-height:1.15;font-size:.54rem;letter-spacing:.045em;
+      word-break:normal;overflow-wrap:normal;hyphens:none;
+    }}
+    .category-table .cat-model-col{{width:104px;text-align:left}}
+    .category-table .cat-model-cell{{
+      width:104px;text-align:left;line-height:1.25;font-size:.74rem;word-break:normal;
+    }}
+    .category-table .best-col{{box-shadow:inset 0 0 0 999px rgba(34,197,94,.09)}}
     .delta-zero{{color:var(--muted)}}
     .delta-neg{{color:#dc2626;font-weight:600}}
     .rb{{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:.65rem;font-weight:700;flex-shrink:0}}
@@ -863,6 +1239,7 @@ class ReportsService:
       display:inline-block;background:var(--primary-s);color:#0369a1;font-size:.7rem;
       font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid var(--primary-b);
     }}
+    .badge-row{{display:flex;flex-wrap:wrap;gap:5px}}
     .prompt-hdr-r{{display:flex;align-items:center;gap:10px}}
     .prompt-top-score{{font-family:'Space Grotesk',sans-serif;font-size:.95rem;font-weight:700}}
     .chevron{{font-size:.75rem;color:var(--muted-l);transition:transform .2s;display:inline-block}}
@@ -880,6 +1257,11 @@ class ReportsService:
       font-size:.83rem;color:var(--ink-s);margin-bottom:12px;padding:8px 12px;
       background:var(--panel);border-radius:var(--rs);border-left:3px solid var(--primary);
     }}
+    .scenario-context{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}}
+    .scenario-block{{border:1px solid var(--line);background:var(--panel);border-radius:var(--rs);padding:10px 12px}}
+    .scenario-block strong{{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}}
+    .scenario-block p{{font-size:.82rem;color:var(--ink-s);line-height:1.5}}
+    .scenario-block pre,.criterion-pre{{font-size:.72rem;max-height:220px;overflow:auto;background:var(--white)}}
     .resp-grid{{display:grid;gap:10px;margin-top:4px}}
     .resp-card{{border:1px solid var(--line);border-radius:var(--rs);overflow:hidden}}
     .resp-card-hdr{{
@@ -1019,20 +1401,30 @@ class ReportsService:
     async def _render_pdf(self, html: str, output_path: Path) -> None:
         async with async_playwright() as p:
             browser = await p.chromium.launch()
-            page = await browser.new_page()
-            await page.set_content(html, wait_until="networkidle")
-            # Ensure all Plotly charts have finished rendering before export
-            await page.wait_for_function(
-                "() => document.querySelectorAll('.js-plotly-plot .main-svg').length > 0",
-                timeout=20_000,
-            )
-            await page.pdf(
-                path=str(output_path),
-                format="A4",
-                print_background=True,
-                margin={"top": "15mm", "bottom": "15mm", "left": "15mm", "right": "15mm"},
-            )
-            await browser.close()
+            try:
+                page = await browser.new_page()
+                await page.set_content(html, wait_until="domcontentloaded", timeout=15_000)
+                try:
+                    await page.wait_for_function(
+                        "() => document.querySelectorAll('.js-plotly-plot .main-svg').length > 0",
+                        timeout=5_000,
+                    )
+                except Exception:
+                    pass
+                await page.pdf(
+                    path=str(output_path),
+                    format="A4",
+                    print_background=True,
+                    margin={
+                        "top": "15mm",
+                        "bottom": "15mm",
+                        "left": "15mm",
+                        "right": "15mm",
+                    },
+                    timeout=15_000,
+                )
+            finally:
+                await browser.close()
 
     # ── Plotly charts ──────────────────────────────────────────────────────
 
@@ -1522,7 +1914,14 @@ class ReportsService:
                 scores = by_cat[cat].get(name, [])
                 avgs_by_cat[cat][name] = sum(scores) / len(scores) if scores else None
 
-        headers = "<th>Model</th>" + "".join(f"<th>{escape(cat)}</th>" for cat in sorted_cats)
+        headers = "<th class='cat-model-col'>Model</th>" + "".join(
+            (
+                f"<th title='{escape(cat)}'>"
+                f"{escape(self._category_table_label(cat))}"
+                "</th>"
+            )
+            for cat in sorted_cats
+        )
 
         # Best score per column (category), not per row
         best_per_cat = {
@@ -1532,22 +1931,44 @@ class ReportsService:
 
         rows = ""
         for name in candidate_names:
-            rows += f"<tr><td><strong>{escape(name)}</strong></td>"
+            rows += (
+                "<tr>"
+                f"<td class='cat-model-cell'><strong>{escape(name)}</strong></td>"
+            )
             for cat in sorted_cats:
                 val = avgs_by_cat[cat][name]
                 if val is not None:
                     is_best = best_per_cat[cat] is not None and val == best_per_cat[cat]
-                    rows += f"<td{'  class=\"best-col\"' if is_best else ''}>{val:.1f}</td>"
+                    rows += (
+                        f"<td{'  class=\"best-col\"' if is_best else ''}>"
+                        f"{val:.1f}"
+                        "</td>"
+                    )
                 else:
                     rows += "<td>—</td>"
             rows += "</tr>"
 
         return (
-            "<table class='comparison'>"
+            "<table class='comparison category-table'>"
             f"<thead><tr>{headers}</tr></thead>"
             f"<tbody>{rows}</tbody>"
             "</table>"
         )
+
+    def _category_table_label(self, category: str) -> str:
+        labels = {
+            "code_debug": "Code Debug",
+            "code_review": "Code Review",
+            "creative_constrained": "Creative",
+            "data_quality": "Data Quality",
+            "document_synthesis": "Doc Synth",
+            "product_reasoning": "Product",
+            "professional_writing": "Pro Writing",
+            "refactor_constrained": "Refactor",
+            "sensitive_communication": "Sensitive",
+        }
+        normalized = category.lower().replace(" ", "_").replace("-", "_")
+        return labels.get(normalized, category.replace("_", " ").title())
 
     def _judge_bias_notice(self, report: RunReportRead) -> str:
         judge_lower = report.judge_name.lower()
