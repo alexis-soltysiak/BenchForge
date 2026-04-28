@@ -30,7 +30,7 @@ class AggregationService:
     def __post_init__(self) -> None:
         self.repository = AggregationRepository(self.session)
 
-    async def aggregate_run(self, run_id: int) -> None:
+    async def aggregate_run(self, run_id: int, *, generate_report: bool = True) -> None:
         run = await self.repository.get_run(run_id)
         if run is None:
             raise AggregationError(f"Run {run_id} not found.")
@@ -120,7 +120,8 @@ class AggregationService:
         run.status = "reporting"
         run.report_status = "pending"
         await self.repository.commit()
-        await self._run_report_generation(run.id)
+        if generate_report:
+            await self._run_report_generation(run.id)
 
     def _build_candidate_payload(
         self,

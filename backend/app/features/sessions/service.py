@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,6 +51,10 @@ def serialize_prompt_item(item: BenchmarkSessionPrompt, prompt: Prompt | None) -
         id=item.id,
         prompt_id=item.prompt_id,
         prompt_name=prompt.name if prompt is not None else f"Prompt {item.prompt_id}",
+        category_name=prompt.category.name if prompt is not None and prompt.category else None,
+        cost_tier=prompt.cost_tier if prompt is not None else None,
+        estimated_input_tokens=prompt.estimated_input_tokens if prompt is not None else None,
+        scenario_type=prompt.scenario_type if prompt is not None else None,
         display_order=item.display_order,
     )
 
@@ -317,9 +322,15 @@ class SessionService:
             item.prompt_id: await self.repository.get_prompt(item.prompt_id)
             for item in benchmark_session.prompts
         }
+        model_items = cast(
+            list[BenchmarkSessionCandidate | BenchmarkSessionJudge],
+            [*benchmark_session.candidates, *benchmark_session.judges],
+        )
         model_map = {
-            item.model_profile_id: await self.repository.get_model_profile(item.model_profile_id)
-            for item in [*benchmark_session.candidates, *benchmark_session.judges]
+            item.model_profile_id: await self.repository.get_model_profile(
+                item.model_profile_id
+            )
+            for item in model_items
         }
         return SessionRead(
             id=benchmark_session.id,

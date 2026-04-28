@@ -43,6 +43,19 @@ type PromptFormState = {
   systemPromptText: string;
   userPromptText: string;
   evaluationNotes: string;
+  scenarioType: string;
+  objective: string;
+  context: string;
+  inputArtifactsJson: string;
+  constraintsJson: string;
+  expectedBehaviorJson: string;
+  goldFactsJson: string;
+  judgeRubricJson: string;
+  estimatedInputTokens: string;
+  expectedOutputFormat: string;
+  costTier: string;
+  weight: string;
+  version: string;
   isActive: boolean;
 };
 
@@ -55,8 +68,100 @@ const emptyForm: PromptFormState = {
   systemPromptText: "",
   userPromptText: "",
   evaluationNotes: "",
+  scenarioType: "",
+  objective: "",
+  context: "",
+  inputArtifactsJson: "[]",
+  constraintsJson: "[]",
+  expectedBehaviorJson: "{}",
+  goldFactsJson: "{\n  \"must_include\": [],\n  \"must_not_include\": [],\n  \"acceptable_solutions\": [],\n  \"common_failure_modes\": []\n}",
+  judgeRubricJson: "{\n  \"criteria\": [],\n  \"penalties\": []\n}",
+  estimatedInputTokens: "",
+  expectedOutputFormat: "",
+  costTier: "low",
+  weight: "1",
+  version: "1.0",
   isActive: true,
 };
+
+function formatJson(value: unknown, fallback: string): string {
+  if (value == null) return fallback;
+  return JSON.stringify(value, null, 2);
+}
+
+function parseJsonField<T>(value: string, fallback: T): T {
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+  return JSON.parse(trimmed) as T;
+}
+
+function renderScenarioPromptPreview(state: PromptFormState): string {
+  const sections: { content: string; title: string }[] = [];
+  if (state.objective.trim()) {
+    sections.push({ title: "Objective", content: state.objective.trim() });
+  }
+  if (state.context.trim()) {
+    sections.push({ title: "Context", content: state.context.trim() });
+  }
+  if (isJsonValid(state.inputArtifactsJson)) {
+    const artifacts = parseJsonField<Record<string, unknown>[]>(
+      state.inputArtifactsJson,
+      [],
+    );
+    if (Array.isArray(artifacts) && artifacts.length > 0) {
+      sections.push({ title: "Artifacts", content: renderArtifactsPreview(artifacts) });
+    }
+  }
+  if (isJsonValid(state.constraintsJson)) {
+    const constraints = parseJsonField<unknown>(state.constraintsJson, null);
+    const renderedConstraints = renderJsonishPreview(constraints);
+    if (renderedConstraints) {
+      sections.push({ title: "Constraints", content: renderedConstraints });
+    }
+  }
+  if (state.expectedOutputFormat.trim()) {
+    sections.push({
+      title: "Expected output format",
+      content: state.expectedOutputFormat.trim(),
+    });
+  }
+  if (state.userPromptText.trim()) {
+    sections.push({ title: "Task", content: state.userPromptText.trim() });
+  }
+
+  if (sections.length === 1 && sections[0].title === "Task") {
+    return sections[0].content;
+  }
+  return sections.map((section) => `## ${section.title}\n${section.content}`).join("\n\n");
+}
+
+function renderArtifactsPreview(artifacts: Record<string, unknown>[]): string {
+  return artifacts
+    .map((artifact) => {
+      const name = String(artifact.name || "artifact");
+      const kind = String(artifact.kind || "document");
+      const language = typeof artifact.language === "string" ? artifact.language : "";
+      const content = String(artifact.content || "");
+      const languageLabel = language ? `, ${language}` : "";
+      return `### ${name} (${kind}${languageLabel})\n\`\`\`${language}\n${content}\n\`\`\``;
+    })
+    .join("\n\n");
+}
+
+function renderJsonishPreview(value: unknown): string {
+  if (!value) return "";
+  if (Array.isArray(value)) {
+    return value.map((item) => `- ${String(item)}`).join("\n");
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.every(([, item]) => typeof item === "string")) {
+      return entries.map(([key, item]) => `- ${key}: ${String(item)}`).join("\n");
+    }
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value);
+}
 
 function toFormState(prompt: Prompt): PromptFormState {
   return {
@@ -68,6 +173,19 @@ function toFormState(prompt: Prompt): PromptFormState {
     systemPromptText: prompt.system_prompt_text ?? "",
     userPromptText: prompt.user_prompt_text,
     evaluationNotes: prompt.evaluation_notes ?? "",
+    scenarioType: prompt.scenario_type ?? "",
+    objective: prompt.objective ?? "",
+    context: prompt.context ?? "",
+    inputArtifactsJson: formatJson(prompt.input_artifacts_jsonb, "[]"),
+    constraintsJson: formatJson(prompt.constraints_jsonb, "[]"),
+    expectedBehaviorJson: formatJson(prompt.expected_behavior_jsonb, "{}"),
+    goldFactsJson: formatJson(prompt.gold_facts_jsonb, emptyForm.goldFactsJson),
+    judgeRubricJson: formatJson(prompt.judge_rubric_jsonb, emptyForm.judgeRubricJson),
+    estimatedInputTokens: prompt.estimated_input_tokens?.toString() ?? "",
+    expectedOutputFormat: prompt.expected_output_format ?? "",
+    costTier: prompt.cost_tier ?? "low",
+    weight: prompt.weight?.toString() ?? "1",
+    version: prompt.version ?? "1.0",
     isActive: prompt.is_active,
   };
 }
@@ -80,6 +198,20 @@ function toPayload(state: PromptFormState): PromptPayload {
     system_prompt_text: state.systemPromptText.trim() || null,
     user_prompt_text: state.userPromptText.trim(),
     evaluation_notes: state.evaluationNotes.trim() || null,
+    scenario_type: state.scenarioType.trim() || null,
+    benchmark_type: state.scenarioType.trim() || null,
+    objective: state.objective.trim() || null,
+    context: state.context.trim() || null,
+    input_artifacts_jsonb: parseJsonField<Record<string, unknown>[]>(state.inputArtifactsJson, []),
+    constraints_jsonb: parseJsonField<Record<string, unknown> | unknown[] | null>(state.constraintsJson, null),
+    expected_behavior_jsonb: parseJsonField<Record<string, unknown> | unknown[] | null>(state.expectedBehaviorJson, null),
+    gold_facts_jsonb: parseJsonField<Record<string, unknown> | null>(state.goldFactsJson, null),
+    judge_rubric_jsonb: parseJsonField<Record<string, unknown> | null>(state.judgeRubricJson, null),
+    estimated_input_tokens: state.estimatedInputTokens.trim() ? Number(state.estimatedInputTokens) : null,
+    expected_output_format: state.expectedOutputFormat.trim() || null,
+    cost_tier: state.costTier.trim() || null,
+    weight: state.weight.trim() ? Number(state.weight) : null,
+    version: state.version.trim() || null,
     tags: state.tags
       .split(",")
       .map((tag) => tag.trim())
@@ -141,10 +273,23 @@ function DifficultyDot({ level }: { level: number | null }) {
 
 function matchesSearch(prompt: Prompt, search: string): boolean {
   if (!search) return true;
-  const haystack = [prompt.name, prompt.description ?? "", prompt.category.name, prompt.tags.join(" ")]
+  const haystack = [prompt.name, prompt.description ?? "", prompt.category.name, prompt.scenario_type ?? "", prompt.objective ?? "", prompt.tags.join(" ")]
     .join(" ")
     .toLowerCase();
   return haystack.includes(search.toLowerCase());
+}
+
+function artifactCount(prompt: Prompt): number {
+  return Array.isArray(prompt.input_artifacts_jsonb) ? prompt.input_artifacts_jsonb.length : 0;
+}
+
+function isJsonValid(value: string): boolean {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function matchesArchiveState(prompt: Prompt, showArchived: boolean): boolean {
@@ -290,7 +435,18 @@ export function PromptLibraryPage() {
 
   useEffect(() => {
     if (!isDirtyRef.current) return;
-    const isValid = formState.name.trim() && formState.userPromptText.trim() && formState.categoryId;
+    const jsonFields = [
+      formState.inputArtifactsJson,
+      formState.constraintsJson,
+      formState.expectedBehaviorJson,
+      formState.goldFactsJson,
+      formState.judgeRubricJson,
+    ];
+    const isValid =
+      formState.name.trim() &&
+      formState.userPromptText.trim() &&
+      formState.categoryId &&
+      jsonFields.every(isJsonValid);
     if (!isValid) return;
     const timer = setTimeout(() => {
       void saveMutation.mutateAsync(toPayload(formState));
@@ -437,6 +593,10 @@ export function PromptLibraryPage() {
     .slice(0, 3);
 
   const selectedPromptId = selectedPrompt?.id ?? null;
+  const renderedPromptPreview = useMemo(
+    () => renderScenarioPromptPreview(formState),
+    [formState],
+  );
 
   const resetFilters = () => {
     setSearch("");
@@ -463,10 +623,10 @@ export function PromptLibraryPage() {
             <div className="flex items-center gap-1 mt-3 flex-wrap">
               <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
                 <FileText className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  <span className="font-semibold text-foreground">{visiblePrompts.length}</span>{" "}
-                  {t("prompts.metricVisible").toLowerCase()}
-                </span>
+                  <span>
+                    <span className="font-semibold text-foreground">{visiblePrompts.length}</span>{" "}
+                    scenarios
+                  </span>
               </div>
               <span className="text-border/60 mx-1.5">·</span>
               <div className="flex items-center gap-1.5 text-[0.78rem] text-muted-foreground">
@@ -491,7 +651,7 @@ export function PromptLibraryPage() {
 
           <Button className="shrink-0" onClick={openCreateModal}>
             <Plus className="h-4 w-4" />
-            {t("prompts.newPrompt")}
+            New scenario
           </Button>
         </div>
       </header>
@@ -742,8 +902,8 @@ export function PromptLibraryPage() {
           </button>
           <button
             type="button"
-            title={showArchived ? "Show active prompts" : "Show archived prompts"}
-            aria-label={showArchived ? "Show active prompts" : "Show archived prompts"}
+            title={showArchived ? "Show active scenarios" : "Show archived scenarios"}
+            aria-label={showArchived ? "Show active scenarios" : "Show archived scenarios"}
             className={cn(
               "inline-flex h-8 w-8 items-center justify-center rounded-lg transition",
               showArchived
@@ -759,7 +919,7 @@ export function PromptLibraryPage() {
 
       {/* Error state */}
       {loadError ? (
-        <LoadErrorState message={loadError} onRetry={retryLoad} resourceLabel="the prompt library" />
+        <LoadErrorState message={loadError} onRetry={retryLoad} resourceLabel="the scenario library" />
       ) : null}
 
       {/* Feedback strip */}
@@ -779,7 +939,7 @@ export function PromptLibraryPage() {
                 {t("prompts.colName")}
               </th>
               <th className="px-4 py-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground w-32">
-                {t("prompts.colCategory")}
+                Type
               </th>
               <th className="w-12 px-4 py-2.5">
                 <div className="flex justify-center">
@@ -831,9 +991,31 @@ export function PromptLibraryPage() {
                       </p>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
-                      <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
-                        {prompt.category.name}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="accent" className="whitespace-nowrap text-[0.7rem]">
+                          {prompt.category.name}
+                        </Badge>
+                        {prompt.scenario_type ? (
+                          <Badge variant="neutral" className="whitespace-nowrap text-[0.7rem]">
+                            {prompt.scenario_type}
+                          </Badge>
+                        ) : null}
+                        {prompt.cost_tier ? (
+                          <Badge variant="neutral" className="whitespace-nowrap text-[0.7rem]">
+                            {prompt.cost_tier}
+                          </Badge>
+                        ) : null}
+                        {prompt.weight ? (
+                          <Badge variant="neutral" className="whitespace-nowrap text-[0.7rem]">
+                            w{prompt.weight}
+                          </Badge>
+                        ) : null}
+                        {artifactCount(prompt) > 0 ? (
+                          <Badge variant="neutral" className="whitespace-nowrap text-[0.7rem]">
+                            {artifactCount(prompt)} artifacts
+                          </Badge>
+                        ) : null}
+                      </div>
                     </td>
                     <td
                       className="px-4 py-3.5 align-middle"
@@ -1052,6 +1234,47 @@ export function PromptLibraryPage() {
                 />
               </PromptModalField>
 
+              <PromptModalField label="Scenario type">
+                <Input
+                  placeholder="code_debug"
+                  value={formState.scenarioType}
+                  onChange={(e) => updateForm((c) => ({ ...c, scenarioType: e.target.value }))}
+                />
+              </PromptModalField>
+
+              <PromptModalField label="Cost / weight">
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="low"
+                    value={formState.costTier}
+                    onChange={(e) => updateForm((c) => ({ ...c, costTier: e.target.value }))}
+                  />
+                  <Input
+                    min={1}
+                    type="number"
+                    value={formState.weight}
+                    onChange={(e) => updateForm((c) => ({ ...c, weight: e.target.value }))}
+                  />
+                </div>
+              </PromptModalField>
+
+              <PromptModalField label="Tokens / version">
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    min={0}
+                    placeholder="500"
+                    type="number"
+                    value={formState.estimatedInputTokens}
+                    onChange={(e) => updateForm((c) => ({ ...c, estimatedInputTokens: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="1.0"
+                    value={formState.version}
+                    onChange={(e) => updateForm((c) => ({ ...c, version: e.target.value }))}
+                  />
+                </div>
+              </PromptModalField>
+
               {/* Active toggle */}
               <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border/60 bg-[hsl(var(--surface-muted))] px-3 py-2 text-[0.78rem] text-foreground transition hover:bg-[hsl(var(--surface-elevated))]">
                 <input
@@ -1067,7 +1290,7 @@ export function PromptLibraryPage() {
             {/* ── Right panel: content ── */}
             <div className="min-w-0 flex-1 space-y-5 pl-6">
 
-              {/* System Prompt */}
+              {/* System instruction */}
               <PromptModalField label={t("prompts.form.systemPrompt")}>
                 <Textarea
                   className="min-h-[7rem] font-mono text-[0.78rem] leading-relaxed resize-y"
@@ -1077,13 +1300,88 @@ export function PromptLibraryPage() {
                 />
               </PromptModalField>
 
-              {/* User Prompt */}
+              <PromptModalField label="Objective">
+                <Textarea
+                  className="min-h-[4rem] text-sm resize-y"
+                  placeholder="What the candidate model must accomplish"
+                  value={formState.objective}
+                  onChange={(e) => updateForm((c) => ({ ...c, objective: e.target.value }))}
+                />
+              </PromptModalField>
+
+              <PromptModalField label="Context">
+                <Textarea
+                  className="min-h-[5rem] text-sm resize-y"
+                  placeholder="Business or technical context for the scenario"
+                  value={formState.context}
+                  onChange={(e) => updateForm((c) => ({ ...c, context: e.target.value }))}
+                />
+              </PromptModalField>
+
+              {/* User task */}
               <PromptModalField label={t("prompts.form.userPrompt")} required>
                 <Textarea
                   className="min-h-[14rem] font-mono text-[0.78rem] leading-relaxed resize-y"
                   placeholder={t("prompts.form.userPromptPlaceholder")}
                   value={formState.userPromptText}
                   onChange={(e) => updateForm((c) => ({ ...c, userPromptText: e.target.value }))}
+                />
+              </PromptModalField>
+
+              <PromptModalField label="Artifacts JSON">
+                <Textarea
+                  className={cn("min-h-[9rem] font-mono text-[0.75rem] leading-relaxed resize-y", !isJsonValid(formState.inputArtifactsJson) && "border-destructive")}
+                  value={formState.inputArtifactsJson}
+                  onChange={(e) => updateForm((c) => ({ ...c, inputArtifactsJson: e.target.value }))}
+                />
+              </PromptModalField>
+
+              <PromptModalField label="Constraints JSON">
+                <Textarea
+                  className={cn("min-h-[6rem] font-mono text-[0.75rem] leading-relaxed resize-y", !isJsonValid(formState.constraintsJson) && "border-destructive")}
+                  value={formState.constraintsJson}
+                  onChange={(e) => updateForm((c) => ({ ...c, constraintsJson: e.target.value }))}
+                />
+              </PromptModalField>
+
+              <PromptModalField label="Expected output format">
+                <Textarea
+                  className="min-h-[4rem] text-sm resize-y"
+                  value={formState.expectedOutputFormat}
+                  onChange={(e) => updateForm((c) => ({ ...c, expectedOutputFormat: e.target.value }))}
+                />
+              </PromptModalField>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <PromptModalField label="Gold facts JSON">
+                  <Textarea
+                    className={cn("min-h-[9rem] font-mono text-[0.72rem] leading-relaxed resize-y", !isJsonValid(formState.goldFactsJson) && "border-destructive")}
+                    value={formState.goldFactsJson}
+                    onChange={(e) => updateForm((c) => ({ ...c, goldFactsJson: e.target.value }))}
+                  />
+                </PromptModalField>
+                <PromptModalField label="Rubric JSON">
+                  <Textarea
+                    className={cn("min-h-[9rem] font-mono text-[0.72rem] leading-relaxed resize-y", !isJsonValid(formState.judgeRubricJson) && "border-destructive")}
+                    value={formState.judgeRubricJson}
+                    onChange={(e) => updateForm((c) => ({ ...c, judgeRubricJson: e.target.value }))}
+                  />
+                </PromptModalField>
+              </div>
+
+              <PromptModalField label="Expected behavior JSON">
+                <Textarea
+                  className={cn("min-h-[6rem] font-mono text-[0.75rem] leading-relaxed resize-y", !isJsonValid(formState.expectedBehaviorJson) && "border-destructive")}
+                  value={formState.expectedBehaviorJson}
+                  onChange={(e) => updateForm((c) => ({ ...c, expectedBehaviorJson: e.target.value }))}
+                />
+              </PromptModalField>
+
+              <PromptModalField label="Rendered scenario preview">
+                <Textarea
+                  className="min-h-[18rem] bg-[hsl(var(--surface-muted))] font-mono text-[0.75rem] leading-relaxed text-muted-foreground resize-y"
+                  readOnly
+                  value={renderedPromptPreview}
                 />
               </PromptModalField>
 

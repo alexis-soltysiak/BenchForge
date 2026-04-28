@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,7 +16,6 @@ import {
   FileText,
   Gavel,
   LoaderCircle,
-  Play,
   RefreshCw,
   Search,
   Sparkles,
@@ -46,7 +45,6 @@ import {
   generateAndDownloadAll,
   regenerateAndDownloadHtml,
   restartRunJudging,
-  resumeRun,
   retryCandidateResponse,
   retryJudgeBatch,
   retryRunJudging,
@@ -357,7 +355,7 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                     </td>
                     <td className="px-4 py-3.5 align-middle text-[0.78rem] text-muted-foreground">
                       <div className="flex flex-wrap gap-3">
-                        <span><span className="font-semibold text-foreground">{item.prompt_count}</span> prompts</span>
+                        <span><span className="font-semibold text-foreground">{item.prompt_count}</span> scénarios</span>
                         <span><span className="font-semibold text-foreground">{item.model_count}</span> candidats</span>
                         <span><span className="font-semibold text-foreground">{item.judge_count}</span> juges</span>
                         {detailedRun ? (
@@ -521,16 +519,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     ]);
   };
 
-  const resumeMutation = useMutation({
-    mutationFn: () => resumeRun(runId),
-    onSuccess: async () => {
-      await refreshRunData();
-    },
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Unable to resume run.");
-    },
-  });
-
   const confirmLocalMutation = useMutation({
     mutationFn: () => confirmLocalReady(runId),
     onSuccess: async (payload) => {
@@ -576,7 +564,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
       await refreshRunData();
     } catch (error) {
       setFeedback(
-        error instanceof ApiError ? error.message : "Unable to retry prompt response.",
+        error instanceof ApiError ? error.message : "Unable to retry scenario response.",
       );
     } finally {
       setRetryingResponseIds((current) => current.filter((item) => item !== responseId));
@@ -714,7 +702,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
     completedCandidateResponses === expectedResponses;
   const absoluteBatches = judging?.items.filter((b) => b.batch_type === "absolute") ?? [];
   const allAbsoluteComplete =
-    absoluteBatches.length > 0 && absoluteBatches.every((b) => b.status === "completed");
+    absoluteBatches.length > 0 && absoluteBatches.every(isJudgeBatchCompleted);
   const judgingReady =
     allCandidatesReady &&
     !!judging &&
@@ -786,7 +774,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                     <span className="mx-1.5 text-border/60">·</span>
                     <div className="flex items-center gap-1.5">
                       <span>
-                        <span className="font-semibold text-foreground">{selectedRun.prompt_snapshots.length}</span> prompts
+                        <span className="font-semibold text-foreground">{selectedRun.prompt_snapshots.length}</span> scénarios
                       </span>
                     </div>
                     <span className="mx-1.5 text-border/60">·</span>
@@ -827,18 +815,6 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    disabled={resumeMutation.isPending}
-                    onClick={() => resumeMutation.mutate()}
-                    variant="secondary"
-                  >
-                    <Play className="mr-2 h-4 w-4" />
-                    {selectedRun.candidate_response_count === 0
-                      ? "Start all endpoints"
-                      : "Resume all endpoints"}
-                  </Button>
-                </div>
               </div>
             </header>
 
@@ -1081,7 +1057,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
             <Card className="border-border/70 bg-white/95 p-5 shadow-sm">
               <SectionHeading
                 title="Phase 2 · Judging"
-                description="Cette phase se déverrouille uniquement quand tous les candidats ont fini tous les prompts."
+                description="Cette phase se déverrouille uniquement quand tous les candidats ont fini tous les scénarios."
               />
               {!allCandidatesReady ? (
                 <div className="mt-5">
@@ -1233,7 +1209,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           selectedResponse
             ? `Selected Response · ${
                 promptById(selectedRun?.prompt_snapshots ?? [], selectedResponse.prompt_snapshot_id)?.name ??
-                "Unknown prompt"
+                "Unknown scenario"
               }`
             : "Selected Response"
         }
@@ -1254,7 +1230,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
       </Modal>
 
       <Modal
-        description="Inspection détaillée du job de jugement sélectionné, avec le prompt, le payload, la réponse brute et le JSON parsé."
+        description="Inspection détaillée du job de jugement sélectionné, avec le scénario, le payload, la réponse brute et le JSON parsé."
         onClose={() => setIsJudgeModalOpen(false)}
         open={isJudgeModalOpen && selectedJudgeBatch !== null && selectedRun !== undefined}
         size="xxl"
@@ -1263,7 +1239,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
           selectedJudgeBatch
             ? `Judge Job · ${
                 promptById(selectedRun?.prompt_snapshots ?? [], selectedJudgeBatch.prompt_snapshot_id)
-                  ?.name ?? "Unknown prompt"
+                  ?.name ?? "Unknown scenario"
               }`
             : "Judge Job"
         }
@@ -1497,7 +1473,7 @@ function CandidateExecutionCard({
     if (runningCount > 0) {
       return {
         status: "running",
-        label: isLocal ? "running local prompts" : "running endpoint prompts",
+        label: isLocal ? "running local scenarios" : "running endpoint scenarios",
       };
     }
     if (isLocal && isCurrentLocal && localState && !localState.confirmed_ready) {
@@ -1791,7 +1767,7 @@ function ResponseInspector({
   return (
     <div className="mt-2 space-y-5 text-sm text-slate-900">
       <div className="grid gap-3 lg:grid-cols-4">
-        <SummaryStat label="Prompt" value={prompt?.name ?? "Unknown prompt"} />
+        <SummaryStat label="Scenario" value={prompt?.name ?? "Unknown scenario"} />
         <SummaryStat label="Candidate" value={model?.display_name ?? "Unknown model"} />
         <SummaryStat label="Status" value={response.status.replaceAll("_", " ")} />
         <SummaryStat
@@ -1811,16 +1787,16 @@ function ResponseInspector({
           <div className="space-y-5">
             <InspectorPanel
               accent="sky"
-              eyebrow="Prompt"
-              title={prompt?.name ?? "Unknown prompt"}
-              subtitle="Le prompt snapshot utilisé pour cette réponse."
+              eyebrow="Scenario"
+              title={prompt?.name ?? "Unknown scenario"}
+              subtitle="Snapshot de scénario utilisé pour cette réponse."
             >
               {prompt?.system_prompt_text ? (
-                <PromptBlock label="System Prompt" text={prompt.system_prompt_text} />
+                <PromptBlock label="System instruction" text={prompt.system_prompt_text} />
               ) : null}
               <PromptBlock
-                label="User Prompt"
-                text={prompt?.user_prompt_text ?? "No prompt text recorded."}
+                label="Rendered scenario"
+                text={prompt?.user_prompt_text ?? "No scenario text recorded."}
               />
               {prompt?.evaluation_notes ? (
                 <PromptBlock label="Evaluation Notes" text={prompt.evaluation_notes} />
@@ -1926,7 +1902,7 @@ function JudgeInspector({
   return (
     <div className="mt-2 space-y-5 text-sm text-slate-900">
       <div className="grid gap-3 lg:grid-cols-5">
-        <SummaryStat label="Prompt" value={prompt?.name ?? "Unknown prompt"} />
+        <SummaryStat label="Scenario" value={prompt?.name ?? "Unknown scenario"} />
         <SummaryStat label="Judge Model" value={judgeModel?.display_name ?? "Unknown model"} />
         <SummaryStat label="Job Type" value={batch.batch_type} />
         <SummaryStat label="Status" value={batch.status.replaceAll("_", " ")} />
@@ -1943,16 +1919,16 @@ function JudgeInspector({
         <div className="space-y-5">
           <InspectorPanel
             accent="sky"
-            eyebrow="Prompt"
-            title={prompt?.name ?? "Unknown prompt"}
+            eyebrow="Scenario"
+            title={prompt?.name ?? "Unknown scenario"}
             subtitle="Snapshot évalué par le juge pour ce job."
           >
             {prompt?.system_prompt_text ? (
-              <PromptBlock label="System Prompt" text={prompt.system_prompt_text} />
+              <PromptBlock label="System instruction" text={prompt.system_prompt_text} />
             ) : null}
             <PromptBlock
-              label="User Prompt"
-              text={prompt?.user_prompt_text ?? "No prompt text recorded."}
+              label="Rendered scenario"
+              text={prompt?.user_prompt_text ?? "No scenario text recorded."}
             />
             {prompt?.evaluation_notes ? (
               <PromptBlock label="Evaluation Notes" text={prompt.evaluation_notes} />
@@ -2233,16 +2209,12 @@ function PromptRankingMatrix({
   responses: CandidateResponse[];
   run: Run;
 }) {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const [matrixScale, setMatrixScale] = useState(1);
   const completedBatches = useMemo(
     () =>
       judging?.items.filter(
         (batch) =>
           batch.batch_type === "absolute" &&
-          batch.status === "completed" &&
-          batch.evaluation,
+          isJudgeBatchCompleted(batch),
       ) ?? [],
     [judging?.items],
   );
@@ -2258,6 +2230,7 @@ function PromptRankingMatrix({
     () => run.model_snapshots.filter((item) => item.role === "candidate"),
     [run.model_snapshots],
   );
+  const isCompactMatrix = columns.length >= 10;
 
   // For each prompt: Map<candidateId, rank>
   // #1 = top-3 absolute scorer with best arena win rate; rest sorted by absolute score
@@ -2314,61 +2287,11 @@ function PromptRankingMatrix({
     );
   }, [columns, completedBatches, judging?.items, candidates, responses]);
 
-  useEffect(() => {
-    if (completedBatches.length === 0 || candidates.length === 0) {
-      return;
-    }
-
-    const updateScale = () => {
-      const viewport = viewportRef.current;
-      const content = contentRef.current;
-
-      if (!viewport || !content) {
-        return;
-      }
-
-      const availableWidth = viewport.clientWidth;
-      const contentWidth = content.scrollWidth;
-
-      if (!availableWidth || !contentWidth) {
-        setMatrixScale(1);
-        return;
-      }
-
-      const nextScale = Math.min(
-        1,
-        availableWidth / contentWidth,
-      );
-
-      setMatrixScale(nextScale);
-    };
-
-    updateScale();
-
-    const resizeObserver = new ResizeObserver(() => {
-      updateScale();
-    });
-
-    if (viewportRef.current) {
-      resizeObserver.observe(viewportRef.current);
-    }
-
-    if (contentRef.current) {
-      resizeObserver.observe(contentRef.current);
-    }
-
-    window.addEventListener("resize", updateScale);
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateScale);
-    };
-  }, [candidates, completedBatches, columns]);
-
   if (completedBatches.length === 0 || candidates.length === 0) {
     return (
       <EmptyStatePanel
-        title="No prompt ranking yet"
-        description="Prompt-by-prompt ranking becomes available after absolute judge jobs complete."
+        title="No scenario ranking yet"
+        description="Scenario-by-scenario ranking becomes available after absolute judge jobs complete."
       />
     );
   }
@@ -2376,34 +2299,35 @@ function PromptRankingMatrix({
   return (
     <div className="space-y-4">
       <SectionHeading
-        title="Prompt Ranking Matrix"
+        title="Scenario Ranking Matrix"
       />
-      <div
-        ref={viewportRef}
-        className="overflow-x-hidden rounded-[1.25rem] border border-border/80 bg-white p-3"
-      >
-        <div
-          ref={contentRef}
-          className="origin-top-left"
-          style={{
-            transform: `scale(${matrixScale})`,
-            width: matrixScale < 1 ? `${100 / matrixScale}%` : "100%",
-          }}
-        >
+      <div className={cn(
+        "overflow-hidden rounded-[1.25rem] border border-border/80 bg-white",
+        isCompactMatrix ? "p-2" : "p-3",
+      )}>
+        <div className="max-w-full overflow-hidden">
           <table className="w-full table-fixed divide-y divide-border/80 text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>
-                <th className="w-[8.5rem] px-2 py-2 font-semibold">Model</th>
+                <th className={cn(
+                  "bg-slate-50 px-2 py-2 font-semibold",
+                  isCompactMatrix ? "w-[9rem]" : "w-[13rem]",
+                )}>
+                  Model
+                </th>
                 {columns.map(({ promptId }, index) => {
                   const prompt = promptById(run.prompt_snapshots, promptId);
                   return (
-                    <th key={promptId} className="px-1.5 py-2 font-semibold">
+                    <th key={promptId} className={cn("py-2 font-semibold", isCompactMatrix ? "px-0.5" : "px-1.5")}>
                       <div className="space-y-0.5 text-center">
-                        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        <p className={cn(
+                          "truncate font-semibold uppercase text-slate-400",
+                          isCompactMatrix ? "text-[9px]" : "text-[10px] tracking-[0.14em]",
+                        )}>
                           P{index + 1}
                         </p>
-                        <p className="truncate text-[11px] text-slate-700">
-                          {prompt?.name ?? `Prompt #${promptId}`}
+                        <p className={cn("truncate text-slate-700", isCompactMatrix ? "text-[10px]" : "text-[11px]")}>
+                          {prompt?.name ?? `Scenario #${promptId}`}
                         </p>
                       </div>
                     </th>
@@ -2414,12 +2338,15 @@ function PromptRankingMatrix({
             <tbody className="divide-y divide-border/70">
               {candidates.map((candidate) => (
                 <tr key={candidate.id}>
-                  <td className="bg-white px-2 py-1.5 align-middle">
+                  <td className={cn(
+                    "bg-white px-2 py-1.5 align-middle",
+                    isCompactMatrix ? "w-[9rem]" : "w-[13rem]",
+                  )}>
                     <div className="space-y-0.5">
-                      <p className="truncate text-xs font-medium text-slate-950">
+                      <p className={cn("truncate font-medium text-slate-950", isCompactMatrix ? "text-[11px]" : "text-xs")}>
                         {candidate.display_name}
                       </p>
-                      <p className="truncate text-[10px] text-slate-500">
+                      <p className={cn("truncate text-slate-500", isCompactMatrix ? "text-[9px]" : "text-[10px]")}>
                         {candidate.provider_type} / {candidate.runtime_type}
                       </p>
                     </div>
@@ -2439,8 +2366,11 @@ function PromptRankingMatrix({
 
                     if (evalEntries.length === 0) {
                       return (
-                        <td key={`${candidate.id}-${promptId}`} className="px-1.5 py-2">
-                          <div className="rounded-lg border border-dashed border-border/70 bg-slate-50 px-2 py-2 text-center text-[10px] text-slate-400">
+                        <td key={`${candidate.id}-${promptId}`} className={cn("py-2", isCompactMatrix ? "px-0.5" : "px-1.5")}>
+                          <div className={cn(
+                            "rounded-lg border border-dashed border-border/70 bg-slate-50 text-center text-slate-400",
+                            isCompactMatrix ? "px-1 py-1.5 text-[9px]" : "px-2 py-2 text-[10px]",
+                          )}>
                             —
                           </div>
                         </td>
@@ -2449,11 +2379,6 @@ function PromptRankingMatrix({
 
                     const scores = evalEntries.map((ec) => Number(ec.overall_score) || 0);
                     const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-                    // Best feedback = from highest-scoring judge
-                    const bestEntry = evalEntries.reduce((best, ec) =>
-                      (Number(ec.overall_score) || 0) >= (Number(best.overall_score) || 0) ? ec : best,
-                    );
-
                     const rank = promptRankings.get(promptId)?.get(candidate.id) ?? candidates.length;
                     const isFirst = rank === 1;
                     const isSecond = rank === 2;
@@ -2461,22 +2386,24 @@ function PromptRankingMatrix({
                     const displayScore = Math.round(avgScore);
 
                     return (
-                      <td key={`${candidate.id}-${promptId}`} className="px-1.5 py-1.5 align-middle">
+                      <td key={`${candidate.id}-${promptId}`} className={cn("align-middle", isCompactMatrix ? "px-0.5 py-1" : "px-1.5 py-1.5")}>
                         <div
                           className={cn(
-                            "flex items-center justify-center gap-2 rounded-xl border px-2",
+                            "flex items-center justify-between rounded-xl border",
+                            isCompactMatrix ? "h-[3.25rem] gap-0.5 px-1" : "h-[4.1rem] gap-1 px-2",
                             isFirst
-                              ? "border-blue-400 bg-gradient-to-b from-blue-500 to-blue-600 py-3 shadow-[0_10px_28px_-8px_rgba(59,130,246,0.65)]"
+                              ? "border-blue-400 bg-gradient-to-b from-blue-500 to-blue-600 shadow-[0_10px_28px_-8px_rgba(59,130,246,0.65)]"
                               : isSecond
-                              ? "border-violet-200 bg-gradient-to-b from-violet-50 to-violet-100/60 py-2"
+                              ? "border-violet-200 bg-gradient-to-b from-violet-50 to-violet-100/60"
                               : isThird
-                              ? "border-teal-200 bg-gradient-to-b from-teal-50/80 to-cyan-50/60 py-2"
-                              : "border-border/60 bg-slate-50 py-2",
+                              ? "border-teal-200 bg-gradient-to-b from-teal-50/80 to-cyan-50/60"
+                              : "border-border/60 bg-slate-50",
                           )}
                         >
                           <span
                             className={cn(
-                              "shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold",
+                              "shrink-0 rounded-full font-bold",
+                              isCompactMatrix ? "px-1 py-0.5 text-[9px]" : "px-1.5 py-0.5 text-[11px]",
                               isFirst
                                 ? "bg-blue-400/50 text-white"
                                 : isSecond
@@ -2490,14 +2417,14 @@ function PromptRankingMatrix({
                           </span>
                           <p
                             className={cn(
-                              "font-bold leading-none tracking-tight",
+                              "min-w-0 flex-1 text-right font-bold leading-none tracking-tight",
                               isFirst
-                                ? "text-[2.2rem] text-white"
+                                ? isCompactMatrix ? "text-[1.35rem] text-white" : "text-[1.9rem] text-white"
                                 : isSecond
-                                ? "text-3xl text-violet-900"
+                                ? isCompactMatrix ? "text-[1.25rem] text-violet-900" : "text-[1.65rem] text-violet-900"
                                 : isThird
-                                ? "text-3xl text-teal-800"
-                                : "text-3xl text-slate-300",
+                                ? isCompactMatrix ? "text-[1.25rem] text-teal-800" : "text-[1.65rem] text-teal-800"
+                                : isCompactMatrix ? "text-[1.25rem] text-slate-300" : "text-[1.65rem] text-slate-300",
                             )}
                           >
                             {formatScore(String(displayScore))}
@@ -2779,10 +2706,18 @@ function modelNameForCandidateResponse(
 
 function promptAggregateStatus(batches: JudgeBatch[]): string {
   if (batches.length === 0) return "pending";
-  if (batches.every((b) => b.status === "completed")) return "completed";
-  if (batches.some((b) => b.status === "failed")) return "failed";
-  if (batches.some((b) => b.status === "running")) return "running";
+  if (batches.every(isJudgeBatchCompleted)) return "completed";
+  if (batches.some((b) => !isJudgeBatchCompleted(b) && b.status === "failed")) return "failed";
+  if (batches.some((b) => !isJudgeBatchCompleted(b) && b.status === "running")) return "running";
   return "pending";
+}
+
+function judgeBatchDisplayStatus(batch: JudgeBatch): string {
+  return isJudgeBatchCompleted(batch) ? "completed" : batch.status;
+}
+
+function isJudgeBatchCompleted(batch: JudgeBatch): boolean {
+  return batch.status === "completed" || batch.evaluation !== null;
 }
 
 const DIFFICULTY_COLORS: Record<number, string> = {
@@ -3136,8 +3071,8 @@ function PromptJudgeResultsPanel({
                               ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
-                              <StatusPill status={isBatchRetrying ? "running" : batch.status} />
-                              {batch.status === "failed" && !isBatchRetrying ? (
+                              <StatusPill status={isBatchRetrying ? "running" : judgeBatchDisplayStatus(batch)} />
+                              {batch.status === "failed" && !batch.evaluation && !isBatchRetrying ? (
                                 <Button disabled={isJudgingActive} onClick={() => onRetryBatch(batch.id)} size="sm" variant="secondary">
                                   Retry
                                 </Button>
@@ -3211,9 +3146,9 @@ function PromptJudgeResultsPanel({
                   <div className="flex shrink-0 items-center gap-1.5">
                     <StatusPill
                       status={isBatchRetrying ? "running" : batch.status}
-                      title={batch.status === "failed" && batch.error_message ? batch.error_message : undefined}
+                      title={batch.status === "failed" && !batch.evaluation && batch.error_message ? batch.error_message : undefined}
                     />
-                    {batch.status === "failed" && !isBatchRetrying ? (
+                    {batch.status === "failed" && !batch.evaluation && !isBatchRetrying ? (
                       <Button disabled={isJudgingActive} onClick={(e) => { e.stopPropagation(); onRetryBatch(batch.id); }} size="sm" variant="secondary">
                         Retry
                       </Button>
@@ -3287,7 +3222,7 @@ function JudgeFeedbackPanel({
       <EmptyStatePanel
         title={
           batch.status === "running"
-            ? "Judge is evaluating this prompt"
+            ? "Judge is evaluating this scenario"
             : batch.status === "pending"
               ? "Judge job is queued"
               : "No parsed judge evaluation yet"
@@ -3295,7 +3230,7 @@ function JudgeFeedbackPanel({
         description={
           batch.error_message ??
           (batch.status === "running"
-            ? "Results will appear here as soon as this prompt is completed."
+            ? "Results will appear here as soon as this scenario is completed."
             : batch.status === "pending"
               ? "This job is waiting for its turn. Completed jobs can already be inspected while this one is queued."
               : "The selected job has not completed.")

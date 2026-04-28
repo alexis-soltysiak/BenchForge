@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import random
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -15,7 +17,10 @@ from app.core.database import get_session_factory
 from app.core.encryption import decrypt_value
 from app.features.aggregation.service import AggregationService
 from app.features.execution.adapters.anthropic import AnthropicAdapter
-from app.features.execution.adapters.base import BaseInferenceAdapter
+from app.features.execution.adapters.base import (
+    AdapterExecutionResult,
+    BaseInferenceAdapter,
+)
 from app.features.execution.adapters.huggingface import HuggingFaceAdapter
 from app.features.execution.adapters.openai_compatible import OpenAICompatibleAdapter
 from app.features.judging.models import (
@@ -32,13 +37,30 @@ from app.features.judging.schemas import (
 )
 from app.features.models_registry.models import ModelProfile
 from app.features.models_registry.repository import ModelProfileRepository
-from app.features.runs.models import CandidateResponse, SessionRun
+from app.features.runs.models import (
+    CandidateResponse,
+    SessionRun,
+    SessionRunPromptSnapshot,
+)
 
 JUDGE_SCHEMA_VERSION = "mvp-v1"
 ANONYMIZED_LABELS = ["A", "B", "C", "D", "E"]
 ABSOLUTE_BATCH_TYPE = "absolute"
 ARENA_BATCH_TYPE = "arena"
-JUDGING_MAX_CONCURRENCY = 5
+JUDGING_MAX_CONCURRENCY = max(
+    1,
+    int(os.getenv("BENCHFORGE_JUDGING_MAX_CONCURRENCY", "1")),
+)
+JUDGING_MAX_RETRIES = max(
+    0,
+    int(os.getenv("BENCHFORGE_JUDGING_MAX_RETRIES", "3")),
+)
+JUDGING_RETRY_BASE_DELAY_SECONDS = max(
+    0.0,
+    float(os.getenv("BENCHFORGE_JUDGING_RETRY_BASE_DELAY_SECONDS", "2.0")),
+)
+_JUDGING_RATE_LIMIT_LOCK = asyncio.Lock()
+_JUDGING_LAST_REQUEST_AT: dict[str, float] = {}
 
 
 class JudgingError(ValueError):
@@ -63,6 +85,7 @@ def serialize_judge_evaluation_candidate(
         weaknesses_text=candidate.weaknesses_text,
         short_feedback=candidate.short_feedback,
         detailed_feedback=candidate.detailed_feedback,
+        detailed_scores_jsonb=candidate.detailed_scores_jsonb,
         judge_confidence_score=(
             str(candidate.judge_confidence_score)
             if candidate.judge_confidence_score is not None
@@ -106,9 +129,7 @@ def serialize_judge_batch(batch: JudgeBatch) -> JudgeBatchRead:
         error_message=batch.error_message,
         estimated_cost=batch.estimated_cost,
         evaluation=(
-            serialize_judge_evaluation(batch.evaluation)
-            if batch.evaluation
-            else None
+            serialize_judge_evaluation(batch.evaluation) if batch.evaluation else None
         ),
     )
 
@@ -156,16 +177,25 @@ class JudgingService:
             raise JudgingError(f"Run {run_id} not found.")
 
         batches = list(await self.repository.list_batches(run_id))
+        retry_batch_ids: set[int] = set()
         for batch in batches:
-            if batch.status == "failed":
+            if batch.status == "failed" and not self._batch_has_judge_value(batch):
                 batch.status = "pending"
                 batch.error_message = None
                 batch.completed_at = None
+                retry_batch_ids.add(batch.id)
+
+        if not retry_batch_ids:
+            return self._serialize_run_judging(run, batches)
 
         run.status = "judging"
         await self.repository.commit()
 
-        absolute_failed = await self._run_pending_batches(run, ABSOLUTE_BATCH_TYPE)
+        absolute_failed = await self._run_pending_batches(
+            run,
+            ABSOLUTE_BATCH_TYPE,
+            allowed_batch_ids=retry_batch_ids,
+        )
 
         if absolute_failed:
             run.status = "failed"
@@ -173,10 +203,18 @@ class JudgingService:
         else:
             refreshed = list(await self.repository.list_batches(run.id))
             await self._ensure_arena_batches(run, refreshed)
-            await self._run_pending_batches(run, ARENA_BATCH_TYPE)
-            run.status = "aggregating"
-            await self.repository.commit()
-            await self._run_aggregation_stage(run.id)
+            arena_failed = await self._run_pending_batches(
+                run,
+                ARENA_BATCH_TYPE,
+                allowed_batch_ids=retry_batch_ids,
+            )
+            if arena_failed:
+                run.status = "failed"
+                await self.repository.commit()
+            else:
+                run.status = "aggregating"
+                await self.repository.commit()
+                await self._run_aggregation_stage(run.id)
 
         refreshed_batches = list(await self.repository.list_batches(run.id))
         return self._serialize_run_judging(run, refreshed_batches)
@@ -212,6 +250,9 @@ class JudgingService:
         batch = await self.repository.get_batch(batch_id)
         if batch is None or batch.run_id != run_id:
             raise JudgingError(f"Judge batch {batch_id} not found for run {run_id}.")
+        if self._batch_has_judge_value(batch):
+            refreshed_batches = list(await self.repository.list_batches(run.id))
+            return self._serialize_run_judging(run, refreshed_batches)
 
         batch.status = "pending"
         batch.error_message = None
@@ -330,14 +371,23 @@ class JudgingService:
         refreshed_batches = list(await self.repository.list_batches(run.id))
         return self._serialize_run_judging(run, refreshed_batches)
 
-    async def _run_pending_batches(self, run: SessionRun, batch_type: str) -> bool:
+    async def _run_pending_batches(
+        self,
+        run: SessionRun,
+        batch_type: str,
+        allowed_batch_ids: set[int] | None = None,
+    ) -> bool:
         batches = [
             batch
             for batch in await self.repository.list_batches(run.id)
             if batch.batch_type == batch_type
         ]
         pending_batch_ids = [
-            batch.id for batch in batches if batch.status != "completed"
+            batch.id
+            for batch in batches
+            if batch.status != "completed"
+            and not self._batch_has_judge_value(batch)
+            and (allowed_batch_ids is None or batch.id in allowed_batch_ids)
         ]
         if not pending_batch_ids:
             return False
@@ -350,7 +400,9 @@ class JudgingService:
             async with semaphore:
                 return await self._execute_batch_isolated(run.id, batch_id)
 
-        results = await asyncio.gather(*(run_one(batch_id) for batch_id in pending_batch_ids))
+        results = await asyncio.gather(
+            *(run_one(batch_id) for batch_id in pending_batch_ids)
+        )
         return any(result is not None for result in results)
 
     async def _execute_batch_isolated(self, run_id: int, batch_id: int) -> str | None:
@@ -365,7 +417,7 @@ class JudgingService:
             if batch is None or batch.run_id != run_id:
                 return f"Judge batch {batch_id} not found for run {run_id}."
 
-            if batch.status == "completed":
+            if service._batch_has_judge_value(batch):
                 return None
 
             try:
@@ -468,7 +520,10 @@ class JudgingService:
                         judge_snapshot.id,
                         tuple(reversed(candidate_ids)),
                     )
-                    if signature in existing_signatures or reverse_signature in existing_signatures:
+                    if (
+                        signature in existing_signatures
+                        or reverse_signature in existing_signatures
+                    ):
                         continue
                     batch = JudgeBatch(
                         run_id=run.id,
@@ -484,7 +539,9 @@ class JudgingService:
                     next_index += 1
         await self.repository.commit()
 
-    def _select_arena_pairs(self, absolute_batches: list[JudgeBatch]) -> list[tuple[int, int]]:
+    def _select_arena_pairs(
+        self, absolute_batches: list[JudgeBatch]
+    ) -> list[tuple[int, int]]:
         scored = sorted(
             [
                 (
@@ -510,7 +567,7 @@ class JudgingService:
             right_id = top[right_index][0]
             if left_id == right_id:
                 return
-            pair = tuple(sorted((left_id, right_id)))
+            pair = (min(left_id, right_id), max(left_id, right_id))
             if pair not in pairs:
                 pairs.append(pair)
 
@@ -521,7 +578,9 @@ class JudgingService:
                 append_pair(0, 2)
         return pairs
 
-    def _batch_signature(self, batch: JudgeBatch) -> tuple[str, int, int, tuple[int, ...]]:
+    def _batch_signature(
+        self, batch: JudgeBatch
+    ) -> tuple[str, int, int, tuple[int, ...]]:
         candidate_ids = json.loads(batch.randomized_candidate_ids_jsonb)
         return (
             batch.batch_type,
@@ -545,6 +604,9 @@ class JudgingService:
         return randomized_candidate_ids
 
     async def _execute_batch(self, run: SessionRun, batch: JudgeBatch) -> None:
+        if self._batch_has_judge_value(batch):
+            return
+
         judge_snapshot = next(
             item
             for item in run.model_snapshots
@@ -587,13 +649,14 @@ class JudgingService:
         batch.error_message = None
         await self.repository.commit()
 
-        result = await adapter.generate(
+        result = await self._generate_with_limits(
+            adapter,
+            model_profile,
             endpoint_url=judge_snapshot.endpoint_url,
             model_identifier=judge_snapshot.model_identifier,
             prompt_text=self._build_judge_prompt(
                 batch.batch_type,
-                prompt_snapshot.user_prompt_text,
-                prompt_snapshot.evaluation_notes,
+                prompt_snapshot,
                 anonymized,
             ),
             system_prompt_text=self._build_judge_system_prompt(batch.batch_type),
@@ -605,7 +668,9 @@ class JudgingService:
         batch.request_payload_jsonb = json.dumps(result.request_payload)
         batch.raw_response_text = result.raw_response_text
         batch.raw_response_jsonb = json.dumps(result.raw_response_json)
-        batch.estimated_cost = str(result.estimated_cost) if result.estimated_cost is not None else None
+        batch.estimated_cost = (
+            str(result.estimated_cost) if result.estimated_cost is not None else None
+        )
 
         parsed_payload = self._parse_judge_output(
             result.normalized_response_text,
@@ -625,6 +690,73 @@ class JudgingService:
             ],
         )
         await self.repository.commit()
+
+    def _batch_has_judge_value(self, batch: JudgeBatch) -> bool:
+        return batch.status == "completed" or batch.evaluation is not None
+
+    async def _generate_with_limits(
+        self,
+        adapter: BaseInferenceAdapter,
+        model_profile: ModelProfile,
+        **kwargs: Any,
+    ) -> AdapterExecutionResult:
+        for attempt in range(JUDGING_MAX_RETRIES + 1):
+            await self._wait_for_provider_slot(model_profile)
+            try:
+                return await adapter.generate(**kwargs)
+            except httpx.HTTPStatusError as exc:
+                if (
+                    not self._should_retry_http_error(exc)
+                    or attempt >= JUDGING_MAX_RETRIES
+                ):
+                    raise
+                await asyncio.sleep(self._retry_delay_seconds(exc, attempt))
+
+        raise JudgingError("Judge model request exhausted retries.")
+
+    async def _wait_for_provider_slot(self, model_profile: ModelProfile) -> None:
+        delay_seconds = self._provider_request_delay_seconds(model_profile)
+        if delay_seconds <= 0:
+            return
+
+        key = self._provider_rate_limit_key(model_profile)
+        async with _JUDGING_RATE_LIMIT_LOCK:
+            now = time.monotonic()
+            elapsed = now - _JUDGING_LAST_REQUEST_AT.get(key, 0.0)
+            wait_seconds = delay_seconds - elapsed
+            if wait_seconds > 0:
+                await asyncio.sleep(wait_seconds)
+            _JUDGING_LAST_REQUEST_AT[key] = time.monotonic()
+
+    def _provider_request_delay_seconds(self, model_profile: ModelProfile) -> float:
+        configured = os.getenv("BENCHFORGE_JUDGING_REQUEST_DELAY_SECONDS")
+        if configured is not None:
+            return max(0.0, float(configured))
+
+        api_style = (model_profile.api_style or "").strip().lower()
+        provider_type = (model_profile.provider_type or "").strip().lower()
+        if api_style == "anthropic" or provider_type == "anthropic":
+            return 1.0
+        return 0.0
+
+    def _provider_rate_limit_key(self, model_profile: ModelProfile) -> str:
+        provider_type = (model_profile.provider_type or "").strip().lower()
+        api_style = (model_profile.api_style or "").strip().lower()
+        return provider_type or api_style or "default"
+
+    def _should_retry_http_error(self, exc: httpx.HTTPStatusError) -> bool:
+        status_code = exc.response.status_code
+        return status_code == 429 or status_code in {500, 502, 503, 504}
+
+    def _retry_delay_seconds(self, exc: httpx.HTTPStatusError, attempt: int) -> float:
+        retry_after = exc.response.headers.get("retry-after")
+        if retry_after:
+            try:
+                return max(0.0, float(retry_after))
+            except ValueError:
+                pass
+        backoff = JUDGING_RETRY_BASE_DELAY_SECONDS * (2**attempt)
+        return backoff + random.uniform(0.0, 0.25)
 
     def _build_evaluation_candidate(
         self,
@@ -654,6 +786,7 @@ class JudgingService:
             detailed_feedback=self._optional_string(
                 candidate_payload.get("detailed_feedback")
             ),
+            detailed_scores_jsonb=candidate_payload.get("criterion_scores"),
             judge_confidence_score=(
                 self._to_confidence(candidate_payload["confidence"])
                 if candidate_payload.get("confidence") is not None
@@ -675,7 +808,9 @@ class JudgingService:
             key=lambda response: response.model_snapshot_id,
         )
 
-    def _effective_candidate_responses(self, run: SessionRun) -> list[CandidateResponse]:
+    def _effective_candidate_responses(
+        self, run: SessionRun
+    ) -> list[CandidateResponse]:
         by_pair: dict[tuple[int, int], CandidateResponse] = {}
 
         for response in run.candidate_responses:
@@ -704,7 +839,11 @@ class JudgingService:
         return candidate.id > current.id
 
     def _candidate_response_timestamp(self, response: CandidateResponse) -> datetime:
-        return response.completed_at or response.started_at or datetime.min.replace(tzinfo=UTC)
+        return (
+            response.completed_at
+            or response.started_at
+            or datetime.min.replace(tzinfo=UTC)
+        )
 
     def _response_for_id(
         self,
@@ -712,31 +851,33 @@ class JudgingService:
         candidate_response_id: int,
     ) -> CandidateResponse:
         return next(
-            response
-            for response in responses
-            if response.id == candidate_response_id
+            response for response in responses if response.id == candidate_response_id
         )
 
     def _build_judge_system_prompt(self, batch_type: str) -> str:
         if batch_type == ABSOLUTE_BATCH_TYPE:
             return (
                 "You are a strict benchmark judge. Return JSON only. "
-                "Evaluate a single candidate response on absolute merit against the prompt. "
-                "Use a 0 to 100 scoring scale for every score field, never a 1 to 10 scale. "
-                "Use confidence on an integer scale from 1 to 5, where 1 means low confidence and 5 means very high confidence."
+                "Evaluate a single candidate response on absolute merit against "
+                "the prompt. "
+                "Use a 0 to 100 scoring scale for every score field, never a "
+                "1 to 10 scale. "
+                "Use confidence on an integer scale from 1 to 5, where 1 means "
+                "low confidence and 5 means very high confidence."
             )
         return (
             "You are a strict benchmark arena judge. Return JSON only. "
-            "Compare the anonymized candidate responses head to head for the same benchmark prompt. "
-            "Score each candidate from 0 to 100, never use a 1 to 10 scale, rank them, and use confidence on an integer scale from 1 to 5. "
+            "Compare the anonymized candidate responses head to head for the "
+            "same benchmark prompt. "
+            "Score each candidate from 0 to 100, never use a 1 to 10 scale, "
+            "rank them, and use confidence on an integer scale from 1 to 5. "
             "Use 1 for near-ties and 5 for clear wins."
         )
 
     def _build_judge_prompt(
         self,
         batch_type: str,
-        prompt_text: str,
-        evaluation_notes: str | None,
+        prompt_snapshot: SessionRunPromptSnapshot,
         anonymized: dict[str, CandidateResponse],
     ) -> str:
         candidates_block = "\n\n".join(
@@ -746,41 +887,97 @@ class JudgingService:
             ]
         )
         evaluation_notes_block = (
-            f"\n\nEvaluation notes:\n{evaluation_notes}"
-            if evaluation_notes
+            f"\n\nEvaluation notes:\n{prompt_snapshot.evaluation_notes}"
+            if prompt_snapshot.evaluation_notes
             else ""
         )
+        scenario_context_block = self._build_scenario_judge_context(prompt_snapshot)
         if batch_type == ABSOLUTE_BATCH_TYPE:
             return (
-                "Evaluate the single anonymized candidate response for the benchmark prompt below."
+                "Evaluate the single anonymized candidate response for the "
+                "benchmark prompt below."
                 "\n\nBenchmark prompt:\n"
-                f"{prompt_text}"
+                f"{prompt_snapshot.user_prompt_text}"
                 f"{evaluation_notes_block}"
+                f"{scenario_context_block}"
                 "\n\nCandidate:\n"
                 f"{candidates_block}"
                 "\n\nImportant rules:\n"
-                "- Judge the response on absolute merit, not relative to imaginary alternatives.\n"
+                "- Judge the response on absolute merit, not relative to "
+                "imaginary alternatives.\n"
+                "- Do not reward verbosity; concise complete answers should "
+                "score higher than padded answers.\n"
+                "- Penalize hallucinated facts, invented constraints, invented "
+                "files, and claims unsupported by the prompt.\n"
+                "- Verify every explicit constraint and the expected output "
+                "format when provided.\n"
+                "- Check must_include and must_not_include facts when provided.\n"
+                "- Produce criterion_scores for scenario rubric criteria when "
+                "a rubric is provided.\n"
                 "- Every score must use the 0 to 100 scale, never 1 to 10.\n"
                 "- confidence must be an integer from 1 to 5.\n"
                 "\n\nReturn JSON with this exact shape:\n"
-                '{'
-                '"prompt_assessment":{"prompt_id":"string","batch_size":1,"candidates":[{"candidate_label":"A","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"ranking_in_batch":1,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1}]}}'
+                "{"
+                '"prompt_assessment":{"prompt_id":"string","batch_size":1,"candidates":[{"candidate_label":"A","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"criterion_scores":{"criterion_key":0},"ranking_in_batch":1,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1}]}}'
             )
         return (
             "Compare the anonymized candidate responses for the benchmark prompt below."
             "\n\nBenchmark prompt:\n"
-            f"{prompt_text}"
+            f"{prompt_snapshot.user_prompt_text}"
             f"{evaluation_notes_block}"
+            f"{scenario_context_block}"
             "\n\nCandidates:\n"
             f"{candidates_block}"
             "\n\nImportant rules:\n"
             "- Rank the stronger response first.\n"
-            "- Score each response from 0 to 100 based on correctness, instruction following, completeness, and clarity.\n"
+            "- Keep the top 3 ordering meaningful when more than two candidates "
+            "are compared.\n"
+            "- Score each response from 0 to 100 based on correctness, "
+            "instruction following, completeness, clarity, and any "
+            "scenario-specific rubric.\n"
+            "- Do not reward verbosity; penalize padded answers that add no "
+            "useful information.\n"
+            "- Penalize hallucinated facts, invented constraints, invented "
+            "files, and claims unsupported by the prompt.\n"
+            "- Verify every explicit constraint, expected output format, "
+            "must_include, and must_not_include item when provided.\n"
+            "- Produce criterion_scores for scenario rubric criteria when a "
+            "rubric is provided.\n"
             "- Never use a 1 to 10 scale for score fields.\n"
             "- confidence must be an integer from 1 to 5.\n"
             "\n\nReturn JSON with this exact shape:\n"
-            '{'
-            '"prompt_assessment":{"prompt_id":"string","batch_size":2,"candidates":[{"candidate_label":"A","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"ranking_in_batch":1,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1},{"candidate_label":"B","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"ranking_in_batch":2,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1}]}}'
+            "{"
+            '"prompt_assessment":{"prompt_id":"string","batch_size":2,"candidates":[{"candidate_label":"A","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"criterion_scores":{"criterion_key":0},"ranking_in_batch":1,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1},{"candidate_label":"B","overall_score":0,"relevance":0,"accuracy":0,"completeness":0,"clarity":0,"instruction_following":0,"criterion_scores":{"criterion_key":0},"ranking_in_batch":2,"strengths":[],"weaknesses":[],"short_feedback":"","detailed_feedback":"","confidence":1}]}}'
+        )
+
+    def _build_scenario_judge_context(
+        self,
+        prompt_snapshot: SessionRunPromptSnapshot,
+    ) -> str:
+        context: dict[str, Any] = {}
+        scenario_type = getattr(prompt_snapshot, "scenario_type", None)
+        constraints = getattr(prompt_snapshot, "constraints_jsonb", None)
+        expected_output_format = getattr(
+            prompt_snapshot, "expected_output_format", None
+        )
+        gold_facts = getattr(prompt_snapshot, "gold_facts_jsonb", None)
+        judge_rubric = getattr(prompt_snapshot, "judge_rubric_jsonb", None)
+        if scenario_type:
+            context["scenario_type"] = scenario_type
+        if constraints:
+            context["constraints"] = constraints
+        if expected_output_format:
+            context["expected_output_format"] = expected_output_format
+        if gold_facts:
+            context["gold_facts"] = gold_facts
+        if judge_rubric:
+            context["judge_rubric"] = judge_rubric
+        if not context:
+            return ""
+        return "\n\nScenario evaluation context:\n" + json.dumps(
+            context,
+            ensure_ascii=False,
+            indent=2,
         )
 
     def _parse_judge_output(
@@ -817,7 +1014,10 @@ class JudgingService:
                 raise JudgingError(
                     f"Duplicate candidate label {label!r} in judge output."
                 )
-            ranking = int(candidate.get("ranking_in_batch"))
+            ranking_value = candidate.get("ranking_in_batch")
+            if ranking_value is None:
+                raise JudgingError("Candidate assessment is missing ranking_in_batch.")
+            ranking = int(ranking_value)
             if ranking < 1 or ranking > len(anonymized):
                 raise JudgingError("ranking_in_batch is out of bounds.")
             if ranking in rankings:
@@ -851,6 +1051,11 @@ class JudgingService:
                     ),
                     "detailed_feedback": self._optional_string(
                         candidate.get("detailed_feedback")
+                    ),
+                    "criterion_scores": (
+                        candidate.get("criterion_scores")
+                        if isinstance(candidate.get("criterion_scores"), dict)
+                        else None
                     ),
                     "confidence": (
                         self._normalize_confidence(candidate.get("confidence"))
@@ -917,7 +1122,11 @@ class JudgingService:
             confidence = Decimal(str(value))
         except Exception as exc:  # noqa: BLE001
             raise JudgingError(f"Invalid confidence value: {value!r}.") from exc
-        if confidence != confidence.to_integral_value() or confidence < 1 or confidence > 5:
+        if (
+            confidence != confidence.to_integral_value()
+            or confidence < 1
+            or confidence > 5
+        ):
             raise JudgingError("Judge confidence must be an integer between 1 and 5.")
         return confidence.quantize(Decimal("0.01"))
 

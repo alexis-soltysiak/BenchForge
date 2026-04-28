@@ -1,7 +1,7 @@
 const en = {
   // Navigation
-  "nav.promptLibrary": "Prompt Library",
-  "nav.promptLibraryDesc": "Reusable prompt assets",
+  "nav.promptLibrary": "Scenario Library",
+  "nav.promptLibraryDesc": "Benchmark scenarios",
   "nav.modelRegistry": "Model Registry",
   "nav.modelRegistryDesc": "Profiles and endpoints",
   "nav.sessions": "Sessions",
@@ -100,18 +100,18 @@ const en = {
 
   // Home page
   "home.benchmarkStudio": "Benchmark studio",
-  "home.tagline": "Benchmark studio for prompts, models, sessions and runs.",
+  "home.tagline": "Benchmark studio for scenarios, models, sessions and runs.",
   "home.credits": "Credits",
-  "home.startWithPrompts": "Start with prompts",
+  "home.startWithPrompts": "Start with scenarios",
   "home.howItWorks": "How it works",
   "home.mainHeading":
-    "Build a readable benchmark path, from prompt to run.",
+    "Build a readable benchmark path, from scenario to run.",
   "home.mainDesc":
-    "BenchForge is a simple, self-hostable space to compare models using the same test base. You create prompts, register models, assemble sessions, then launch runs and read results.",
+    "BenchForge is a simple, self-hostable space to compare models using the same test base. You create scenarios, register models, assemble sessions, then launch runs and read results.",
   "home.exploreSessions": "Explore sessions",
   "home.viewRuns": "View runs",
   "home.configureModels": "Configure models",
-  "home.browsePrompts": "Browse prompts",
+  "home.browsePrompts": "Browse scenarios",
   "home.openSessions": "Open sessions",
   "home.feature.structured": "Structured",
   "home.feature.structuredDesc":
@@ -121,42 +121,42 @@ const en = {
     "Sessions let you rerun exactly the same base later.",
   "home.feature.readable": "Readable",
   "home.feature.readableDesc":
-    "The path from prompt to result stays visible at a glance.",
+    "The path from scenario to result stays visible at a glance.",
   "home.pipeline": "Pipeline",
-  "home.pipelineSubtitle": "Prompts, models, sessions, runs.",
+  "home.pipelineSubtitle": "Scenarios, models, sessions, runs.",
   "home.objectif": "Goal",
   "home.objectifValue": "Compare, decide, iterate.",
   "home.howToUseIt": "How to use it",
   "home.simplePathHeading": "A simple path from idea to evaluation.",
   "home.startingPoint": "Starting point",
   "home.startingPointHeading":
-    "Create prompts first, then let the rest of the pipeline follow.",
+    "Create scenarios first, then let the rest of the pipeline follow.",
   "home.startingPointDesc":
-    "The project is intentionally ordered. If the prompt layer is clean, the model registry, session builder, and results stay easy to understand.",
+    "The project is intentionally ordered. If the scenario library is clean, the model registry, session builder, and results stay easy to understand.",
   "home.readyToLaunch": "Ready to launch",
   "home.readyToLaunchHeading":
     "Compose a session and launch a run when the setup is stable.",
   "home.readyToLaunchDesc":
     "Sessions wrap the benchmark. Runs execute it. Result: reproducible comparisons, easy to audit and share.",
   "home.ctaDesc":
-    "BenchForge keeps the benchmark path visible from the first prompt to the final run.",
+    "BenchForge keeps the benchmark path visible from the first scenario to the final run.",
 
   // Flow steps
   "flow.prompts.subtitle": "Create the content to test",
   "flow.prompts.description":
-    "Centralize your prompts, variants, and execution rules to keep a clean, reusable base.",
+    "Centralize your scenarios, artifacts, and execution rules to keep a clean, reusable base.",
   "flow.models.subtitle": "Register the engines",
   "flow.models.description":
     "Register models, endpoints, and parameters to compare multiple providers or configurations.",
   "flow.sessions.subtitle": "Assemble the scenario",
   "flow.sessions.description":
-    "Combine prompts, models, candidates, and judges in a clear, replayable benchmark session.",
+    "Combine scenarios, models, candidates, and judges in a clear, replayable benchmark session.",
   "flow.runs.subtitle": "Launch and measure",
   "flow.runs.description":
     "The session produces a run: execution, tracking, arbitration, and result reading to decide fast and well.",
 
   // How it works steps
-  "howItWorks.step1.title": "Prepare prompts",
+  "howItWorks.step1.title": "Prepare scenarios",
   "howItWorks.step1.body":
     "Start by writing the problem, constraints, and variants to compare. BenchForge keeps everything structured.",
   "howItWorks.step2.title": "Connect models",
@@ -164,22 +164,22 @@ const en = {
     "Add one or more models, local or remote. You can then measure differences with the same test base.",
   "howItWorks.step3.title": "Compose a session",
   "howItWorks.step3.body":
-    "A session links prompts, models, and evaluation rules. It's your benchmark plan, not just a list of items.",
+    "A session links scenarios, models, and evaluation rules. It's your benchmark plan, not just a list of items.",
   "howItWorks.step4.title": "Launch a run",
   "howItWorks.step4.body":
     "The run executes the session, collects responses, and prepares result reading for clean comparisons.",
 
   // Prompt Library
-  "prompts.reusableAssets": "Reusable Assets",
-  "prompts.pageTitle": "Prompt Library",
-  "prompts.metricVisible": "Visible Prompts",
+  "prompts.reusableAssets": "Benchmark Assets",
+  "prompts.pageTitle": "Benchmark Scenarios",
+  "prompts.metricVisible": "Visible Scenarios",
   "prompts.metricCategories": "Categories",
   "prompts.metricSystemPacks": "System Packs",
   "prompts.searchPlaceholder": "Search names, descriptions, tags",
   "prompts.categoryLabel": "Category",
   "prompts.allCategories": "All categories",
   "prompts.chooseCategory": "Choose a category",
-  "prompts.chooseCategoryDesc": "Narrow the library to one family of prompts.",
+  "prompts.chooseCategoryDesc": "Narrow the library to one family of scenarios.",
   "prompts.tagsLabel": "Tags",
   "prompts.addOrRemoveTags": "Add or remove tags",
   "prompts.manageTags": "Manage tags",
@@ -193,9 +193,9 @@ const en = {
   "prompts.clickToAdd": "Click to add",
   "prompts.noTagsToSuggest": "No remaining tags to suggest.",
   "prompts.resetFilters": "Reset filters",
-  "prompts.showArchived": "Show archived prompts",
-  "prompts.showUnarchived": "Show unarchived prompts",
-  "prompts.newPrompt": "New prompt",
+  "prompts.showArchived": "Show archived scenarios",
+  "prompts.showUnarchived": "Show active scenarios",
+  "prompts.newPrompt": "New scenario",
   "prompts.filtered": "Filtered",
   "prompts.colName": "Name",
   "prompts.colCategory": "Category",
@@ -208,21 +208,21 @@ const en = {
   "prompts.statusArchived": "Archived",
   "prompts.statusActive": "Active",
   "prompts.statusInactive": "Inactive",
-  "prompts.loading": "Loading prompt library...",
-  "prompts.noArchivedYet": "No archived prompts yet.",
+  "prompts.loading": "Loading scenario library...",
+  "prompts.noArchivedYet": "No archived scenarios yet.",
   "prompts.emptySeeded":
-    "Built-in prompts are seeded automatically on first load. Refresh if the library is still empty.",
-  "prompts.noMatchingFilters": "No prompts match the current filters.",
-  "prompts.createModal.title": "Create prompt",
-  "prompts.editModal.title": "Edit prompt",
+    "Built-in scenarios are seeded automatically on first load. Refresh if the library is still empty.",
+  "prompts.noMatchingFilters": "No scenarios match the current filters.",
+  "prompts.createModal.title": "Create scenario",
+  "prompts.editModal.title": "Edit scenario",
   "prompts.modal.description":
-    "Create a reusable prompt or refine an existing one without leaving the library view.",
+    "Create a reusable scenario or refine an existing one without leaving the library view.",
   "prompts.form.name": "Name",
   "prompts.form.nameHint": 'Example: "Summarize a product launch email"',
   "prompts.form.namePlaceholder": "Summarize a product launch email",
   "prompts.form.category": "Category",
   "prompts.form.categoryHint":
-    "Select the closest prompt family used in the library.",
+    "Select the closest scenario family used in the library.",
   "prompts.form.description": "Description",
   "prompts.form.descriptionHint":
     'Example: "Short benchmark brief displayed in the library."',
@@ -231,12 +231,12 @@ const en = {
   "prompts.form.tags": "Tags",
   "prompts.form.tagsHint": 'Example: "summarization, writing, business"',
   "prompts.form.tagsPlaceholder": "Comma-separated tags",
-  "prompts.form.systemPrompt": "System prompt",
+  "prompts.form.systemPrompt": "System instruction",
   "prompts.form.systemPromptHint":
     'Example: "You are a precise analyst who writes concise answers."',
   "prompts.form.systemPromptPlaceholder":
     "You are a precise analyst who writes concise answers.",
-  "prompts.form.userPrompt": "User prompt",
+  "prompts.form.userPrompt": "User task",
   "prompts.form.userPromptHint":
     'Example: "Summarize the following text in 5 clear bullet points."',
   "prompts.form.userPromptPlaceholder":
@@ -246,17 +246,17 @@ const en = {
     'Example: "Check factual accuracy, structure and concise tone."',
   "prompts.form.evaluationNotesPlaceholder":
     "Check factual accuracy, structure and concise tone.",
-  "prompts.form.isActive": "Prompt available for upcoming sessions",
+  "prompts.form.isActive": "Scenario available for upcoming sessions",
   "prompts.form.isActiveNote":
-    "Keep this enabled when the prompt should remain selectable in future sessions.",
+    "Keep this enabled when the scenario should remain selectable in future sessions.",
   "prompts.form.cancel": "Cancel",
   "prompts.form.saveChanges": "Save changes",
-  "prompts.form.createPrompt": "Create prompt",
-  "prompts.feedback.updated": 'Prompt "{{name}}" updated.',
-  "prompts.feedback.created": 'Prompt "{{name}}" created.',
-  "prompts.feedback.archived": 'Prompt "{{name}}" archived.',
-  "prompts.feedback.errorSave": "Unable to save prompt.",
-  "prompts.feedback.errorArchive": "Unable to archive prompt.",
+  "prompts.form.createPrompt": "Create scenario",
+  "prompts.feedback.updated": 'Scenario "{{name}}" updated.',
+  "prompts.feedback.created": 'Scenario "{{name}}" created.',
+  "prompts.feedback.archived": 'Scenario "{{name}}" archived.',
+  "prompts.feedback.errorSave": "Unable to save scenario.",
+  "prompts.feedback.errorArchive": "Unable to archive scenario.",
 
   // Model Registry
   "models.connectionProfiles": "Connection Profiles",
@@ -376,8 +376,8 @@ const en = {
   "models.form.pricingPlaceholder": "Optional",
   "models.form.notes": "Notes",
   "models.form.notesHint":
-    'Example: "Use for fast draft generation on short prompts."',
-  "models.form.notesPlaceholder": "Use for fast draft generation on short prompts.",
+    'Example: "Use for fast draft generation on short scenarios."',
+  "models.form.notesPlaceholder": "Use for fast draft generation on short scenarios.",
   "models.form.localLoadInstructions": "Local load instructions",
   "models.form.localLoadInstructionsHint":
     'Example: "Launch Ollama, load the model, then click Confirm ready."',
@@ -400,7 +400,7 @@ const en = {
   "sessions.benchmarkSetup": "Benchmark Setup",
   "sessions.pageTitle": "Sessions",
   "sessions.metricVisible": "Visible Sessions",
-  "sessions.metricPromptLibrary": "Prompt Library",
+  "sessions.metricPromptLibrary": "Scenario Library",
   "sessions.metricModelRegistry": "Model Registry",
   "sessions.listTitle": "Sessions List",
   "sessions.searchPlaceholder": "Search sessions",
@@ -419,14 +419,14 @@ const en = {
   "sessions.loading": "Loading sessions...",
   "sessions.noArchivedYet": "No archived sessions yet.",
   "sessions.emptyState":
-    "No sessions found. Create a benchmark session with seeded prompts and registered models to launch your first run.",
+    "No sessions found. Create a benchmark session with seeded scenarios and registered models to launch your first run.",
   "sessions.noDescription": "No description",
-  "sessions.compositionPrompts": "{{count}} prompts",
+  "sessions.compositionPrompts": "{{count}} scenarios",
   "sessions.compositionCandidates": "{{count}} candidates",
   "sessions.compositionJudges": "{{count}} judges",
   "sessions.action.configure": "Configure",
   "sessions.action.configureDesc":
-    "Open the step-by-step selection flow for prompts, candidates, and judge.",
+    "Open the step-by-step selection flow for scenarios, candidates, and judge.",
   "sessions.action.edit": "Edit",
   "sessions.action.editDesc":
     "Edit the session name, description, status, and rubric version.",
@@ -435,7 +435,7 @@ const en = {
     "Create and start a new benchmark run from this session configuration.",
   "sessions.action.duplicate": "Duplicate",
   "sessions.action.duplicateDesc":
-    "Clone this session with its current prompts, candidates, and judge selections.",
+    "Clone this session with its current scenarios, candidates, and judge selections.",
   "sessions.action.archive": "Archive",
   "sessions.action.archiveDesc":
     "Archive this session so it disappears from the active list without deleting history.",
@@ -446,16 +446,14 @@ const en = {
   "sessions.configureModal.title": "Configure {{name}}",
   "sessions.configureModal.defaultTitle": "Configure session",
   "sessions.form.name": "Name",
-  "sessions.form.nameHint": 'Example: "Release Notes Benchmark - April"',
-  "sessions.form.namePlaceholder": "Release Notes Benchmark - April",
+  "sessions.form.nameHint": "",
+  "sessions.form.namePlaceholder": "Session name",
   "sessions.form.description": "Description",
-  "sessions.form.descriptionHint":
-    'Example: "Compare three models on product update summarization."',
-  "sessions.form.descriptionPlaceholder":
-    "Compare three models on product update summarization.",
+  "sessions.form.descriptionHint": "",
+  "sessions.form.descriptionPlaceholder": "Session objective or scope",
   "sessions.form.status": "Status",
-  "sessions.form.statusHint":
-    "Use Draft while configuring, then Ready when the session can be launched.",
+  "sessions.form.statusHint": "",
+  "sessions.form.saveBeforeContinue": "Save the session before continuing.",
   "sessions.form.status.draft": "Draft",
   "sessions.form.status.ready": "Ready",
   "sessions.form.status.archived": "Archived",
@@ -464,9 +462,9 @@ const en = {
   "sessions.form.cancel": "Cancel",
   "sessions.form.saveSession": "Save session",
   "sessions.form.createSession": "Create session",
-  "sessions.selection.prompts": "Prompts",
+  "sessions.selection.prompts": "Scenarios",
   "sessions.selection.promptsDesc":
-    "Choose the prompts included in this benchmark session.",
+    "Choose the scenarios included in this benchmark session.",
   "sessions.selection.candidates": "Candidates",
   "sessions.selection.candidatesDesc":
     "Attach the candidate models for this run configuration.",
@@ -474,7 +472,7 @@ const en = {
   "sessions.selection.judgesDesc": "Assign the judge model responsible for evaluation.",
   "sessions.selection.selected": "Selected",
   "sessions.selection.library": "Library",
-  "sessions.selection.noPromptsYet": "No prompts selected yet.",
+  "sessions.selection.noPromptsYet": "No scenarios selected yet.",
   "sessions.selection.noCandidatesYet": "No candidate models selected yet.",
   "sessions.selection.noJudgeYet": "No judge selected yet.",
   "sessions.selection.noItems": "No matching items available.",
@@ -495,8 +493,8 @@ const en = {
   "sessions.feedback.created": 'Session "{{name}}" created.',
   "sessions.feedback.archived": 'Session "{{name}}" archived.',
   "sessions.feedback.duplicated": 'Session duplicated as "{{name}}".',
-  "sessions.feedback.promptAdded": "Prompt added to session.",
-  "sessions.feedback.promptRemoved": "Prompt removed from session.",
+  "sessions.feedback.promptAdded": "Scenario added to session.",
+  "sessions.feedback.promptRemoved": "Scenario removed from session.",
   "sessions.feedback.candidateAdded": "Candidate added to session.",
   "sessions.feedback.candidateRemoved": "Candidate removed from session.",
   "sessions.feedback.judgeAdded": "Judge added to session.",

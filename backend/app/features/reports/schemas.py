@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -51,6 +52,7 @@ class ReportPromptCandidateRead(BaseModel):
     detailed_feedback: str | None
     strengths_text: str | None
     weaknesses_text: str | None
+    detailed_scores_jsonb: dict[str, Any] | None = None
 
 
 class ReportPromptSectionRead(BaseModel):
@@ -60,6 +62,14 @@ class ReportPromptSectionRead(BaseModel):
     system_prompt_text: str | None
     user_prompt_text: str
     evaluation_notes: str | None
+    scenario_type: str | None = None
+    constraints_jsonb: dict[str, Any] | list[Any] | None = None
+    gold_facts_jsonb: dict[str, Any] | None = None
+    judge_rubric_jsonb: dict[str, Any] | None = None
+    expected_output_format: str | None = None
+    cost_tier: str | None = None
+    weight: int | None = None
+    version: str | None = None
     candidates: list[ReportPromptCandidateRead]
 
 

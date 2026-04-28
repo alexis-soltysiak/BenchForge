@@ -12,6 +12,7 @@ async def test_aggregate_run_computes_summaries_and_moves_to_reporting() -> None
     created_summaries = []
     candidate_response_a = SimpleNamespace(
         id=100,
+        prompt_snapshot_id=10,
         model_snapshot_id=20,
         metric=SimpleNamespace(
             duration_ms=1000,
@@ -22,6 +23,7 @@ async def test_aggregate_run_computes_summaries_and_moves_to_reporting() -> None
     )
     candidate_response_b = SimpleNamespace(
         id=101,
+        prompt_snapshot_id=11,
         model_snapshot_id=21,
         metric=SimpleNamespace(
             duration_ms=800,

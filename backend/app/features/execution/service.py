@@ -153,26 +153,7 @@ class ExecutionService:
         if run is None:
             raise ExecutionError(f"Run {run_id} not found.")
 
-        run.status = "running_candidates"
         await self._ensure_candidate_response_rows(run)
-        remote_tasks: list[PreparedExecutionTask] = []
-        for response in run.candidate_responses:
-            model_snapshot = next(
-                item for item in run.model_snapshots if item.id == response.model_snapshot_id
-            )
-            if model_snapshot.role != "candidate":
-                continue
-            if model_snapshot.runtime_type != "remote":
-                continue
-            if response.status == "completed":
-                continue
-            remote_tasks.append(
-                await self._prepare_execution_task(run, response, model_snapshot)
-            )
-
-        if remote_tasks:
-            await self._execute_prepared_tasks(remote_tasks)
-        await self._advance_run_after_candidate_execution(run)
         refreshed = await self.repository.list_candidate_responses(run.id)
         return CandidateResponseListResponse(
             items=[serialize_candidate_response(item) for item in refreshed],

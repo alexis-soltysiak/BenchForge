@@ -7,6 +7,10 @@ class SessionPromptItem(BaseModel):
     id: int
     prompt_id: int
     prompt_name: str
+    category_name: str | None = None
+    cost_tier: str | None = None
+    estimated_input_tokens: int | None = None
+    scenario_type: str | None = None
     display_order: int
 
 

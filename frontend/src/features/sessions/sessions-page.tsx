@@ -806,7 +806,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
               <div className="flex min-h-0 gap-0">
                 <div className="w-56 shrink-0 space-y-5 border-r border-border/50 pr-6">
-                  <Field hint={t("sessions.form.nameHint")} label={t("sessions.form.name")}>
+                  <Field label={t("sessions.form.name")}>
                     <Input
                       placeholder={t("sessions.form.namePlaceholder")}
                       value={formState.name}
@@ -817,7 +817,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                     />
                   </Field>
 
-                  <Field hint={t("sessions.form.statusHint")} label={t("sessions.form.status")}>
+                  <Field label={t("sessions.form.status")}>
                     <Select
                       value={formState.status}
                       onChange={(event) => {
@@ -836,7 +836,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-5 pl-6">
-                  <Field hint={t("sessions.form.descriptionHint")} label={t("sessions.form.description")}>
+                  <Field label={t("sessions.form.description")}>
                     <Textarea
                       className="min-h-32"
                       placeholder={t("sessions.form.descriptionPlaceholder")}
@@ -864,7 +864,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
 
           {selectionStep !== "information" && !selectedSession ? (
             <div className="rounded-lg border border-primary/20 bg-primary/8 px-4 py-2.5 text-[0.82rem] text-primary">
-              {t("sessions.form.nameHint")}
+              {t("sessions.form.saveBeforeContinue")}
             </div>
           ) : null}
 
@@ -891,7 +891,15 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                   return {
                     id: item.id,
                     label: item.prompt_name,
-                    meta: prompt?.category.name ?? t("sessions.selection.orderPrefix", { order: item.display_order }),
+                    meta:
+                      [
+                        item.category_name ?? prompt?.category.name,
+                        item.cost_tier ? `cost ${item.cost_tier}` : null,
+                        item.estimated_input_tokens ? `${item.estimated_input_tokens} tok` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") ||
+                      t("sessions.selection.orderPrefix", { order: item.display_order }),
                     difficulty: prompt?.difficulty ?? null,
                   };
                 })}
@@ -903,7 +911,13 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                 items={availablePrompts.map((prompt) => ({
                   id: prompt.id,
                   label: prompt.name,
-                  meta: prompt.category.name,
+                  meta: [
+                    prompt.category.name,
+                    prompt.cost_tier ? `cost ${prompt.cost_tier}` : null,
+                    prompt.estimated_input_tokens ? `${prompt.estimated_input_tokens} tok` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
                   difficulty: prompt.difficulty,
                 }))}
                 onAdd={(promptId) =>

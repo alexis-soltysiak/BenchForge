@@ -78,6 +78,7 @@ async def get_or_create_tags(
 
 
 def serialize_prompt(prompt: Prompt) -> PromptRead:
+    scenario_type = prompt.scenario_type
     return PromptRead(
         id=prompt.id,
         name=prompt.name,
@@ -87,6 +88,20 @@ def serialize_prompt(prompt: Prompt) -> PromptRead:
         system_prompt_text=prompt.system_prompt_text,
         user_prompt_text=prompt.user_prompt_text,
         evaluation_notes=prompt.evaluation_notes,
+        scenario_type=scenario_type,
+        benchmark_type=scenario_type,
+        objective=prompt.objective,
+        context=prompt.context,
+        input_artifacts_jsonb=prompt.input_artifacts_jsonb,
+        constraints_jsonb=prompt.constraints_jsonb,
+        expected_behavior_jsonb=prompt.expected_behavior_jsonb,
+        gold_facts_jsonb=prompt.gold_facts_jsonb,
+        judge_rubric_jsonb=prompt.judge_rubric_jsonb,
+        estimated_input_tokens=prompt.estimated_input_tokens,
+        expected_output_format=prompt.expected_output_format,
+        cost_tier=prompt.cost_tier,
+        weight=prompt.weight,
+        version=prompt.version,
         tags=sorted(link.tag.name for link in prompt.tag_links),
         difficulty=prompt.difficulty,
         is_active=prompt.is_active,
@@ -137,6 +152,23 @@ class PromptService:
             system_prompt_text=payload.system_prompt_text,
             user_prompt_text=payload.user_prompt_text.strip(),
             evaluation_notes=payload.evaluation_notes,
+            scenario_type=payload.scenario_type or payload.benchmark_type,
+            objective=payload.objective.strip() if payload.objective else None,
+            context=payload.context.strip() if payload.context else None,
+            input_artifacts_jsonb=payload.input_artifacts_jsonb,
+            constraints_jsonb=payload.constraints_jsonb,
+            expected_behavior_jsonb=payload.expected_behavior_jsonb,
+            gold_facts_jsonb=payload.gold_facts_jsonb,
+            judge_rubric_jsonb=payload.judge_rubric_jsonb,
+            estimated_input_tokens=payload.estimated_input_tokens,
+            expected_output_format=(
+                payload.expected_output_format.strip()
+                if payload.expected_output_format
+                else None
+            ),
+            cost_tier=payload.cost_tier,
+            weight=payload.weight,
+            version=payload.version,
             difficulty=payload.difficulty,
             is_active=payload.is_active,
             is_archived=False,
@@ -180,6 +212,36 @@ class PromptService:
             prompt.user_prompt_text = updates["user_prompt_text"].strip()
         if "evaluation_notes" in updates:
             prompt.evaluation_notes = updates["evaluation_notes"]
+        if "scenario_type" in updates or "benchmark_type" in updates:
+            prompt.scenario_type = updates.get("scenario_type") or updates.get("benchmark_type")
+        if "objective" in updates:
+            prompt.objective = updates["objective"].strip() if updates["objective"] else None
+        if "context" in updates:
+            prompt.context = updates["context"].strip() if updates["context"] else None
+        if "input_artifacts_jsonb" in updates:
+            prompt.input_artifacts_jsonb = updates["input_artifacts_jsonb"]
+        if "constraints_jsonb" in updates:
+            prompt.constraints_jsonb = updates["constraints_jsonb"]
+        if "expected_behavior_jsonb" in updates:
+            prompt.expected_behavior_jsonb = updates["expected_behavior_jsonb"]
+        if "gold_facts_jsonb" in updates:
+            prompt.gold_facts_jsonb = updates["gold_facts_jsonb"]
+        if "judge_rubric_jsonb" in updates:
+            prompt.judge_rubric_jsonb = updates["judge_rubric_jsonb"]
+        if "estimated_input_tokens" in updates:
+            prompt.estimated_input_tokens = updates["estimated_input_tokens"]
+        if "expected_output_format" in updates:
+            prompt.expected_output_format = (
+                updates["expected_output_format"].strip()
+                if updates["expected_output_format"]
+                else None
+            )
+        if "cost_tier" in updates:
+            prompt.cost_tier = updates["cost_tier"]
+        if "weight" in updates:
+            prompt.weight = updates["weight"]
+        if "version" in updates:
+            prompt.version = updates["version"]
         if "is_active" in updates and updates["is_active"] is not None:
             prompt.is_active = updates["is_active"]
         if "difficulty" in updates:
@@ -229,6 +291,19 @@ class PromptService:
                 existing.system_prompt_text = seed.system_prompt_text
                 existing.user_prompt_text = seed.user_prompt_text
                 existing.evaluation_notes = seed.evaluation_notes
+                existing.scenario_type = seed.scenario_type
+                existing.objective = seed.objective
+                existing.context = seed.context
+                existing.input_artifacts_jsonb = list(seed.input_artifacts_jsonb)
+                existing.constraints_jsonb = seed.constraints_jsonb
+                existing.expected_behavior_jsonb = seed.expected_behavior_jsonb
+                existing.gold_facts_jsonb = seed.gold_facts_jsonb
+                existing.judge_rubric_jsonb = seed.judge_rubric_jsonb
+                existing.estimated_input_tokens = seed.estimated_input_tokens
+                existing.expected_output_format = seed.expected_output_format
+                existing.cost_tier = seed.cost_tier
+                existing.weight = seed.weight
+                existing.version = seed.version
                 existing.difficulty = seed.difficulty
                 continue
 
@@ -245,6 +320,19 @@ class PromptService:
                 system_prompt_text=seed.system_prompt_text,
                 user_prompt_text=seed.user_prompt_text,
                 evaluation_notes=seed.evaluation_notes,
+                scenario_type=seed.scenario_type,
+                objective=seed.objective,
+                context=seed.context,
+                input_artifacts_jsonb=list(seed.input_artifacts_jsonb),
+                constraints_jsonb=seed.constraints_jsonb,
+                expected_behavior_jsonb=seed.expected_behavior_jsonb,
+                gold_facts_jsonb=seed.gold_facts_jsonb,
+                judge_rubric_jsonb=seed.judge_rubric_jsonb,
+                estimated_input_tokens=seed.estimated_input_tokens,
+                expected_output_format=seed.expected_output_format,
+                cost_tier=seed.cost_tier,
+                weight=seed.weight,
+                version=seed.version,
                 difficulty=seed.difficulty,
                 is_active=True,
                 is_archived=False,

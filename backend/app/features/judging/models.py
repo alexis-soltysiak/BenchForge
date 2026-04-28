@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.models import Base, CreatedAtMixin
+
+if TYPE_CHECKING:
+    from app.features.runs.models import SessionRun
 
 
 class JudgeBatch(Base):
@@ -111,6 +115,7 @@ class JudgeEvaluationCandidate(Base):
     weaknesses_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     short_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
     detailed_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detailed_scores_jsonb: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     judge_confidence_score: Mapped[Decimal | None] = mapped_column(
         Numeric(5, 2),
         nullable=True,

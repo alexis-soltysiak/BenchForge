@@ -149,6 +149,121 @@ async def test_retry_local_candidate_response_allows_missing_current_confirmatio
 
 
 @pytest.mark.asyncio
+async def test_start_remote_candidate_only_executes_selected_model() -> None:
+    service = ExecutionService(SimpleNamespace())
+    selected_response = SimpleNamespace(
+        id=101,
+        run_id=5,
+        prompt_snapshot_id=11,
+        model_snapshot_id=21,
+        status="pending",
+        request_payload_jsonb=None,
+        raw_response_text=None,
+        normalized_response_text=None,
+        raw_response_jsonb=None,
+        started_at=None,
+        completed_at=None,
+        retry_count=0,
+        error_message=None,
+        metric=None,
+    )
+    other_response = SimpleNamespace(
+        id=102,
+        run_id=5,
+        prompt_snapshot_id=11,
+        model_snapshot_id=22,
+        status="pending",
+        request_payload_jsonb=None,
+        raw_response_text=None,
+        normalized_response_text=None,
+        raw_response_jsonb=None,
+        started_at=None,
+        completed_at=None,
+        retry_count=0,
+        error_message=None,
+        metric=None,
+    )
+    selected_model = SimpleNamespace(
+        id=21,
+        run_id=5,
+        source_model_profile_id=201,
+        role="candidate",
+        display_name="Selected",
+        provider_type="openai",
+        api_style="openai_compatible",
+        runtime_type="remote",
+        machine_label=None,
+        endpoint_url="https://selected.test",
+        model_identifier="selected",
+        timeout_seconds=60,
+        context_window=None,
+        pricing_input_per_million=None,
+        pricing_output_per_million=None,
+        local_load_instructions=None,
+    )
+    other_model = SimpleNamespace(
+        id=22,
+        run_id=5,
+        source_model_profile_id=202,
+        role="candidate",
+        display_name="Other",
+        provider_type="openai",
+        api_style="openai_compatible",
+        runtime_type="remote",
+        machine_label=None,
+        endpoint_url="https://other.test",
+        model_identifier="other",
+        timeout_seconds=60,
+        context_window=None,
+        pricing_input_per_million=None,
+        pricing_output_per_million=None,
+        local_load_instructions=None,
+    )
+    run = SimpleNamespace(
+        id=5,
+        status="pending",
+        prompt_snapshots=[SimpleNamespace(id=11)],
+        model_snapshots=[selected_model, other_model],
+        candidate_responses=[selected_response, other_response],
+    )
+    executed_response_ids: list[int] = []
+
+    class Repository:
+        async def get_run(self, run_id: int):
+            return run
+
+        async def get_model_snapshot(self, run_id: int, model_snapshot_id: int):
+            return next(
+                item for item in run.model_snapshots if item.id == model_snapshot_id
+            )
+
+        async def list_candidate_responses(self, run_id: int):
+            return run.candidate_responses
+
+    async def fake_prepare_execution_task(run_arg, response, model_snapshot):
+        return SimpleNamespace(response=response)
+
+    async def fake_execute_prepared_tasks(tasks):
+        for task in tasks:
+            executed_response_ids.append(task.response.id)
+            task.response.status = "completed"
+
+    async def fake_advance_run_after_candidate_execution(run_arg):
+        return None
+
+    service.repository = Repository()  # type: ignore[assignment]
+    service._prepare_execution_task = fake_prepare_execution_task  # type: ignore[method-assign]
+    service._execute_prepared_tasks = fake_execute_prepared_tasks  # type: ignore[method-assign]
+    service._advance_run_after_candidate_execution = fake_advance_run_after_candidate_execution  # type: ignore[method-assign]
+
+    await service.start_remote_candidate(5, 21)
+
+    assert executed_response_ids == [101]
+    assert selected_response.status == "completed"
+    assert other_response.status == "pending"
+
+
+@pytest.mark.asyncio
 async def test_advance_run_after_candidate_execution_marks_ready_for_manual_judging() -> None:
     service = ExecutionService(SimpleNamespace())
     run = SimpleNamespace(

@@ -2,6 +2,10 @@ export type SessionPromptItem = {
   id: number;
   prompt_id: number;
   prompt_name: string;
+  category_name: string | null;
+  cost_tier: string | null;
+  estimated_input_tokens: number | null;
+  scenario_type: string | null;
   display_order: number;
 };
 
