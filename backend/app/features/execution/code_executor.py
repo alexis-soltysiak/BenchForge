@@ -8,6 +8,15 @@ import sys
 import tempfile
 import textwrap
 
+import docker
+
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+SANDBOX_IMAGE = "python:3.12-slim"
+SANDBOX_MEMORY_LIMIT = "128m"
+
 
 def run_code_tests(response_text: str, hidden_tests: list[dict]) -> int:
     """Run hidden unit tests against code extracted from a model response.
@@ -30,6 +39,58 @@ def run_code_tests(response_text: str, hidden_tests: list[dict]) -> int:
     code = _extract_python_block(response_text)
     harness = _build_harness(code, valid_tests)
 
+    try:
+        return _run_with_docker(harness)
+    except Exception as exc:
+        logger.warning("Docker unavailable, falling back to subprocess: %s", exc)
+        return _run_with_subprocess(harness)
+
+
+def _run_with_docker(harness: str) -> int:
+    """Run harness in an isolated Docker container.
+
+    Raises on Docker infrastructure failure; returns 0/1/2 on execution result.
+    """
+    client = docker.from_env()
+    container = client.containers.create(
+        SANDBOX_IMAGE,
+        ["python", "-c", harness],
+        network_disabled=True,
+        mem_limit=SANDBOX_MEMORY_LIMIT,
+    )
+    try:
+        container.start()
+        try:
+            result = container.wait(timeout=10)
+        except Exception:
+            try:
+                container.kill()
+            except Exception:
+                pass
+            return 0
+        if result["StatusCode"] != 0:
+            return 0
+        try:
+            output = container.logs(stdout=True, stderr=False)
+        except Exception:
+            return 0
+        try:
+            data = json.loads(output)
+        except (json.JSONDecodeError, ValueError):
+            return 0
+        passed_list = data.get("passed", [])
+        if not isinstance(passed_list, list) or not passed_list:
+            return 0
+        return 2 if all(passed_list) else 1
+    finally:
+        try:
+            container.remove(force=True)
+        except Exception:
+            pass
+
+
+def _run_with_subprocess(harness: str) -> int:
+    """Run harness in a local subprocess (fallback when Docker is unavailable)."""
     tmp_path: str | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -84,7 +145,6 @@ def _extract_python_block(text: str) -> str:
     if start == -1:
         return text
     code_start = start + len(start_marker)
-    # Require the closing ``` to be at the start of a line (preceded by \n)
     end = text.find("\n```", code_start)
     if end == -1:
         return text[code_start:]
