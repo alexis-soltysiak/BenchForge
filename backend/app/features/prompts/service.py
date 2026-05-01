@@ -305,6 +305,8 @@ class PromptService:
                 existing.weight = seed.weight
                 existing.version = seed.version
                 existing.difficulty = seed.difficulty
+                existing.test_cases_visible_jsonb = list(seed.test_cases_visible) if seed.test_cases_visible else None
+                existing.test_cases_hidden_jsonb = list(seed.test_cases_hidden) if seed.test_cases_hidden else None
                 continue
 
             category = await self.repository.get_category_by_slug(seed.category_slug)
@@ -334,6 +336,8 @@ class PromptService:
                 weight=seed.weight,
                 version=seed.version,
                 difficulty=seed.difficulty,
+                test_cases_visible_jsonb=list(seed.test_cases_visible) if seed.test_cases_visible else None,
+                test_cases_hidden_jsonb=list(seed.test_cases_hidden) if seed.test_cases_hidden else None,
                 is_active=True,
                 is_archived=False,
             )

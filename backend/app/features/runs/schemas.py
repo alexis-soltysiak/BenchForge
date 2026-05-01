@@ -26,6 +26,7 @@ class RunPromptSnapshotRead(BaseModel):
     cost_tier: str | None = None
     weight: int | None = None
     version: str | None = None
+    test_cases_visible_jsonb: list[dict[str, Any]] | None = None
     snapshot_order: int
     difficulty: int | None = None
 

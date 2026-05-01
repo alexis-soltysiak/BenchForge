@@ -63,6 +63,7 @@ def serialize_prompt_snapshot(
         cost_tier=snapshot.cost_tier,
         weight=snapshot.weight,
         version=snapshot.version,
+        test_cases_visible_jsonb=snapshot.test_cases_visible_jsonb,
         snapshot_order=snapshot.snapshot_order,
         difficulty=difficulty,
     )
@@ -310,6 +311,8 @@ class RunService:
             cost_tier=prompt.cost_tier,
             weight=prompt.weight,
             version=prompt.version,
+            test_cases_visible_jsonb=prompt.test_cases_visible_jsonb,
+            test_cases_hidden_jsonb=prompt.test_cases_hidden_jsonb,
             snapshot_order=snapshot_order,
         )
 

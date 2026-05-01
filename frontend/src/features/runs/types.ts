@@ -104,6 +104,7 @@ export type CandidateResponse = {
   retry_count: number;
   error_message: string | null;
   metric: CandidateResponseMetric | null;
+  execution_tier: number | null;
 };
 
 export type CandidateResponseListResponse = {

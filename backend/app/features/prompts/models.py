@@ -81,6 +81,8 @@ class Prompt(Base, TimestampMixin):
     cost_tier: Mapped[str | None] = mapped_column(String(32), nullable=True)
     weight: Mapped[int | None] = mapped_column(Integer, nullable=True)
     version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    test_cases_visible_jsonb: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    test_cases_hidden_jsonb: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

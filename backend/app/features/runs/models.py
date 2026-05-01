@@ -100,6 +100,8 @@ class SessionRunPromptSnapshot(Base):
     cost_tier: Mapped[str | None] = mapped_column(String(32), nullable=True)
     weight: Mapped[int | None] = mapped_column(Integer, nullable=True)
     version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    test_cases_visible_jsonb: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    test_cases_hidden_jsonb: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     snapshot_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
     run: Mapped[SessionRun] = relationship(back_populates="prompt_snapshots")
@@ -184,6 +186,7 @@ class CandidateResponse(Base):
         server_default="0",
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    execution_tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     run: Mapped[SessionRun] = relationship(back_populates="candidate_responses")
     model_snapshot: Mapped[SessionRunModelSnapshot] = relationship(

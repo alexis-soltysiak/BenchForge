@@ -3335,6 +3335,7 @@ function JudgeCandidateCard({
       candidate={candidate}
       model={model}
       onOpenResponse={response ? () => onSelectResponse(response.id) : undefined}
+      executionTier={response?.execution_tier ?? null}
     />
   );
 }
@@ -3399,12 +3400,39 @@ function FeedbackBlock({
   );
 }
 
+function ExecutionTierBadge({ tier }: { tier: number | null }) {
+  if (tier === 2) {
+    return (
+      <Badge className="whitespace-nowrap bg-emerald-100 text-emerald-800 text-[0.7rem]">
+        Execution: Pass
+      </Badge>
+    );
+  }
+  if (tier === 1) {
+    return (
+      <Badge className="whitespace-nowrap bg-amber-100 text-amber-800 text-[0.7rem]">
+        Execution: Partial
+      </Badge>
+    );
+  }
+  if (tier === 0) {
+    return (
+      <Badge className="whitespace-nowrap bg-rose-100 text-rose-800 text-[0.7rem]">
+        Execution: Fail
+      </Badge>
+    );
+  }
+  return null;
+}
+
 function CandidateFeedbackAccordion({
   candidate,
+  executionTier = null,
   model,
   onOpenResponse,
 }: {
   candidate: JudgeEvaluationCandidate;
+  executionTier?: number | null;
   model: RunModelSnapshot | undefined;
   onOpenResponse?: () => void;
 }) {
@@ -3451,6 +3479,7 @@ function CandidateFeedbackAccordion({
           <span className="truncate text-xs text-slate-400">
             {model ? `${model.provider_type} / ${model.runtime_type}` : ""}
           </span>
+          <ExecutionTierBadge tier={executionTier} />
         </div>
         <div className="mt-2 grid grid-cols-[2rem_repeat(6,minmax(0,1fr))_4px_minmax(0,1fr)] items-stretch gap-1.5">
           <button

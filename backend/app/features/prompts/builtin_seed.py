@@ -28,6 +28,8 @@ class BuiltinPromptSeed:
     cost_tier: str | None = "low"
     weight: int | None = 1
     version: str | None = "1.0"
+    test_cases_visible: tuple[dict, ...] | None = None
+    test_cases_hidden: tuple[dict, ...] | None = None
 
 
 def rubric(*keys: str) -> dict[str, Any]:
@@ -1333,5 +1335,108 @@ Name should be usable in English and French sales conversations.
         cost_tier="low",
         weight=2,
         version="2.0",
+    ),
+    BuiltinPromptSeed(
+        slug="code-gen-reverse-words",
+        name="Reverse words in a sentence",
+        category_slug="code_generation",
+        description="Implement a function that reverses the word order of a sentence.",
+        scenario_type="code_generation",
+        objective="Complete the Python function stub so that it reverses the order of words in the input sentence.",
+        user_prompt_text="""Complete the Python function below:
+
+def reverse_words(sentence: str) -> str:
+    \"\"\"Return the sentence with word order reversed.
+
+    Example:
+        >>> reverse_words("hello world")
+        'world hello'
+    \"\"\"
+""",
+        evaluation_notes="A correct solution splits on whitespace and reverses the word list.",
+        tags=("benchmark", "code-generation", "strings"),
+        difficulty=2,
+        estimated_input_tokens=120,
+        cost_tier="low",
+        weight=1,
+        version="1.0",
+        test_cases_visible=(
+            {"fn": "reverse_words", "args": ["hello world"], "kwargs": {}, "expected": "world hello"},
+        ),
+        test_cases_hidden=(
+            {"fn": "reverse_words", "args": ["one two three"], "kwargs": {}, "expected": "three two one"},
+            {"fn": "reverse_words", "args": ["single"], "kwargs": {}, "expected": "single"},
+            {"fn": "reverse_words", "args": ["a b c d"], "kwargs": {}, "expected": "d c b a"},
+        ),
+    ),
+    BuiltinPromptSeed(
+        slug="code-gen-sum-even-numbers",
+        name="Sum even numbers in a list",
+        category_slug="code_generation",
+        description="Implement a function that returns the sum of all even numbers in a list.",
+        scenario_type="code_generation",
+        objective="Complete the Python function stub so that it returns the sum of all even integers in the input list.",
+        user_prompt_text="""Complete the Python function below:
+
+def sum_even(numbers: list[int]) -> int:
+    \"\"\"Return the sum of all even numbers in the list.
+
+    Example:
+        >>> sum_even([1, 2, 3, 4])
+        6
+    \"\"\"
+""",
+        evaluation_notes="A correct solution filters for even numbers (n % 2 == 0) and sums them.",
+        tags=("benchmark", "code-generation", "lists", "math"),
+        difficulty=2,
+        estimated_input_tokens=120,
+        cost_tier="low",
+        weight=1,
+        version="1.0",
+        test_cases_visible=(
+            {"fn": "sum_even", "args": [[1, 2, 3, 4]], "kwargs": {}, "expected": 6},
+        ),
+        test_cases_hidden=(
+            {"fn": "sum_even", "args": [[]], "kwargs": {}, "expected": 0},
+            {"fn": "sum_even", "args": [[1, 3, 5]], "kwargs": {}, "expected": 0},
+            {"fn": "sum_even", "args": [[2, 4, 6]], "kwargs": {}, "expected": 12},
+            {"fn": "sum_even", "args": [[-2, -1, 0, 1]], "kwargs": {}, "expected": -2},
+        ),
+    ),
+    BuiltinPromptSeed(
+        slug="code-gen-count-vowels",
+        name="Count vowels in a string",
+        category_slug="code_generation",
+        description="Implement a function that counts the number of vowels in a string.",
+        scenario_type="code_generation",
+        objective="Complete the Python function stub so that it counts vowels (a, e, i, o, u) case-insensitively.",
+        user_prompt_text="""Complete the Python function below:
+
+def count_vowels(text: str) -> int:
+    \"\"\"Return the number of vowel characters (a, e, i, o, u) in text.
+
+    Case-insensitive.
+
+    Example:
+        >>> count_vowels("Hello")
+        2
+    \"\"\"
+""",
+        evaluation_notes="A correct solution checks each character against the set of vowels, case-insensitively.",
+        tags=("benchmark", "code-generation", "strings"),
+        difficulty=2,
+        estimated_input_tokens=130,
+        cost_tier="low",
+        weight=1,
+        version="1.0",
+        test_cases_visible=(
+            {"fn": "count_vowels", "args": ["Hello"], "kwargs": {}, "expected": 2},
+        ),
+        test_cases_hidden=(
+            {"fn": "count_vowels", "args": [""], "kwargs": {}, "expected": 0},
+            {"fn": "count_vowels", "args": ["rhythm"], "kwargs": {}, "expected": 0},
+            {"fn": "count_vowels", "args": ["AEIOU"], "kwargs": {}, "expected": 5},
+            {"fn": "count_vowels", "args": ["BenchForge"], "kwargs": {}, "expected": 3},
+        ),
     ),
 )

@@ -29,6 +29,7 @@ class CandidateResponseRead(BaseModel):
     retry_count: int
     error_message: str | None
     metric: CandidateResponseMetricRead | None
+    execution_tier: int | None = None
 
 
 class CandidateResponseListResponse(BaseModel):
