@@ -9,6 +9,10 @@ import type {
   RunListResponse,
 } from "@/features/runs/types";
 
+export function deleteRun(runId: number): Promise<void> {
+  return apiRequest<void>(`/runs/${runId}`, { method: "DELETE" });
+}
+
 export function fetchRuns(): Promise<RunListResponse> {
   return apiRequest<RunListResponse>("/runs");
 }

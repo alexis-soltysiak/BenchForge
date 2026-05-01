@@ -197,6 +197,13 @@ class RunService:
         difficulties = await self.repository.get_prompt_difficulties(source_ids)
         return serialize_run(run, difficulties)
 
+    async def delete_run(self, run_id: int) -> None:
+        run = await self.repository.get_run(run_id)
+        if run is None:
+            raise RunNotFoundError(f"Run {run_id} not found.")
+        await self.repository.delete_run(run)
+        await self.repository.commit()
+
     async def get_run_status(self, run_id: int) -> RunStatusRead:
         run = await self.repository.get_run(run_id)
         if run is None:

@@ -39,6 +39,14 @@ async def get_run(run_id: int, service: RunService = Depends(get_run_service)) -
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
+@router.delete("/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_run(run_id: int, service: RunService = Depends(get_run_service)) -> None:
+    try:
+        await service.delete_run(run_id)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
 @router.get("/runs/{run_id}/status", response_model=RunStatusRead)
 async def get_run_status(
     run_id: int,

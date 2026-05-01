@@ -20,6 +20,7 @@ import {
   Search,
   Sparkles,
   SquareTerminal,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
@@ -33,6 +34,7 @@ import { Modal } from "@/components/ui/modal";
 import {
   clearRunJudging,
   confirmLocalReady,
+  deleteRun,
   downloadRunReportHtml,
   downloadRunReportPdf,
   downloadRunReportSvg,
@@ -97,6 +99,15 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [previewRun, setPreviewRun] = useState<{ id: number; name: string } | null>(null);
+  const [deleteConfirmRun, setDeleteConfirmRun] = useState<{ id: number; name: string } | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (runId: number) => deleteRun(runId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["runs"] });
+      setDeleteConfirmRun(null);
+    },
+  });
 
   const runsQuery = useQuery({
     queryKey: ["runs"],
@@ -385,6 +396,17 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                         ) : null}
+                        <Button
+                          aria-label={`Delete run ${item.name}`}
+                          onClick={() => setDeleteConfirmRun({ id: item.id, name: item.name })}
+                          size="iconSm"
+                          title={`Delete run ${item.name}`}
+                          type="button"
+                          variant="soft"
+                          className="text-rose-500 hover:bg-rose-500/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -409,6 +431,46 @@ export function RunsPage({ onOpenRun }: RunsPageProps) {
               src={`${API_URL}/runs/${previewRun.id}/report/pdf`}
               title={`Report preview for ${previewRun.name}`}
             />
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        onClose={() => { if (!deleteMutation.isPending) setDeleteConfirmRun(null); }}
+        open={deleteConfirmRun !== null}
+        size="md"
+        title="Delete run"
+        description="This action cannot be undone."
+      >
+        {deleteConfirmRun ? (
+          <div className="space-y-5">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete <span className="font-semibold text-foreground">{deleteConfirmRun.name}</span>? All responses, judgings, and reports will be permanently removed.
+            </p>
+            {deleteMutation.error ? (
+              <p className="text-sm text-destructive">
+                {deleteMutation.error instanceof Error ? deleteMutation.error.message : "Failed to delete run."}
+              </p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button
+                disabled={deleteMutation.isPending}
+                onClick={() => setDeleteConfirmRun(null)}
+                type="button"
+                variant="soft"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(deleteConfirmRun.id)}
+                type="button"
+                variant="danger"
+              >
+                {deleteMutation.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Delete
+              </Button>
+            </div>
           </div>
         ) : null}
       </Modal>
