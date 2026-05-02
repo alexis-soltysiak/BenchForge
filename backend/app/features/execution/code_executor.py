@@ -1,6 +1,7 @@
 """Subprocess-based Python code executor for code_generation prompts."""
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
@@ -16,6 +17,24 @@ logger = get_logger(__name__)
 
 SANDBOX_IMAGE = "python:3.12-slim"
 SANDBOX_MEMORY_LIMIT = "128m"
+SANDBOX_PYTEST_IMAGE = "benchforge-sandbox:pytest"
+
+
+def ensure_pytest_sandbox_image() -> None:
+    """Build the pytest sandbox image if it is not already present."""
+    dockerfile = b"FROM python:3.12-slim\nRUN pip install pytest --no-cache-dir\n"
+    try:
+        client = docker.from_env()
+        try:
+            client.images.get(SANDBOX_PYTEST_IMAGE)
+        except docker.errors.ImageNotFound:
+            client.images.build(
+                fileobj=io.BytesIO(dockerfile),
+                tag=SANDBOX_PYTEST_IMAGE,
+                rm=True,
+            )
+    except Exception as exc:
+        logger.warning("Could not ensure pytest sandbox image: %s", exc)
 
 
 def run_code_tests(response_text: str, hidden_tests: list[dict]) -> int:
@@ -29,16 +48,28 @@ def run_code_tests(response_text: str, hidden_tests: list[dict]) -> int:
     if not hidden_tests or not isinstance(hidden_tests, list):
         return 0
 
-    valid_tests = [
+    pytest_tests = [
+        tc for tc in hidden_tests
+        if isinstance(tc, dict) and tc.get("type") == "pytest" and "code" in tc
+    ]
+    fn_tests = [
         tc for tc in hidden_tests
         if isinstance(tc, dict) and "fn" in tc and "args" in tc and "expected" in tc
     ]
-    if not valid_tests:
-        return 0
 
     code = _extract_python_block(response_text)
-    harness = _build_harness(code, valid_tests)
 
+    if pytest_tests:
+        try:
+            return _run_with_pytest(code, pytest_tests)
+        except Exception as exc:
+            logger.warning("Pytest executor failed: %s", exc)
+            return 0
+
+    if not fn_tests:
+        return 0
+
+    harness = _build_harness(code, fn_tests)
     try:
         return _run_with_docker(harness)
     except Exception as exc:
@@ -81,6 +112,72 @@ def _run_with_docker(harness: str) -> int:
         passed_list = data.get("passed", [])
         if not isinstance(passed_list, list) or not passed_list:
             return 0
+        return 2 if all(passed_list) else 1
+    finally:
+        try:
+            container.remove(force=True)
+        except Exception:
+            pass
+
+
+def _run_with_pytest(code: str, pytest_tests: list[dict]) -> int:
+    """Run pytest-style tests against extracted code in the pytest sandbox container.
+
+    Raises on Docker infrastructure failure; returns 0/1/2 on execution result.
+    """
+    test_code = "\n\n".join(tc["code"] for tc in pytest_tests)
+    harness = textwrap.dedent(f"""\
+        import json as _json
+        import os as _os
+        import subprocess as _subprocess
+        import sys as _sys
+        import tempfile as _tempfile
+
+        _tmpdir = _tempfile.mkdtemp()
+        with open(_os.path.join(_tmpdir, "solution.py"), "w", encoding="utf-8") as _f:
+            _f.write({code!r})
+        with open(_os.path.join(_tmpdir, "test_solution.py"), "w", encoding="utf-8") as _f:
+            _f.write({test_code!r})
+
+        _result = _subprocess.run(
+            [_sys.executable, "-m", "pytest", "test_solution.py", "-q", "--tb=no", "--no-header"],
+            cwd=_tmpdir,
+            capture_output=True,
+        )
+        print(_json.dumps({{"passed": [_result.returncode == 0]}}))
+        _sys.exit(_result.returncode)
+    """)
+
+    client = docker.from_env()
+    container = client.containers.create(
+        SANDBOX_PYTEST_IMAGE,
+        ["python", "-c", harness],
+        network_disabled=True,
+        mem_limit=SANDBOX_MEMORY_LIMIT,
+    )
+    try:
+        container.start()
+        try:
+            result = container.wait(timeout=60)
+        except Exception:
+            try:
+                container.kill()
+            except Exception:
+                pass
+            return 0
+        if result["StatusCode"] != 0:
+            return 1
+        try:
+            output = container.logs(stdout=True, stderr=False)
+        except Exception:
+            return 1
+        try:
+            data = json.loads(output)
+        except (json.JSONDecodeError, ValueError):
+            return 1
+        passed_list = data.get("passed", [])
+        if not isinstance(passed_list, list) or not passed_list:
+            return 1
         return 2 if all(passed_list) else 1
     finally:
         try:

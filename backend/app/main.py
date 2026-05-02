@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
@@ -9,6 +10,7 @@ from app.core.database import create_engine, create_session_factory
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.router import api_router
+from app.features.execution.code_executor import ensure_pytest_sandbox_image
 
 
 def build_lifespan(
@@ -20,6 +22,7 @@ def build_lifespan(
         app.state.settings = settings
         app.state.engine = engine
         app.state.session_factory = create_session_factory(engine)
+        await asyncio.to_thread(ensure_pytest_sandbox_image)
         yield
         await engine.dispose()
 

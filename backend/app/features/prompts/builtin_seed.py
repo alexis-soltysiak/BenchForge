@@ -54,6 +54,8 @@ COMMON_GOLD_FACTS: dict[str, list[str]] = {
 }
 
 
+from app.features.prompts.swe_bench_seeds import SWE_BENCH_SEEDS
+
 BUILTIN_PROMPT_SEEDS: tuple[BuiltinPromptSeed, ...] = (
     BuiltinPromptSeed(
         slug="fastapi-offer-skills-debug",
@@ -1439,4 +1441,5 @@ def count_vowels(text: str) -> int:
             {"fn": "count_vowels", "args": ["BenchForge"], "kwargs": {}, "expected": 3},
         ),
     ),
+    *SWE_BENCH_SEEDS,
 )
