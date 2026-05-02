@@ -223,4 +223,9 @@ async def test_ensure_builtin_prompts_is_idempotent() -> None:
     assert len(repository.prompts) == len(BUILTIN_PROMPT_SEEDS)
     assert repository.commits == 2
     assert "fastapi-offer-skills-debug" in repository.prompts
-    assert all(prompt.judge_rubric_jsonb for prompt in repository.prompts.values())
+    # code_generation prompts use automated execution scoring and intentionally omit judge_rubric_jsonb
+    assert all(
+        prompt.judge_rubric_jsonb
+        for prompt in repository.prompts.values()
+        if prompt.scenario_type != "code_generation"
+    )

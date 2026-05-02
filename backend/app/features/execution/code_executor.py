@@ -8,6 +8,8 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
+from typing import Any
 
 import docker
 
@@ -35,6 +37,27 @@ def ensure_pytest_sandbox_image() -> None:
             )
     except Exception as exc:
         logger.warning("Could not ensure pytest sandbox image: %s", exc)
+
+
+def _wait_or_kill(container: Any, timeout: int) -> dict:
+    """container.wait with a thread-level kill fallback for SDK timeout failures."""
+    killed = threading.Event()
+
+    def _kill() -> None:
+        if not killed.is_set():
+            try:
+                container.kill()
+            except Exception:
+                pass
+
+    timer = threading.Timer(timeout + 5, _kill)
+    timer.daemon = True
+    timer.start()
+    try:
+        return container.wait(timeout=timeout)
+    finally:
+        killed.set()
+        timer.cancel()
 
 
 def run_code_tests(response_text: str, hidden_tests: list[dict]) -> int:
@@ -92,7 +115,7 @@ def _run_with_docker(harness: str) -> int:
     try:
         container.start()
         try:
-            result = container.wait(timeout=10)
+            result = _wait_or_kill(container, 10)
         except Exception:
             try:
                 container.kill()
@@ -148,6 +171,10 @@ def _run_with_pytest(code: str, pytest_tests: list[dict]) -> int:
         _sys.exit(_result.returncode)
     """)
 
+    if len(harness.encode()) > 512 * 1024:
+        logger.warning("Pytest harness exceeds 512 KB; skipping execution (tier 0)")
+        return 0
+
     client = docker.from_env()
     container = client.containers.create(
         SANDBOX_PYTEST_IMAGE,
@@ -158,7 +185,7 @@ def _run_with_pytest(code: str, pytest_tests: list[dict]) -> int:
     try:
         container.start()
         try:
-            result = container.wait(timeout=60)
+            result = _wait_or_kill(container, 60)
         except Exception:
             try:
                 container.kill()
