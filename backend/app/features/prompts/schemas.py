@@ -33,6 +33,8 @@ class PromptRead(BaseModel):
     expected_behavior_jsonb: dict[str, Any] | list[Any] | None = None
     gold_facts_jsonb: dict[str, Any] | None = None
     judge_rubric_jsonb: dict[str, Any] | None = None
+    test_cases_visible: list[dict[str, Any]] | None = None
+    test_cases_hidden: list[dict[str, Any]] | None = None
     estimated_input_tokens: int | None = None
     expected_output_format: str | None = None
     cost_tier: str | None = None
@@ -62,6 +64,8 @@ class PromptCreate(BaseModel):
     expected_behavior_jsonb: dict[str, Any] | list[Any] | None = None
     gold_facts_jsonb: dict[str, Any] | None = None
     judge_rubric_jsonb: dict[str, Any] | None = None
+    test_cases_visible: list[dict[str, Any]] | None = None
+    test_cases_hidden: list[dict[str, Any]] | None = None
     estimated_input_tokens: int | None = Field(default=None, ge=0)
     expected_output_format: str | None = None
     cost_tier: str | None = Field(default=None, max_length=32)
@@ -88,6 +92,8 @@ class PromptUpdate(BaseModel):
     expected_behavior_jsonb: dict[str, Any] | list[Any] | None = None
     gold_facts_jsonb: dict[str, Any] | None = None
     judge_rubric_jsonb: dict[str, Any] | None = None
+    test_cases_visible: list[dict[str, Any]] | None = None
+    test_cases_hidden: list[dict[str, Any]] | None = None
     estimated_input_tokens: int | None = Field(default=None, ge=0)
     expected_output_format: str | None = None
     cost_tier: str | None = Field(default=None, max_length=32)

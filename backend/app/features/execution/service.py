@@ -235,6 +235,7 @@ class ExecutionService:
 
         run.status = "waiting_local"
         responses = self._responses_for_model(run, local_model.id)
+        tasks = []
         for response in responses:
             if response.status == "completed":
                 continue
@@ -244,7 +245,8 @@ class ExecutionService:
                 model_snapshot=local_model,
                 local_confirmed_at=confirmed_at,
             )
-            await self._execute_prepared_tasks([task])
+            tasks.append(task)
+        await self._execute_prepared_tasks(tasks)
 
         notes.pop("local_current", None)
         run.notes = json.dumps(notes) if notes else None
@@ -274,11 +276,13 @@ class ExecutionService:
 
         run.status = "running_candidates"
         responses = self._responses_for_model(run, model_snapshot.id)
+        tasks = []
         for response in responses:
             if response.status == "completed":
                 continue
             task = await self._prepare_execution_task(run, response, model_snapshot)
-            await self._execute_prepared_tasks([task])
+            tasks.append(task)
+        await self._execute_prepared_tasks(tasks)
 
         await self._advance_run_after_candidate_execution(run)
         refreshed = await self.repository.list_candidate_responses(run.id)
