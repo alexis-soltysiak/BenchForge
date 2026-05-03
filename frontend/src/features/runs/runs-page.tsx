@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -1245,7 +1245,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   />
                   <CostRecapPanel run={selectedRun} judging={judging} responses={rawResponses} />
                   <AggregatedSummaryTable run={selectedRun} />
-                  <PassAtKSummaryTable run={selectedRun} />
+                  <PassAtKSummaryTable run={selectedRun} responses={rawResponses} />
                 </div>
               )}
             </Card>
@@ -2716,121 +2716,251 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
   );
 }
 
-function PassAtKSummaryTable({ run }: { run: Run }) {
-  if (run.pass_at_k_summaries.length === 0) {
-    return null;
-  }
+function PassAtKSummaryTable({ run, responses }: { run: Run; responses: CandidateResponse[] }) {
+  const [expandedModelId, setExpandedModelId] = useState<number | null>(null);
+  const [codeViewResponse, setCodeViewResponse] = useState<CandidateResponse | null>(null);
+
+  const expandedResponsesMap = useMemo(() => {
+    if (expandedModelId === null) return new Map<number, Map<number, CandidateResponse>>();
+    const map = new Map<number, Map<number, CandidateResponse>>();
+    for (const r of responses) {
+      if (r.model_snapshot_id !== expandedModelId) continue;
+      if (!map.has(r.prompt_snapshot_id)) map.set(r.prompt_snapshot_id, new Map());
+      map.get(r.prompt_snapshot_id)!.set(r.sample_index, r);
+    }
+    return map;
+  }, [expandedModelId, responses]);
+
+  if (run.pass_at_k_summaries.length === 0) return null;
 
   const sortedSummaries = [...run.pass_at_k_summaries].sort(
     (a, b) => b.pass_5_rate - a.pass_5_rate,
   );
 
-  // Collect all distinct difficulty levels across all models, sorted ascending
   const difficultyLevels = [
     ...new Set(
       sortedSummaries.flatMap((s) => s.difficulty_breakdown.map((d) => d.difficulty)),
     ),
   ].sort((a, b) => a - b);
 
-  return (
-    <div className="space-y-5">
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Code Generation — pass@k
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border/80 text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Model</th>
-                <th className="px-4 py-3 font-semibold">pass@1</th>
-                <th className="px-4 py-3 font-semibold">pass@3</th>
-                <th className="px-4 py-3 font-semibold">pass@5</th>
-                <th className="px-4 py-3 font-semibold">Iteration Potential</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/70">
-              {sortedSummaries.map((summary: PassAtKSummary) => {
-                const model = run.model_snapshots.find(
-                  (m) => m.id === summary.model_snapshot_id,
-                );
-                const iterationPotential = summary.pass_5_rate - summary.pass_1_rate;
-                return (
-                  <tr key={summary.model_snapshot_id}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-950">
-                        {model?.display_name ?? `Model #${summary.model_snapshot_id}`}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {summary.code_gen_prompt_count} prompt{summary.code_gen_prompt_count !== 1 ? "s" : ""}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {`${(summary.pass_1_rate * 100).toFixed(1)}%`}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {`${(summary.pass_3_rate * 100).toFixed(1)}%`}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {`${(summary.pass_5_rate * 100).toFixed(1)}%`}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {`${(iterationPotential * 100).toFixed(1)}%`}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  const codeGenPrompts = run.prompt_snapshots.filter(
+    (ps) => ps.scenario_type === "code_generation",
+  );
 
-      {difficultyLevels.length > 0 && (
+  const codeViewPrompt = codeViewResponse
+    ? run.prompt_snapshots.find((ps) => ps.id === codeViewResponse.prompt_snapshot_id)
+    : null;
+  const codeViewModel = codeViewResponse
+    ? run.model_snapshots.find((m) => m.id === codeViewResponse.model_snapshot_id)
+    : null;
+
+  return (
+    <>
+      <div className="space-y-5">
         <div className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            pass@1 by Difficulty
+            Code Generation — pass@k
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-border/80 text-sm">
               <thead className="bg-slate-50 text-left text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Difficulty</th>
-                  {sortedSummaries.map((s) => {
-                    const model = run.model_snapshots.find(
-                      (m) => m.id === s.model_snapshot_id,
-                    );
-                    return (
-                      <th key={s.model_snapshot_id} className="px-4 py-3 font-semibold">
-                        {model?.display_name ?? `Model #${s.model_snapshot_id}`}
-                      </th>
-                    );
-                  })}
+                  <th className="px-4 py-3 font-semibold">Model</th>
+                  <th className="px-4 py-3 font-semibold">pass@1</th>
+                  <th className="px-4 py-3 font-semibold">pass@3</th>
+                  <th className="px-4 py-3 font-semibold">pass@5</th>
+                  <th className="px-4 py-3 font-semibold">Iteration Potential</th>
+                  <th className="px-4 py-3 font-semibold"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
-                {difficultyLevels.map((diff) => (
-                  <tr key={diff}>
-                    <td className="px-4 py-3 font-medium text-slate-950">{diff}</td>
-                    {sortedSummaries.map((s) => {
-                      const entry = s.difficulty_breakdown.find(
-                        (d) => d.difficulty === diff,
-                      );
-                      return (
-                        <td key={s.model_snapshot_id} className="px-4 py-3 text-slate-700">
-                          {entry
-                            ? `${(entry.pass_1_rate * 100).toFixed(1)}% (${entry.prompt_count})`
-                            : "—"}
+                {sortedSummaries.map((summary: PassAtKSummary) => {
+                  const model = run.model_snapshots.find(
+                    (m) => m.id === summary.model_snapshot_id,
+                  );
+                  const iterationPotential = summary.pass_5_rate - summary.pass_1_rate;
+                  const isExpanded = expandedModelId === summary.model_snapshot_id;
+                  return (
+                    <Fragment key={summary.model_snapshot_id}>
+                      <tr>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-950">
+                            {model?.display_name ?? `Model #${summary.model_snapshot_id}`}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {summary.code_gen_prompt_count} prompt{summary.code_gen_prompt_count !== 1 ? "s" : ""}
+                          </p>
                         </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                        <td className="px-4 py-3 text-slate-700">
+                          {`${(summary.pass_1_rate * 100).toFixed(1)}%`}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {`${(summary.pass_3_rate * 100).toFixed(1)}%`}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {`${(summary.pass_5_rate * 100).toFixed(1)}%`}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {`${(iterationPotential * 100).toFixed(1)}%`}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedModelId(isExpanded ? null : summary.model_snapshot_id)
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-border hover:text-slate-900"
+                          >
+                            <FileCode className="h-3.5 w-3.5" />
+                            Browse
+                            <ChevronDown
+                              className={cn(
+                                "h-3.5 w-3.5 transition-transform",
+                                isExpanded && "rotate-180",
+                              )}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="bg-slate-50/80 px-6 py-4">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-left text-slate-500">
+                                  <th className="pb-2 pr-4 font-semibold">Prompt</th>
+                                  <th className="pb-2 pr-4 font-semibold">Diff</th>
+                                  {[0, 1, 2, 3, 4].map((i) => (
+                                    <th key={i} className="pb-2 pr-3 font-semibold">#{i}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/40">
+                                {codeGenPrompts.map((ps) => {
+                                  const samplesMap =
+                                    expandedResponsesMap.get(ps.id) ?? new Map<number, CandidateResponse>();
+                                  return (
+                                    <tr key={ps.id}>
+                                      <td className="py-2 pr-4 text-slate-800">
+                                        <span className="block max-w-[18rem] truncate" title={ps.name}>
+                                          {ps.name}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 pr-4 text-slate-500">
+                                        {ps.difficulty ?? "—"}
+                                      </td>
+                                      {[0, 1, 2, 3, 4].map((i) => {
+                                        const r = samplesMap.get(i);
+                                        if (!r) {
+                                          return (
+                                            <td key={i} className="py-2 pr-3">
+                                              <span className="text-slate-300">—</span>
+                                            </td>
+                                          );
+                                        }
+                                        const passed =
+                                          r.execution_tier !== null && r.execution_tier > 0;
+                                        return (
+                                          <td key={i} className="py-2 pr-3">
+                                            <button
+                                              type="button"
+                                              title={`View code — Tier ${r.execution_tier ?? "?"}`}
+                                              onClick={() => setCodeViewResponse(r)}
+                                              className={cn(
+                                                "inline-flex h-6 w-6 items-center justify-center rounded-full transition hover:opacity-70",
+                                                passed
+                                                  ? "bg-emerald-100 text-emerald-700"
+                                                  : "bg-rose-100 text-rose-600",
+                                              )}
+                                            >
+                                              {passed ? (
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                              ) : (
+                                                <XCircle className="h-3.5 w-3.5" />
+                                              )}
+                                            </button>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
-      )}
-    </div>
+
+        {difficultyLevels.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              pass@1 by Difficulty
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-border/80 text-sm">
+                <thead className="bg-slate-50 text-left text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Difficulty</th>
+                    {sortedSummaries.map((s) => {
+                      const model = run.model_snapshots.find(
+                        (m) => m.id === s.model_snapshot_id,
+                      );
+                      return (
+                        <th key={s.model_snapshot_id} className="px-4 py-3 font-semibold">
+                          {model?.display_name ?? `Model #${s.model_snapshot_id}`}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/70">
+                  {difficultyLevels.map((diff) => (
+                    <tr key={diff}>
+                      <td className="px-4 py-3 font-medium text-slate-950">{diff}</td>
+                      {sortedSummaries.map((s) => {
+                        const entry = s.difficulty_breakdown.find(
+                          (d) => d.difficulty === diff,
+                        );
+                        return (
+                          <td key={s.model_snapshot_id} className="px-4 py-3 text-slate-700">
+                            {entry
+                              ? `${(entry.pass_1_rate * 100).toFixed(1)}% (${entry.prompt_count})`
+                              : "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Modal
+        open={codeViewResponse !== null}
+        onClose={() => setCodeViewResponse(null)}
+        title={`${codeViewPrompt?.name ?? "Code"} · Sample #${codeViewResponse?.sample_index ?? 0}`}
+        description={`${codeViewModel?.display_name ?? "Unknown model"} · ${
+          codeViewResponse?.execution_tier != null && codeViewResponse.execution_tier > 0
+            ? `Tier ${codeViewResponse.execution_tier} — passed`
+            : "Tier 0 — failed"
+        }`}
+        size="xl"
+      >
+        <pre className="overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-relaxed text-slate-100">
+          <code>{codeViewResponse?.normalized_response_text ?? "(no output)"}</code>
+        </pre>
+      </Modal>
+    </>
   );
 }
 

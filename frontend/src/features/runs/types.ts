@@ -118,6 +118,7 @@ export type CandidateResponse = {
   started_at: string | null;
   completed_at: string | null;
   retry_count: number;
+  sample_index: number;
   error_message: string | null;
   metric: CandidateResponseMetric | null;
   execution_tier: number | null;
