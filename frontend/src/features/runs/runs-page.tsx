@@ -2747,6 +2747,14 @@ function PassAtKSummaryTable({ run, responses }: { run: Run; responses: Candidat
     (ps) => ps.scenario_type === "code_generation",
   );
 
+  const allIterative = codeGenPrompts.length > 0 && codeGenPrompts.every((ps) => ps.sampling_mode === "iterative");
+  const anyIterative = codeGenPrompts.some((ps) => ps.sampling_mode === "iterative");
+  const sectionLabel = allIterative
+    ? "Code Generation — Iterative refinement"
+    : anyIterative
+      ? "Code Generation — Mixed (pass@k + iterative)"
+      : "Code Generation — pass@k";
+
   const codeViewPrompt = codeViewResponse
     ? run.prompt_snapshots.find((ps) => ps.id === codeViewResponse.prompt_snapshot_id)
     : null;
@@ -2759,17 +2767,17 @@ function PassAtKSummaryTable({ run, responses }: { run: Run; responses: Candidat
       <div className="space-y-5">
         <div className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Code Generation — pass@k
+            {sectionLabel}
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-border/80 text-sm">
               <thead className="bg-slate-50 text-left text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Model</th>
-                  <th className="px-4 py-3 font-semibold">pass@1</th>
-                  <th className="px-4 py-3 font-semibold">pass@3</th>
-                  <th className="px-4 py-3 font-semibold">pass@5</th>
-                  <th className="px-4 py-3 font-semibold">Iteration Potential</th>
+                  <th className="px-4 py-3 font-semibold">{allIterative ? "solved@1" : "pass@1"}</th>
+                  <th className="px-4 py-3 font-semibold">{allIterative ? "solved@3" : "pass@3"}</th>
+                  <th className="px-4 py-3 font-semibold">{allIterative ? "solved@5" : "pass@5"}</th>
+                  <th className="px-4 py-3 font-semibold">{allIterative ? "Improvement@5" : "Iteration Potential"}</th>
                   <th className="px-4 py-3 font-semibold"></th>
                 </tr>
               </thead>
