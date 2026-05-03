@@ -21,6 +21,19 @@ def upgrade() -> None:
         "candidate_response",
         sa.Column("sample_index", sa.Integer(), nullable=False, server_default="0"),
     )
+    # Remove any duplicate (prompt_snapshot_id, model_snapshot_id) rows that
+    # would cause the unique index creation to fail. Keeps the highest-id row
+    # per pair (most recent insert wins).
+    op.execute(
+        """
+        DELETE FROM candidate_response
+        WHERE id NOT IN (
+            SELECT MAX(id)
+            FROM candidate_response
+            GROUP BY prompt_snapshot_id, model_snapshot_id
+        )
+        """
+    )
     op.create_index(
         "ix_cr_prompt_model_sample",
         "candidate_response",
