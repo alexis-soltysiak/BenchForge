@@ -164,8 +164,10 @@ async def test_start_remote_candidate_only_executes_selected_model() -> None:
         started_at=None,
         completed_at=None,
         retry_count=0,
+        sample_index=0,
         error_message=None,
         metric=None,
+        execution_tier=None,
     )
     other_response = SimpleNamespace(
         id=102,
@@ -180,8 +182,10 @@ async def test_start_remote_candidate_only_executes_selected_model() -> None:
         started_at=None,
         completed_at=None,
         retry_count=0,
+        sample_index=0,
         error_message=None,
         metric=None,
+        execution_tier=None,
     )
     selected_model = SimpleNamespace(
         id=21,

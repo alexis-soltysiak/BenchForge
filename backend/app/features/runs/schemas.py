@@ -68,6 +68,21 @@ class RunGlobalSummaryRead(BaseModel):
     final_global_score: str | None
 
 
+class DifficultyBreakdownRead(BaseModel):
+    difficulty: int
+    pass_1_rate: float
+    prompt_count: int
+
+
+class PassAtKSummaryRead(BaseModel):
+    model_snapshot_id: int
+    pass_1_rate: float
+    pass_3_rate: float
+    pass_5_rate: float
+    code_gen_prompt_count: int
+    difficulty_breakdown: list[DifficultyBreakdownRead] = []
+
+
 class RunRead(BaseModel):
     id: int
     session_id: int
@@ -84,6 +99,7 @@ class RunRead(BaseModel):
     model_snapshots: list[RunModelSnapshotRead]
     global_summaries: list[RunGlobalSummaryRead]
     candidate_response_count: int = 0
+    pass_at_k_summaries: list[PassAtKSummaryRead] = []
 
 
 class RunListItem(BaseModel):

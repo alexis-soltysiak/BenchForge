@@ -185,6 +185,12 @@ class CandidateResponse(Base):
         default=0,
         server_default="0",
     )
+    sample_index: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     execution_tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
 

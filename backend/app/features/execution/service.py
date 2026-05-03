@@ -104,6 +104,7 @@ def serialize_candidate_response(response: CandidateResponse) -> CandidateRespon
         started_at=response.started_at,
         completed_at=response.completed_at,
         retry_count=response.retry_count or 0,
+        sample_index=response.sample_index or 0,
         error_message=response.error_message,
         metric=serialize_response_metric(response.metric),
         execution_tier=response.execution_tier,
@@ -361,24 +362,28 @@ class ExecutionService:
         return run
 
     async def _ensure_candidate_response_rows(self, run: SessionRun) -> None:
-        existing_pairs = {
-            (item.prompt_snapshot_id, item.model_snapshot_id) for item in run.candidate_responses
+        existing_keys = {
+            (item.prompt_snapshot_id, item.model_snapshot_id, getattr(item, "sample_index", 0))
+            for item in run.candidate_responses
         }
         for prompt_snapshot in run.prompt_snapshots:
+            k = 5 if getattr(prompt_snapshot, "scenario_type", None) == "code_generation" else 1
             for model_snapshot in run.model_snapshots:
                 if model_snapshot.role != "candidate":
                     continue
-                pair = (prompt_snapshot.id, model_snapshot.id)
-                if pair in existing_pairs:
-                    continue
-                candidate_response = CandidateResponse(
-                    run_id=run.id,
-                    prompt_snapshot_id=prompt_snapshot.id,
-                    model_snapshot_id=model_snapshot.id,
-                    status="pending",
-                )
-                self.repository.add_candidate_response(candidate_response)
-                run.candidate_responses.append(candidate_response)
+                for sample_index in range(k):
+                    key = (prompt_snapshot.id, model_snapshot.id, sample_index)
+                    if key in existing_keys:
+                        continue
+                    candidate_response = CandidateResponse(
+                        run_id=run.id,
+                        prompt_snapshot_id=prompt_snapshot.id,
+                        model_snapshot_id=model_snapshot.id,
+                        sample_index=sample_index,
+                        status="pending",
+                    )
+                    self.repository.add_candidate_response(candidate_response)
+                    run.candidate_responses.append(candidate_response)
 
     async def _prepare_execution_task(
         self,

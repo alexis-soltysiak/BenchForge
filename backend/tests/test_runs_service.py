@@ -77,6 +77,8 @@ async def test_build_prompt_snapshot_renders_structured_scenario() -> None:
         cost_tier="low",
         weight=2,
         version="1.0",
+        test_cases_visible_jsonb=None,
+        test_cases_hidden_jsonb=None,
     )
 
     class Repository:

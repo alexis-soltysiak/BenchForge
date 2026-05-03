@@ -56,9 +56,11 @@ import {
 } from "@/features/runs/api";
 import type {
   CandidateResponse,
+  DifficultyBreakdown,
   JudgeBatch,
   JudgeEvaluationCandidate,
   LocalExecutionNextResponse,
+  PassAtKSummary,
   Run,
   RunGlobalSummary,
   RunJudging,
@@ -1243,6 +1245,7 @@ export function RunDetailPage({ onBack, runId }: RunDetailPageProps) {
                   />
                   <CostRecapPanel run={selectedRun} judging={judging} responses={rawResponses} />
                   <AggregatedSummaryTable run={selectedRun} />
+                  <PassAtKSummaryTable run={selectedRun} />
                 </div>
               )}
             </Card>
@@ -2709,6 +2712,124 @@ function AggregatedSummaryTable({ run }: { run: Run }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function PassAtKSummaryTable({ run }: { run: Run }) {
+  if (run.pass_at_k_summaries.length === 0) {
+    return null;
+  }
+
+  const sortedSummaries = [...run.pass_at_k_summaries].sort(
+    (a, b) => b.pass_5_rate - a.pass_5_rate,
+  );
+
+  // Collect all distinct difficulty levels across all models, sorted ascending
+  const difficultyLevels = [
+    ...new Set(
+      sortedSummaries.flatMap((s) => s.difficulty_breakdown.map((d) => d.difficulty)),
+    ),
+  ].sort((a, b) => a - b);
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Code Generation — pass@k
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-border/80 text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Model</th>
+                <th className="px-4 py-3 font-semibold">pass@1</th>
+                <th className="px-4 py-3 font-semibold">pass@3</th>
+                <th className="px-4 py-3 font-semibold">pass@5</th>
+                <th className="px-4 py-3 font-semibold">Iteration Potential</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/70">
+              {sortedSummaries.map((summary: PassAtKSummary) => {
+                const model = run.model_snapshots.find(
+                  (m) => m.id === summary.model_snapshot_id,
+                );
+                const iterationPotential = summary.pass_5_rate - summary.pass_1_rate;
+                return (
+                  <tr key={summary.model_snapshot_id}>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-950">
+                        {model?.display_name ?? `Model #${summary.model_snapshot_id}`}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {summary.code_gen_prompt_count} prompt{summary.code_gen_prompt_count !== 1 ? "s" : ""}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {`${(summary.pass_1_rate * 100).toFixed(1)}%`}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {`${(summary.pass_3_rate * 100).toFixed(1)}%`}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {`${(summary.pass_5_rate * 100).toFixed(1)}%`}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {`${(iterationPotential * 100).toFixed(1)}%`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {difficultyLevels.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            pass@1 by Difficulty
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border/80 text-sm">
+              <thead className="bg-slate-50 text-left text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Difficulty</th>
+                  {sortedSummaries.map((s) => {
+                    const model = run.model_snapshots.find(
+                      (m) => m.id === s.model_snapshot_id,
+                    );
+                    return (
+                      <th key={s.model_snapshot_id} className="px-4 py-3 font-semibold">
+                        {model?.display_name ?? `Model #${s.model_snapshot_id}`}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {difficultyLevels.map((diff) => (
+                  <tr key={diff}>
+                    <td className="px-4 py-3 font-medium text-slate-950">{diff}</td>
+                    {sortedSummaries.map((s) => {
+                      const entry = s.difficulty_breakdown.find(
+                        (d) => d.difficulty === diff,
+                      );
+                      return (
+                        <td key={s.model_snapshot_id} className="px-4 py-3 text-slate-700">
+                          {entry
+                            ? `${(entry.pass_1_rate * 100).toFixed(1)}% (${entry.prompt_count})`
+                            : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
