@@ -2830,13 +2830,15 @@ function PassAtKSummaryTable({ run, responses }: { run: Run; responses: Candidat
                                 <tr className="text-left text-slate-500">
                                   <th className="pb-2 pr-4 font-semibold">Prompt</th>
                                   <th className="pb-2 pr-4 font-semibold">Diff</th>
-                                  {[0, 1, 2, 3, 4].map((i) => (
-                                    <th key={i} className="pb-2 pr-3 font-semibold">#{i}</th>
+                                  <th className="pb-2 pr-4 font-semibold">Mode</th>
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <th key={n} className="pb-2 pr-3 font-semibold">#{n}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border/40">
                                 {codeGenPrompts.map((ps) => {
+                                  const isIterative = ps.sampling_mode === "iterative";
                                   const samplesMap =
                                     expandedResponsesMap.get(ps.id) ?? new Map<number, CandidateResponse>();
                                   return (
@@ -2849,9 +2851,20 @@ function PassAtKSummaryTable({ run, responses }: { run: Run; responses: Candidat
                                       <td className="py-2 pr-4 text-slate-500">
                                         {ps.difficulty ?? "—"}
                                       </td>
+                                      <td className="py-2 pr-4">
+                                        <span className={cn(
+                                          "inline-block rounded px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide",
+                                          isIterative
+                                            ? "bg-violet-100 text-violet-700"
+                                            : "bg-sky-100 text-sky-700",
+                                        )}>
+                                          {isIterative ? "iterative" : "pass@k"}
+                                        </span>
+                                      </td>
                                       {[0, 1, 2, 3, 4].map((i) => {
                                         const r = samplesMap.get(i);
-                                        if (!r) {
+                                        const isSkipped = r?.error_message?.startsWith("Skipped —");
+                                        if (!r || isSkipped) {
                                           return (
                                             <td key={i} className="py-2 pr-3">
                                               <span className="text-slate-300">—</span>
@@ -2860,11 +2873,14 @@ function PassAtKSummaryTable({ run, responses }: { run: Run; responses: Candidat
                                         }
                                         const passed =
                                           r.execution_tier !== null && r.execution_tier > 0;
+                                        const label = isIterative
+                                          ? `View attempt ${i + 1} — Tier ${r.execution_tier ?? "?"}`
+                                          : `View sample #${i} — Tier ${r.execution_tier ?? "?"}`;
                                         return (
                                           <td key={i} className="py-2 pr-3">
                                             <button
                                               type="button"
-                                              title={`View code — Tier ${r.execution_tier ?? "?"}`}
+                                              title={label}
                                               onClick={() => setCodeViewResponse(r)}
                                               className={cn(
                                                 "inline-flex h-6 w-6 items-center justify-center rounded-full transition hover:opacity-70",
@@ -2948,7 +2964,11 @@ function PassAtKSummaryTable({ run, responses }: { run: Run; responses: Candidat
       <Modal
         open={codeViewResponse !== null}
         onClose={() => setCodeViewResponse(null)}
-        title={`${codeViewPrompt?.name ?? "Code"} · Sample #${codeViewResponse?.sample_index ?? 0}`}
+        title={(() => {
+          const n = (codeViewResponse?.sample_index ?? 0) + 1;
+          const label = codeViewPrompt?.sampling_mode === "iterative" ? `Attempt #${n}` : `Sample #${n - 1}`;
+          return `${codeViewPrompt?.name ?? "Code"} · ${label}`;
+        })()}
         description={`${codeViewModel?.display_name ?? "Unknown model"} · ${
           codeViewResponse?.execution_tier != null && codeViewResponse.execution_tier > 0
             ? `Tier ${codeViewResponse.execution_tier} — passed`

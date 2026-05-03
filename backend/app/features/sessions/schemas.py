@@ -11,6 +11,7 @@ class SessionPromptItem(BaseModel):
     cost_tier: str | None = None
     estimated_input_tokens: int | None = None
     scenario_type: str | None = None
+    sampling_mode: str = "independent"
     display_order: int
 
 
@@ -59,9 +60,14 @@ class SessionUpdate(BaseModel):
     rubric_version: str | None = Field(default=None, min_length=1, max_length=64)
 
 
+class SessionPromptSamplingModeUpdate(BaseModel):
+    sampling_mode: str = Field(default="independent", max_length=32)
+
+
 class SessionPromptCreate(BaseModel):
     prompt_id: int
     display_order: int | None = Field(default=None, ge=1)
+    sampling_mode: str = Field(default="independent", max_length=32)
 
 
 class SessionCandidateCreate(BaseModel):

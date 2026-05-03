@@ -27,6 +27,7 @@ class RunPromptSnapshotRead(BaseModel):
     weight: int | None = None
     version: str | None = None
     test_cases_visible_jsonb: list[dict[str, Any]] | None = None
+    sampling_mode: str = "independent"
     snapshot_order: int
     difficulty: int | None = None
 

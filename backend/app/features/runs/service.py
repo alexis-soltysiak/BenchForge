@@ -66,6 +66,7 @@ def serialize_prompt_snapshot(
         weight=snapshot.weight,
         version=snapshot.version,
         test_cases_visible_jsonb=snapshot.test_cases_visible_jsonb,
+        sampling_mode=snapshot.sampling_mode,
         snapshot_order=snapshot.snapshot_order,
         difficulty=difficulty,
     )
@@ -332,7 +333,7 @@ class RunService:
             notes=f"Snapshot launched from session {benchmark_session.id}.",
         )
         run.prompt_snapshots = [
-            await self._build_prompt_snapshot(item.prompt_id, item.display_order)
+            await self._build_prompt_snapshot(item.prompt_id, item.display_order, item.sampling_mode)
             for item in sorted(
                 benchmark_session.prompts,
                 key=lambda value: value.display_order,
@@ -357,6 +358,7 @@ class RunService:
         self,
         prompt_id: int,
         snapshot_order: int,
+        sampling_mode: str = "independent",
     ) -> SessionRunPromptSnapshot:
         prompt = await self.repository.get_prompt(prompt_id)
         assert prompt is not None
@@ -383,6 +385,7 @@ class RunService:
             version=prompt.version,
             test_cases_visible_jsonb=prompt.test_cases_visible_jsonb,
             test_cases_hidden_jsonb=prompt.test_cases_hidden_jsonb,
+            sampling_mode=sampling_mode,
             snapshot_order=snapshot_order,
         )
 

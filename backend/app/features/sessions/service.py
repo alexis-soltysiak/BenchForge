@@ -21,6 +21,7 @@ from app.features.sessions.schemas import (
     SessionModelItem,
     SessionPromptCreate,
     SessionPromptItem,
+    SessionPromptSamplingModeUpdate,
     SessionRead,
     SessionUpdate,
 )
@@ -55,6 +56,7 @@ def serialize_prompt_item(item: BenchmarkSessionPrompt, prompt: Prompt | None) -
         cost_tier=prompt.cost_tier if prompt is not None else None,
         estimated_input_tokens=prompt.estimated_input_tokens if prompt is not None else None,
         scenario_type=prompt.scenario_type if prompt is not None else None,
+        sampling_mode=item.sampling_mode,
         display_order=item.display_order,
     )
 
@@ -155,6 +157,7 @@ class SessionService:
                 session_id=benchmark_session.id,
                 prompt_id=payload.prompt_id,
                 display_order=display_order,
+                sampling_mode=payload.sampling_mode,
             )
         )
         await self.repository.commit()
@@ -173,6 +176,25 @@ class SessionService:
         await self.repository.delete(target)
         await self.repository.commit()
         return await self.get_session(benchmark_session.id)
+
+    async def update_prompt_sampling_mode(
+        self,
+        session_id: int,
+        session_prompt_id: int,
+        payload: SessionPromptSamplingModeUpdate,
+    ) -> SessionRead:
+        benchmark_session = await self._require_session(session_id)
+        target = next(
+            (item for item in benchmark_session.prompts if item.id == session_prompt_id),
+            None,
+        )
+        if target is None:
+            raise SessionPromptNotFoundError(
+                f"Session prompt {session_prompt_id} not found."
+            )
+        target.sampling_mode = payload.sampling_mode
+        await self.repository.commit()
+        return await self.get_session(session_id)
 
     async def add_candidate(
         self,
@@ -262,6 +284,7 @@ class SessionService:
             BenchmarkSessionPrompt(
                 prompt_id=item.prompt_id,
                 display_order=item.display_order,
+                sampling_mode=item.sampling_mode,
             )
             for item in benchmark_session.prompts
         ]
