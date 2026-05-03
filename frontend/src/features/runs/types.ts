@@ -42,6 +42,21 @@ export type RunModelSnapshot = {
   local_load_instructions: string | null;
 };
 
+export type DifficultyBreakdown = {
+  difficulty: number;
+  pass_1_rate: number;
+  prompt_count: number;
+};
+
+export type PassAtKSummary = {
+  model_snapshot_id: number;
+  pass_1_rate: number;
+  pass_3_rate: number;
+  pass_5_rate: number;
+  code_gen_prompt_count: number;
+  difficulty_breakdown: DifficultyBreakdown[];
+};
+
 export type Run = {
   id: number;
   session_id: number;
@@ -58,6 +73,7 @@ export type Run = {
   model_snapshots: RunModelSnapshot[];
   global_summaries: RunGlobalSummary[];
   candidate_response_count: number;
+  pass_at_k_summaries: PassAtKSummary[];
 };
 
 export type RunListItem = {
@@ -102,8 +118,10 @@ export type CandidateResponse = {
   started_at: string | null;
   completed_at: string | null;
   retry_count: number;
+  sample_index: number;
   error_message: string | null;
   metric: CandidateResponseMetric | null;
+  execution_tier: number | null;
 };
 
 export type CandidateResponseListResponse = {

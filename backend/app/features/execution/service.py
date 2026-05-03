@@ -8,11 +8,16 @@ from datetime import UTC, datetime
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 from app.core.encryption import decrypt_value
 from app.features.execution.adapters.anthropic import AnthropicAdapter
 from app.features.execution.adapters.base import AdapterExecutionResult, BaseInferenceAdapter
 from app.features.execution.adapters.huggingface import HuggingFaceAdapter
 from app.features.execution.adapters.openai_compatible import OpenAICompatibleAdapter
+from app.features.execution.code_executor import run_code_tests
 from app.features.execution.repository import ExecutionRepository
 from app.features.execution.schemas import (
     CandidateResponseListResponse,
@@ -56,6 +61,8 @@ class PreparedExecutionTask:
     adapter: BaseInferenceAdapter
     local_confirmed_at: datetime | None = None
     started_at: datetime | None = None
+    scenario_type: str | None = None
+    test_cases_hidden: list[dict] | None = None
 
 
 @dataclass
@@ -97,8 +104,10 @@ def serialize_candidate_response(response: CandidateResponse) -> CandidateRespon
         started_at=response.started_at,
         completed_at=response.completed_at,
         retry_count=response.retry_count or 0,
+        sample_index=response.sample_index or 0,
         error_message=response.error_message,
         metric=serialize_response_metric(response.metric),
+        execution_tier=response.execution_tier,
     )
 
 
@@ -227,6 +236,7 @@ class ExecutionService:
 
         run.status = "waiting_local"
         responses = self._responses_for_model(run, local_model.id)
+        tasks = []
         for response in responses:
             if response.status == "completed":
                 continue
@@ -236,7 +246,8 @@ class ExecutionService:
                 model_snapshot=local_model,
                 local_confirmed_at=confirmed_at,
             )
-            await self._execute_prepared_tasks([task])
+            tasks.append(task)
+        await self._execute_prepared_tasks(tasks)
 
         notes.pop("local_current", None)
         run.notes = json.dumps(notes) if notes else None
@@ -266,11 +277,13 @@ class ExecutionService:
 
         run.status = "running_candidates"
         responses = self._responses_for_model(run, model_snapshot.id)
+        tasks = []
         for response in responses:
             if response.status == "completed":
                 continue
             task = await self._prepare_execution_task(run, response, model_snapshot)
-            await self._execute_prepared_tasks([task])
+            tasks.append(task)
+        await self._execute_prepared_tasks(tasks)
 
         await self._advance_run_after_candidate_execution(run)
         refreshed = await self.repository.list_candidate_responses(run.id)
@@ -349,24 +362,28 @@ class ExecutionService:
         return run
 
     async def _ensure_candidate_response_rows(self, run: SessionRun) -> None:
-        existing_pairs = {
-            (item.prompt_snapshot_id, item.model_snapshot_id) for item in run.candidate_responses
+        existing_keys = {
+            (item.prompt_snapshot_id, item.model_snapshot_id, getattr(item, "sample_index", 0))
+            for item in run.candidate_responses
         }
         for prompt_snapshot in run.prompt_snapshots:
+            k = 5 if getattr(prompt_snapshot, "scenario_type", None) == "code_generation" else 1
             for model_snapshot in run.model_snapshots:
                 if model_snapshot.role != "candidate":
                     continue
-                pair = (prompt_snapshot.id, model_snapshot.id)
-                if pair in existing_pairs:
-                    continue
-                candidate_response = CandidateResponse(
-                    run_id=run.id,
-                    prompt_snapshot_id=prompt_snapshot.id,
-                    model_snapshot_id=model_snapshot.id,
-                    status="pending",
-                )
-                self.repository.add_candidate_response(candidate_response)
-                run.candidate_responses.append(candidate_response)
+                for sample_index in range(k):
+                    key = (prompt_snapshot.id, model_snapshot.id, sample_index)
+                    if key in existing_keys:
+                        continue
+                    candidate_response = CandidateResponse(
+                        run_id=run.id,
+                        prompt_snapshot_id=prompt_snapshot.id,
+                        model_snapshot_id=model_snapshot.id,
+                        sample_index=sample_index,
+                        status="pending",
+                    )
+                    self.repository.add_candidate_response(candidate_response)
+                    run.candidate_responses.append(candidate_response)
 
     async def _prepare_execution_task(
         self,
@@ -396,6 +413,8 @@ class ExecutionService:
                 secret=None,
                 adapter=OpenAICompatibleAdapter(),
                 local_confirmed_at=local_confirmed_at,
+                scenario_type=prompt_snapshot.scenario_type,
+                test_cases_hidden=prompt_snapshot.test_cases_hidden_jsonb,
             )
 
         adapter = self._resolve_adapter(model_profile)
@@ -416,6 +435,8 @@ class ExecutionService:
             secret=secret,
             adapter=adapter,
             local_confirmed_at=local_confirmed_at,
+            scenario_type=prompt_snapshot.scenario_type,
+            test_cases_hidden=prompt_snapshot.test_cases_hidden_jsonb,
         )
 
     async def _execute_prepared_tasks(
@@ -441,6 +462,17 @@ class ExecutionService:
                 response.raw_response_text = outcome.result.raw_response_text
                 response.normalized_response_text = outcome.result.normalized_response_text
                 response.raw_response_jsonb = json.dumps(outcome.result.raw_response_json)
+                task = next((t for t in tasks if t.response is response), None)
+                if task is not None and task.scenario_type == "code_generation" and task.test_cases_hidden:
+                    try:
+                        response.execution_tier = await asyncio.to_thread(
+                            run_code_tests,
+                            response.normalized_response_text or "",
+                            task.test_cases_hidden,
+                        )
+                    except Exception:
+                        logger.warning("Code executor raised unexpectedly for response %s", response.id, exc_info=True)
+                        response.execution_tier = 0
                 response.metric = ResponseMetric(
                     duration_ms=outcome.result.duration_ms,
                     local_wait_ms=(

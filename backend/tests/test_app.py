@@ -69,7 +69,6 @@ def test_database_errors_return_service_unavailable() -> None:
     response = client.get("/api/test-db-error")
 
     assert response.status_code == 503
-    assert response.json() == {
-        "detail": "Database unavailable. The API cannot connect to the database.",
-        "error_type": "DBAPIError",
-    }
+    body = response.json()
+    assert body["detail"] == "Database unavailable. The API cannot connect to the database."
+    assert body["error_type"] == "DBAPIError"

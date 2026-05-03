@@ -1,4 +1,21 @@
 services:
+  docker-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:latest
+    container_name: benchforge-docker-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      BUILD: 1
+      POST: 1
+      PING: 1
+      VERSION: 1
+      LOG_LEVEL: warning
+    networks:
+      - docker-internal
+    restart: unless-stopped
+
   postgres:
     image: postgres:17-alpine
     container_name: benchforge-postgres
@@ -27,6 +44,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
+      DOCKER_HOST: tcp://docker-proxy:2375
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -35,6 +53,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      docker-proxy:
+        condition: service_started
+    networks:
+      - default
+      - docker-internal
     command: >
       sh -c "uv run alembic upgrade head &&
              uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
@@ -61,3 +84,7 @@ volumes:
   postgres_data:
   backend_venv:
   frontend_node_modules:
+
+networks:
+  docker-internal:
+    internal: true

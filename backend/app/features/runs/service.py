@@ -14,6 +14,8 @@ from app.features.runs.models import (
 )
 from app.features.runs.repository import RunRepository
 from app.features.runs.schemas import (
+    DifficultyBreakdownRead,
+    PassAtKSummaryRead,
     RunGlobalSummaryRead,
     RunListItem,
     RunModelSnapshotRead,
@@ -63,6 +65,7 @@ def serialize_prompt_snapshot(
         cost_tier=snapshot.cost_tier,
         weight=snapshot.weight,
         version=snapshot.version,
+        test_cases_visible_jsonb=snapshot.test_cases_visible_jsonb,
         snapshot_order=snapshot.snapshot_order,
         difficulty=difficulty,
     )
@@ -109,6 +112,73 @@ def serialize_global_summary(summary: ModelGlobalSummary) -> RunGlobalSummaryRea
     )
 
 
+def compute_pass_at_k(
+    run: SessionRun,
+    difficulties: dict[int, int | None] | None = None,
+) -> list[PassAtKSummaryRead]:
+    scenario_by_ps_id = {ps.id: ps.scenario_type for ps in run.prompt_snapshots}
+    code_gen_ps_ids = {
+        ps_id for ps_id, st in scenario_by_ps_id.items() if st == "code_generation"
+    }
+    if not code_gen_ps_ids:
+        return []
+
+    diff_map = difficulties or {}
+    difficulty_by_ps_id = {
+        ps.id: diff_map.get(ps.source_prompt_id)
+        for ps in run.prompt_snapshots
+    }
+
+    by_model: dict[int, list] = {}
+    for cr in run.candidate_responses:
+        if cr.prompt_snapshot_id in code_gen_ps_ids:
+            by_model.setdefault(cr.model_snapshot_id, []).append(cr)
+
+    results = []
+    for model_snapshot_id, responses in by_model.items():
+        by_prompt: dict[int, dict[int, int]] = {}
+        for cr in responses:
+            by_prompt.setdefault(cr.prompt_snapshot_id, {})[cr.sample_index] = cr.execution_tier or 0
+
+        total = len(code_gen_ps_ids)
+        pass_1 = pass_3 = pass_5 = 0
+        by_diff: dict[int, list[int]] = {}  # difficulty → [pass_count, total]
+        for ps_id, tiers in by_prompt.items():
+            p1 = tiers.get(0, 0) > 0
+            if p1:
+                pass_1 += 1
+            if any(tiers.get(i, 0) > 0 for i in range(3)):
+                pass_3 += 1
+            if any(tiers.get(i, 0) > 0 for i in range(5)):
+                pass_5 += 1
+            diff = difficulty_by_ps_id.get(ps_id)
+            if diff is not None:
+                if diff not in by_diff:
+                    by_diff[diff] = [0, 0]
+                by_diff[diff][1] += 1
+                if p1:
+                    by_diff[diff][0] += 1
+
+        difficulty_breakdown = [
+            DifficultyBreakdownRead(
+                difficulty=diff,
+                pass_1_rate=counts[0] / counts[1] if counts[1] else 0.0,
+                prompt_count=counts[1],
+            )
+            for diff, counts in sorted(by_diff.items())
+        ]
+
+        results.append(PassAtKSummaryRead(
+            model_snapshot_id=model_snapshot_id,
+            pass_1_rate=pass_1 / total if total else 0.0,
+            pass_3_rate=pass_3 / total if total else 0.0,
+            pass_5_rate=pass_5 / total if total else 0.0,
+            code_gen_prompt_count=total,
+            difficulty_breakdown=difficulty_breakdown,
+        ))
+    return results
+
+
 def serialize_run(run: SessionRun, difficulties: dict[int, int | None] | None = None) -> RunRead:
     diff_map = difficulties or {}
     return RunRead(
@@ -145,6 +215,7 @@ def serialize_run(run: SessionRun, difficulties: dict[int, int | None] | None = 
             )
         ],
         candidate_response_count=len(run.candidate_responses),
+        pass_at_k_summaries=compute_pass_at_k(run, diff_map),
     )
 
 
@@ -196,6 +267,13 @@ class RunService:
         source_ids = [s.source_prompt_id for s in run.prompt_snapshots]
         difficulties = await self.repository.get_prompt_difficulties(source_ids)
         return serialize_run(run, difficulties)
+
+    async def delete_run(self, run_id: int) -> None:
+        run = await self.repository.get_run(run_id)
+        if run is None:
+            raise RunNotFoundError(f"Run {run_id} not found.")
+        await self.repository.delete_run(run)
+        await self.repository.commit()
 
     async def get_run_status(self, run_id: int) -> RunStatusRead:
         run = await self.repository.get_run(run_id)
@@ -303,6 +381,8 @@ class RunService:
             cost_tier=prompt.cost_tier,
             weight=prompt.weight,
             version=prompt.version,
+            test_cases_visible_jsonb=prompt.test_cases_visible_jsonb,
+            test_cases_hidden_jsonb=prompt.test_cases_hidden_jsonb,
             snapshot_order=snapshot_order,
         )
 

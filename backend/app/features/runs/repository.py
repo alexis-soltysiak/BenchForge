@@ -85,5 +85,8 @@ class RunRepository:
         )
         return {row.id: row.difficulty for row in result}
 
+    async def delete_run(self, run: SessionRun) -> None:
+        await self.session.delete(run)
+
     async def commit(self) -> None:
         await self.session.commit()

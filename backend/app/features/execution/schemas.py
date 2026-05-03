@@ -27,8 +27,10 @@ class CandidateResponseRead(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     retry_count: int
+    sample_index: int = 0
     error_message: str | None
     metric: CandidateResponseMetricRead | None
+    execution_tier: int | None = None
 
 
 class CandidateResponseListResponse(BaseModel):

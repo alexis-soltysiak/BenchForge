@@ -97,6 +97,8 @@ def serialize_prompt(prompt: Prompt) -> PromptRead:
         expected_behavior_jsonb=prompt.expected_behavior_jsonb,
         gold_facts_jsonb=prompt.gold_facts_jsonb,
         judge_rubric_jsonb=prompt.judge_rubric_jsonb,
+        test_cases_visible=prompt.test_cases_visible_jsonb,
+        test_cases_hidden=prompt.test_cases_hidden_jsonb,
         estimated_input_tokens=prompt.estimated_input_tokens,
         expected_output_format=prompt.expected_output_format,
         cost_tier=prompt.cost_tier,
@@ -160,6 +162,8 @@ class PromptService:
             expected_behavior_jsonb=payload.expected_behavior_jsonb,
             gold_facts_jsonb=payload.gold_facts_jsonb,
             judge_rubric_jsonb=payload.judge_rubric_jsonb,
+            test_cases_visible_jsonb=payload.test_cases_visible,
+            test_cases_hidden_jsonb=payload.test_cases_hidden,
             estimated_input_tokens=payload.estimated_input_tokens,
             expected_output_format=(
                 payload.expected_output_format.strip()
@@ -228,6 +232,10 @@ class PromptService:
             prompt.gold_facts_jsonb = updates["gold_facts_jsonb"]
         if "judge_rubric_jsonb" in updates:
             prompt.judge_rubric_jsonb = updates["judge_rubric_jsonb"]
+        if "test_cases_visible" in updates:
+            prompt.test_cases_visible_jsonb = updates["test_cases_visible"]
+        if "test_cases_hidden" in updates:
+            prompt.test_cases_hidden_jsonb = updates["test_cases_hidden"]
         if "estimated_input_tokens" in updates:
             prompt.estimated_input_tokens = updates["estimated_input_tokens"]
         if "expected_output_format" in updates:
@@ -305,6 +313,8 @@ class PromptService:
                 existing.weight = seed.weight
                 existing.version = seed.version
                 existing.difficulty = seed.difficulty
+                existing.test_cases_visible_jsonb = list(seed.test_cases_visible) if seed.test_cases_visible else None
+                existing.test_cases_hidden_jsonb = list(seed.test_cases_hidden) if seed.test_cases_hidden else None
                 continue
 
             category = await self.repository.get_category_by_slug(seed.category_slug)
@@ -334,6 +344,8 @@ class PromptService:
                 weight=seed.weight,
                 version=seed.version,
                 difficulty=seed.difficulty,
+                test_cases_visible_jsonb=list(seed.test_cases_visible) if seed.test_cases_visible else None,
+                test_cases_hidden_jsonb=list(seed.test_cases_hidden) if seed.test_cases_hidden else None,
                 is_active=True,
                 is_archived=False,
             )
