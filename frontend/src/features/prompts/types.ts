@@ -43,6 +43,39 @@ export type PromptListResponse = {
   total: number;
 };
 
+export type PromptFormState = {
+  name: string;
+  description: string;
+  categoryId: string;
+  tags: string;
+  difficulty: number | null;
+  systemPromptText: string;
+  userPromptText: string;
+  evaluationNotes: string;
+  scenarioType: string;
+  objective: string;
+  context: string;
+  inputArtifactsJson: string;
+  constraintsJson: string;
+  expectedBehaviorJson: string;
+  goldFactsJson: string;
+  judgeRubricJson: string;
+  estimatedInputTokens: string;
+  expectedOutputFormat: string;
+  costTier: string;
+  weight: string;
+  version: string;
+  isActive: boolean;
+};
+
+export type PromptFilterState = {
+  showArchived: boolean;
+  search: string;
+  selectedCategoryId: string;
+  selectedTags: string[];
+  selectedDifficulties: number[];
+};
+
 export type PromptPayload = {
   name: string;
   description: string | null;

@@ -52,3 +52,49 @@ export type ConnectionTestResponse = {
   status_code: number | null;
   detail: string;
 };
+
+export type ModelFormState = {
+  displayName: string;
+  role: "candidate" | "judge" | "both";
+  providerType: string;
+  apiStyle: string;
+  runtimeType: "remote" | "local";
+  endpointUrl: string;
+  modelIdentifier: string;
+  secretMode: "manual" | "preset";
+  apiKeyPresetId: string;
+  secret: string;
+  timeoutSeconds: string;
+  contextWindow: string;
+  pricingInputPerMillion: string;
+  pricingOutputPerMillion: string;
+  notes: string;
+  localLoadInstructions: string;
+  isActive: boolean;
+};
+
+export type ConnectionFeedbackState = ConnectionTestResponse & {
+  modelId: number;
+};
+
+export type ToastState = {
+  message: string;
+  kind: "success";
+};
+
+export type ModelFilterState = {
+  showArchived: boolean;
+  search: string;
+  selectedRoles: ModelFormState["role"][];
+  selectedProviderType: string;
+  selectedRuntimeType: string;
+};
+
+export type ProviderPreset = {
+  apiStyle: string;
+  endpointUrl?: string;
+  label: string;
+  modelIdentifiers: string[];
+};
+
+export type TFunc = (key: string, opts?: Record<string, unknown>) => string;

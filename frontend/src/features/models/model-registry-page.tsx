@@ -1,20 +1,16 @@
-import type { ReactNode } from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import {
   Check,
   Archive,
-  Cable,
   CircleGauge,
   Database,
-  HardDrive,
   TriangleAlert,
   Plus,
   Search,
   RotateCcw,
   Shield,
-  TestTube2,
   Trash2,
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -26,11 +22,7 @@ import {
   testModelProfileConnection,
   updateModelProfile,
 } from "@/features/models/api";
-import type {
-  ConnectionTestResponse,
-  ModelProfile,
-  ModelProfilePayload,
-} from "@/features/models/types";
+import type { ModelProfile } from "@/features/models/types";
 import { fetchApiKeyPresets } from "@/features/settings/api-keys-api";
 import type { ApiKeyPreset } from "@/features/settings/api-keys-types";
 import { Badge } from "@/components/ui/badge";
@@ -43,422 +35,40 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import { queryClient } from "@/lib/query-client";
 import { cn } from "@/lib/utils";
+import type {
+  ConnectionFeedbackState,
+  ModelFormState,
+  ToastState,
+} from "./types";
+import {
+  MODEL_FILTERS_STORAGE_KEY,
+  apiStyleOptions,
+  emptyForm,
+  providerPresets,
+} from "./constants";
+import {
+  getConnectionFeedbackLabel,
+  getProviderPreset,
+  getSuggestedEndpointUrl,
+  matchesArchiveState,
+  matchesProvider,
+  matchesRole,
+  matchesRuntime,
+  matchesSearch,
+  readModelFilterState,
+  roleDescription,
+  roleLabel,
+  shouldAutofillField,
+  toFormState,
+  toPayload,
+  uniqueProviderTypes,
+} from "./utils";
+import { AnimatedTestTube } from "./components/animated-test-tube";
+import { ModalField } from "./components/modal-field";
+import { RoleBadge } from "./components/role-badge";
+import { RuntimeBadge } from "./components/runtime-badge";
+import { TableEmptyRow } from "./components/table-empty-row";
 
-const TEST_TUBE_CSS = `
-@keyframes test-tube-shake {
-  0%   { transform: rotate(0deg); }
-  10%  { transform: rotate(-18deg); }
-  25%  { transform: rotate(14deg); }
-  40%  { transform: rotate(-10deg); }
-  55%  { transform: rotate(8deg); }
-  70%  { transform: rotate(-5deg); }
-  85%  { transform: rotate(3deg); }
-  100% { transform: rotate(0deg); }
-}
-.test-tube-shaking {
-  animation: test-tube-shake 0.7s ease-in-out forwards;
-  transform-origin: bottom center;
-}
-`;
-
-function AnimatedTestTube({ className }: { className?: string }) {
-  const [key, setKey] = useState(0);
-  const [shaking, setShaking] = useState(false);
-
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-
-    function schedule() {
-      const delay = 3000 + Math.random() * 9000;
-      timeout = setTimeout(() => {
-        setShaking(true);
-        setKey((k) => k + 1);
-        setTimeout(() => {
-          setShaking(false);
-          schedule();
-        }, 700);
-      }, delay);
-    }
-
-    schedule();
-    return () => clearTimeout(timeout);
-  }, []);
-
-  return (
-    <>
-      <style>{TEST_TUBE_CSS}</style>
-      <TestTube2 key={key} className={cn(className, shaking && "test-tube-shaking")} />
-    </>
-  );
-}
-
-type ModelFormState = {
-  displayName: string;
-  role: "candidate" | "judge" | "both";
-  providerType: string;
-  apiStyle: string;
-  runtimeType: "remote" | "local";
-  endpointUrl: string;
-  modelIdentifier: string;
-  secretMode: "manual" | "preset";
-  apiKeyPresetId: string;
-  secret: string;
-  timeoutSeconds: string;
-  contextWindow: string;
-  pricingInputPerMillion: string;
-  pricingOutputPerMillion: string;
-  notes: string;
-  localLoadInstructions: string;
-  isActive: boolean;
-};
-
-type ConnectionFeedbackState = ConnectionTestResponse & {
-  modelId: number;
-};
-
-type ToastState = {
-  message: string;
-  kind: "success";
-};
-
-type ModelFilterState = {
-  showArchived: boolean;
-  search: string;
-  selectedRoles: ModelFormState["role"][];
-  selectedProviderType: string;
-  selectedRuntimeType: string;
-};
-
-const MODEL_FILTERS_STORAGE_KEY = "benchforge.model-registry.filters";
-
-function readModelFilterState(): ModelFilterState {
-  if (typeof window === "undefined") {
-    return {
-      showArchived: false,
-      search: "",
-      selectedRoles: [],
-      selectedProviderType: "all",
-      selectedRuntimeType: "all",
-    };
-  }
-
-  const raw = window.localStorage.getItem(MODEL_FILTERS_STORAGE_KEY);
-  if (!raw) {
-    return {
-      showArchived: false,
-      search: "",
-      selectedRoles: [],
-      selectedProviderType: "all",
-      selectedRuntimeType: "all",
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<ModelFilterState>;
-    const validRoles = new Set<ModelFormState["role"]>([
-      "candidate",
-      "judge",
-      "both",
-    ]);
-    return {
-      showArchived: Boolean(parsed.showArchived),
-      search: typeof parsed.search === "string" ? parsed.search : "",
-      selectedRoles: Array.isArray(parsed.selectedRoles)
-        ? parsed.selectedRoles.filter(
-            (role): role is ModelFormState["role"] =>
-              typeof role === "string" && validRoles.has(role as ModelFormState["role"]),
-          )
-        : [],
-      selectedProviderType:
-        typeof parsed.selectedProviderType === "string"
-          ? parsed.selectedProviderType
-          : "all",
-      selectedRuntimeType:
-        typeof parsed.selectedRuntimeType === "string"
-          ? parsed.selectedRuntimeType
-          : "all",
-    };
-  } catch {
-    return {
-      showArchived: false,
-      search: "",
-      selectedRoles: [],
-      selectedProviderType: "all",
-      selectedRuntimeType: "all",
-    };
-  }
-}
-
-const emptyForm: ModelFormState = {
-  displayName: "",
-  role: "candidate",
-  providerType: "openai",
-  apiStyle: "openai_compatible",
-  runtimeType: "remote",
-  endpointUrl: "https://api.openai.com/v1/chat/completions",
-  modelIdentifier: "gpt-5.4-2026-03-05",
-  secretMode: "manual",
-  apiKeyPresetId: "",
-  secret: "",
-  timeoutSeconds: "60",
-  contextWindow: "",
-  pricingInputPerMillion: "",
-  pricingOutputPerMillion: "",
-  notes: "",
-  localLoadInstructions: "",
-  isActive: true,
-};
-
-type ProviderPreset = {
-  apiStyle: string;
-  endpointUrl?: string;
-  label: string;
-  modelIdentifiers: string[];
-};
-
-const providerPresets: Record<string, ProviderPreset> = {
-  openai: {
-    label: "OpenAI",
-    apiStyle: "openai_compatible",
-    endpointUrl: "https://api.openai.com/v1/chat/completions",
-    modelIdentifiers: ["gpt-5.4-2026-03-05", "gpt-5.4-mini-2026-03-17", "gpt-5.4-nano"],
-  },
-  google: {
-    label: "Google Gemini",
-    apiStyle: "openai_compatible",
-    endpointUrl:
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    modelIdentifiers: [
-      "gemini-2.5-pro",
-      "gemini-2.5-flash",
-      "gemini-2.5-flash-lite",
-    ],
-  },
-  mistral: {
-    label: "Mistral",
-    apiStyle: "openai_compatible",
-    endpointUrl: "https://api.mistral.ai/v1/chat/completions",
-    modelIdentifiers: [
-      "mistral-large-latest",
-      "mistral-small-latest",
-      "mistral-medium-latest",
-      "codestral-latest",
-    ],
-  },
-  groq: {
-    label: "Groq",
-    apiStyle: "openai_compatible",
-    endpointUrl: "https://api.groq.com/openai/v1/chat/completions",
-    modelIdentifiers: [
-      "openai/gpt-oss-120b",
-      "openai/gpt-oss-20b",
-      "llama-3.3-70b-versatile",
-      "llama-3.1-8b-instant",
-    ],
-  },
-  deepseek: {
-    label: "DeepSeek",
-    apiStyle: "openai_compatible",
-    endpointUrl: "https://api.deepseek.com/v1/chat/completions",
-    modelIdentifiers: ["deepseek-chat", "deepseek-reasoner"],
-  },
-  openrouter: {
-    label: "OpenRouter",
-    apiStyle: "openai_compatible",
-    endpointUrl: "https://openrouter.ai/api/v1/chat/completions",
-    modelIdentifiers: ["openai/gpt-4"],
-  },
-  anthropic: {
-    label: "Anthropic",
-    apiStyle: "anthropic",
-    endpointUrl: "https://api.anthropic.com/v1/messages",
-    modelIdentifiers: [
-      "claude-sonnet-4-6",
-      "claude-sonnet-4-5-20250929",
-      "claude-opus-4-7",
-      "claude-haiku-4-5-20251001",
-    ],
-  },
-  huggingface: {
-    label: "Hugging Face",
-    apiStyle: "huggingface",
-    modelIdentifiers: [
-      "openai/gpt-oss-120b",
-      "Qwen/Qwen3-Coder-480B-A35B-Instruct",
-      "deepseek-ai/DeepSeek-R1",
-      "google/gemma-2-2b-it",
-    ],
-  },
-  ollama: {
-    label: "Ollama",
-    apiStyle: "openai_compatible",
-    endpointUrl: "http://localhost:11434/v1/chat/completions",
-    modelIdentifiers: ["llama3.2", "qwen3", "gemma3", "mistral"],
-  },
-  lmstudio: {
-    label: "LM Studio",
-    apiStyle: "openai_compatible",
-    endpointUrl: "http://127.0.0.1:1234/v1/chat/completions",
-    modelIdentifiers: ["qwen/qwen3.6-35b-a3b"],
-  },
-};
-
-const apiStyleOptions = ["openai_compatible", "anthropic", "huggingface"];
-
-function normalizePresetKey(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, "");
-}
-
-function getProviderPreset(providerType: string): ProviderPreset | null {
-  return providerPresets[normalizePresetKey(providerType)] ?? null;
-}
-
-function getSuggestedEndpointUrl(state: ModelFormState): string {
-  if (state.apiStyle.trim().toLowerCase() === "huggingface") {
-    return state.modelIdentifier.trim()
-      ? `https://api-inference.huggingface.co/models/${state.modelIdentifier.trim()}`
-      : "https://api-inference.huggingface.co/models/<your-model-id>";
-  }
-
-  return getProviderPreset(state.providerType)?.endpointUrl ?? "";
-}
-
-function shouldAutofillField(currentValue: string, previousSuggestion: string | null) {
-  const trimmedValue = currentValue.trim();
-
-  return trimmedValue.length === 0 || trimmedValue === previousSuggestion;
-}
-
-
-function toFormState(model: ModelProfile): ModelFormState {
-  const hasPreset = model.api_key_preset_id !== null;
-  return {
-    displayName: model.display_name,
-    role: model.role,
-    providerType: model.provider_type,
-    apiStyle: model.api_style,
-    runtimeType: model.runtime_type,
-    endpointUrl: model.endpoint_url,
-    modelIdentifier: model.model_identifier,
-    secretMode: hasPreset ? "preset" : "manual",
-    apiKeyPresetId: hasPreset ? String(model.api_key_preset_id) : "",
-    secret: "",
-    timeoutSeconds: String(model.timeout_seconds),
-    contextWindow: model.context_window ? String(model.context_window) : "",
-    pricingInputPerMillion: model.pricing_input_per_million ?? "",
-    pricingOutputPerMillion: model.pricing_output_per_million ?? "",
-    notes: model.notes ?? "",
-    localLoadInstructions: model.local_load_instructions ?? "",
-    isActive: model.is_active,
-  };
-}
-
-function toPayload(state: ModelFormState): ModelProfilePayload {
-  const pricingInputPerMillion =
-    state.runtimeType === "local" ? "0" : state.pricingInputPerMillion.trim() || null;
-  const pricingOutputPerMillion =
-    state.runtimeType === "local" ? "0" : state.pricingOutputPerMillion.trim() || null;
-
-  return {
-    display_name: state.displayName.trim(),
-    role: state.role,
-    provider_type: state.providerType.trim(),
-    api_style: state.apiStyle.trim(),
-    runtime_type: state.runtimeType,
-    endpoint_url: state.endpointUrl.trim(),
-    model_identifier: state.modelIdentifier.trim(),
-    ...(state.secretMode === "manual" && state.secret.trim()
-      ? { secret: state.secret.trim() }
-      : {}),
-    ...(state.secretMode === "preset" && state.apiKeyPresetId
-      ? { api_key_preset_id: Number(state.apiKeyPresetId) }
-      : {}),
-    timeout_seconds: Number(state.timeoutSeconds),
-    context_window: state.contextWindow ? Number(state.contextWindow) : null,
-    pricing_input_per_million: pricingInputPerMillion,
-    pricing_output_per_million: pricingOutputPerMillion,
-    notes: state.notes.trim() || null,
-    local_load_instructions: state.localLoadInstructions.trim() || null,
-    is_active: state.isActive,
-  };
-}
-
-function matchesSearch(model: ModelProfile, search: string): boolean {
-  if (!search) {
-    return true;
-  }
-
-  const haystack = [
-    model.display_name,
-    model.provider_type,
-    model.runtime_type,
-    model.role,
-    model.endpoint_url,
-    model.model_identifier,
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(search.toLowerCase());
-}
-
-function matchesArchiveState(model: ModelProfile, showArchived: boolean): boolean {
-  return showArchived ? model.is_archived : !model.is_archived;
-}
-
-function matchesRole(model: ModelProfile, roles: ModelFormState["role"][]): boolean {
-  return roles.length === 0 || roles.includes(model.role);
-}
-
-function matchesProvider(model: ModelProfile, providerType: string): boolean {
-  return providerType === "all" || model.provider_type === providerType;
-}
-
-function matchesRuntime(model: ModelProfile, runtimeType: string): boolean {
-  return runtimeType === "all" || model.runtime_type === runtimeType;
-}
-
-type TFunc = (key: string, opts?: Record<string, unknown>) => string;
-
-function roleLabel(role: ModelFormState["role"], t: TFunc): string {
-  if (role === "candidate") return t("models.role.candidate");
-  if (role === "judge") return t("models.role.judge");
-  return t("models.role.both");
-}
-
-function roleDescription(role: ModelFormState["role"], t: TFunc): string {
-  if (role === "candidate") return t("models.role.candidateDesc");
-  if (role === "judge") return t("models.role.judgeDesc");
-  return t("models.role.bothDesc");
-}
-
-function getConnectionFeedbackLabel(
-  feedback: ConnectionFeedbackState | null,
-  isTesting: boolean,
-  runtimeType: ModelProfile["runtime_type"],
-  t: TFunc,
-): string {
-  if (isTesting) return t("models.connection.testing");
-  if (!feedback) return "";
-  if (runtimeType === "local" && !feedback.ok) return t("models.connection.notLoaded");
-  if (feedback.ok) {
-    return feedback.status_code
-      ? t("models.connection.success", { code: feedback.status_code })
-      : t("models.connection.successNoCode");
-  }
-  if (feedback.status_code) return t("models.connection.failure", { code: feedback.status_code });
-  return t("models.connection.failureNoCode");
-}
-
-function uniqueProviderTypes(models: ModelProfile[]): string[] {
-  return Array.from(
-    new Set(
-      models
-        .map((model) => model.provider_type.trim())
-        .filter((providerType) => providerType.length > 0),
-    ),
-  ).sort((left, right) => left.localeCompare(right));
-}
 
 export function ModelRegistryPage() {
   const { t } = useTranslation();
@@ -1559,38 +1169,3 @@ export function ModelRegistryPage() {
   );
 }
 
-function RuntimeBadge({ runtimeType }: { runtimeType: ModelProfile["runtime_type"] }) {
-  return (
-    <Badge variant={runtimeType === "remote" ? "accent" : "neutral"}>
-      {runtimeType === "remote" ? <Cable className="mr-1.5 h-3 w-3" /> : <HardDrive className="mr-1.5 h-3 w-3" />}
-      {runtimeType}
-    </Badge>
-  );
-}
-
-function RoleBadge({ role }: { role: ModelProfile["role"] }) {
-  const variant = role === "both" ? "accent" : role === "judge" ? "neutral" : "success";
-  return <Badge variant={variant as "accent" | "neutral" | "success"}>{role}</Badge>;
-}
-
-function TableEmptyRow({ message }: { message: string }) {
-  return (
-    <tr className="border-t border-border/30">
-      <td className="px-5 py-12 text-center text-sm text-muted-foreground/50" colSpan={6}>
-        {message}
-      </td>
-    </tr>
-  );
-}
-
-function ModalField({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <span className="block text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-        {required ? <span className="ml-1 text-primary">*</span> : null}
-      </span>
-      {children}
-    </div>
-  );
-}
