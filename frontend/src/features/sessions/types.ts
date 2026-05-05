@@ -1,3 +1,11 @@
+export type SessionFormState = {
+  name: string;
+  description: string;
+  status: "draft" | "ready" | "archived";
+};
+
+export type SessionSelectionStep = "information" | "prompts" | "candidates" | "judges";
+
 export type SessionPromptItem = {
   id: number;
   prompt_id: number;

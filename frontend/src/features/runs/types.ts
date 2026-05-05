@@ -1,3 +1,14 @@
+export type RunsPageProps = {
+  onOpenRun: (runId: number) => void;
+};
+
+export type RunDetailPageProps = {
+  onBack: () => void;
+  runId: number;
+};
+
+export type RunPhaseKey = "phase1" | "phase2" | "phase3";
+
 export type RunPromptSnapshot = {
   id: number;
   source_prompt_id: number;

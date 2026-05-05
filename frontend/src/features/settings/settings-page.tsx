@@ -38,38 +38,8 @@ import type {
 import { persistLanguage, getStoredAppLanguage, type AppLanguage } from "@/i18n";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-type SettingsPageProps = {
-  activeSection: SettingsSection;
-  currentTheme: AppTheme;
-  onThemeChange: (theme: AppTheme) => void;
-  onNavigateToSection: (section: SettingsSection) => void;
-};
-
-const apiKeyProviderSuggestions = [
-  "openai",
-  "anthropic",
-  "openrouter",
-  "ovh",
-  "google",
-  "mistral",
-  "groq",
-  "deepseek",
-  "huggingface",
-  "ollama",
-] as const;
-
-type ApiKeyPresetDraft = {
-  name: string;
-  providerType: string;
-  secret: string;
-};
-
-const emptyApiKeyPresetDraft: ApiKeyPresetDraft = {
-  name: "",
-  providerType: "openai",
-  secret: "",
-};
+import type { SettingsPageProps, ApiKeyPresetDraft } from "./types";
+import { apiKeyProviderSuggestions, emptyApiKeyPresetDraft } from "./constants";
 
 export function SettingsPage({
   activeSection,
