@@ -8,6 +8,7 @@ from app.features.sessions.schemas import (
     SessionJudgeCreate,
     SessionListResponse,
     SessionPromptCreate,
+    SessionPromptSamplingModeUpdate,
     SessionRead,
     SessionUpdate,
 )
@@ -19,6 +20,7 @@ from app.features.sessions.service import (
     SessionService,
     SessionValidationError,
 )
+
 
 router = APIRouter(tags=["sessions"])
 
@@ -94,6 +96,21 @@ async def add_session_prompt(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except SessionValidationError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.patch("/sessions/{session_id}/prompts/{session_prompt_id}", response_model=SessionRead)
+async def update_session_prompt_sampling_mode(
+    session_id: int,
+    session_prompt_id: int,
+    payload: SessionPromptSamplingModeUpdate,
+    service: SessionService = Depends(get_session_service),
+) -> SessionRead:
+    try:
+        return await service.update_prompt_sampling_mode(session_id, session_prompt_id, payload)
+    except BenchmarkSessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except SessionPromptNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.delete("/sessions/{session_id}/prompts/{session_prompt_id}", response_model=SessionRead)

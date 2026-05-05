@@ -35,6 +35,7 @@ import {
   removeSessionJudge,
   removeSessionPrompt,
   updateSession,
+  updateSessionPromptSamplingMode,
 } from "@/features/sessions/api";
 import type {
   Session,
@@ -315,6 +316,17 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
     onSuccess: (session) => {
       syncSessionState(session);
       setFeedback(t("sessions.feedback.promptRemoved"));
+      void refreshSessions();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof ApiError ? error.message : t("sessions.feedback.errorOp"));
+    },
+  });
+  const updateSamplingModeMutation = useMutation({
+    mutationFn: ({ sessionId, itemId, mode }: { sessionId: number; itemId: number; mode: string }) =>
+      updateSessionPromptSamplingMode(sessionId, itemId, mode),
+    onSuccess: (session) => {
+      syncSessionState(session);
       void refreshSessions();
     },
     onError: (error) => {
@@ -888,6 +900,7 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                 emptyMessage={t("sessions.selection.noPromptsYet")}
                 items={selectedSession.prompts.map((item) => {
                   const prompt = promptsQuery.data?.items.find((p) => p.id === item.prompt_id);
+                  const isCodeGen = item.scenario_type === "code_generation";
                   return {
                     id: item.id,
                     label: item.prompt_name,
@@ -901,6 +914,14 @@ export function SessionsPage({ onOpenRun }: { onOpenRun?: (runId: number) => voi
                         .join(" · ") ||
                       t("sessions.selection.orderPrefix", { order: item.display_order }),
                     difficulty: prompt?.difficulty ?? null,
+                    samplingMode: isCodeGen ? item.sampling_mode : null,
+                    onToggleSamplingMode: isCodeGen
+                      ? () => updateSamplingModeMutation.mutate({
+                          sessionId: selectedSession.id,
+                          itemId: item.id,
+                          mode: item.sampling_mode === "iterative" ? "independent" : "iterative",
+                        })
+                      : undefined,
                   };
                 })}
                 onRemove={(itemId) =>
@@ -1032,7 +1053,14 @@ function SelectedList({
   onRemove,
 }: {
   emptyMessage?: string;
-  items: Array<{ id: number; label: string; meta: string; difficulty?: number | null }>;
+  items: Array<{
+    id: number;
+    label: string;
+    meta: string;
+    difficulty?: number | null;
+    samplingMode?: string | null;
+    onToggleSamplingMode?: () => void;
+  }>;
   onRemove: (itemId: number) => void;
 }) {
   const { t } = useTranslation();
@@ -1056,9 +1084,25 @@ function SelectedList({
               </div>
               <p className="text-xs text-muted-foreground">{item.meta}</p>
             </div>
-            <Button size="sm" variant="dangerSoft" onClick={() => onRemove(item.id)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {item.samplingMode != null && (
+                <button
+                  type="button"
+                  onClick={item.onToggleSamplingMode}
+                  className={`inline-flex items-center rounded-md px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide transition hover:opacity-80 ${
+                    item.samplingMode === "iterative"
+                      ? "bg-violet-100 text-violet-700"
+                      : "bg-sky-100 text-sky-700"
+                  }`}
+                  title="Click to toggle sampling mode"
+                >
+                  {item.samplingMode === "iterative" ? "iterative" : "pass@k"}
+                </button>
+              )}
+              <Button size="sm" variant="dangerSoft" onClick={() => onRemove(item.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         ))
       )}

@@ -20,6 +20,7 @@ export type RunPromptSnapshot = {
   cost_tier: string | null;
   weight: number | null;
   version: string | null;
+  sampling_mode: string;
   snapshot_order: number;
   difficulty: number | null;
 };

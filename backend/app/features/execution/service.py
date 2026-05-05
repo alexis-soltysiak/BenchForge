@@ -65,6 +65,23 @@ class PreparedExecutionTask:
     test_cases_hidden: list[dict] | None = None
 
 
+def _build_iterative_prompt(base_prompt: str, prior_code: str | None, prior_tier: int | None, prior_error: str | None) -> str:
+    code_block = prior_code or "(no code generated)"
+    if prior_tier == 1:
+        feedback = "The code ran but failed one or more test cases."
+        if prior_error:
+            feedback += f"\nDetails: {prior_error}"
+    elif prior_error:
+        feedback = prior_error
+    else:
+        feedback = "The code failed to execute (syntax error, timeout, or runtime error)."
+    return (
+        f"{base_prompt}\n\n---\n\n## Previous Attempt\n\nYour previous code:\n"
+        f"```python\n{code_block}\n```\n\nExecution feedback:\n{feedback}\n\n"
+        "Please fix the code and return the corrected solution."
+    )
+
+
 @dataclass
 class PreparedExecutionResult:
     response: CandidateResponse
@@ -236,18 +253,12 @@ class ExecutionService:
 
         run.status = "waiting_local"
         responses = self._responses_for_model(run, local_model.id)
-        tasks = []
-        for response in responses:
-            if response.status == "completed":
-                continue
-            task = await self._prepare_execution_task(
-                run=run,
-                response=response,
-                model_snapshot=local_model,
-                local_confirmed_at=confirmed_at,
-            )
-            tasks.append(task)
+        tasks, iterative_groups = await self._split_tasks_by_mode(
+            run, responses, local_model, local_confirmed_at=confirmed_at
+        )
         await self._execute_prepared_tasks(tasks)
+        for ps_id, chain_responses in iterative_groups.items():
+            await self._execute_iterative_chain(run, ps_id, local_model, chain_responses, confirmed_at)
 
         notes.pop("local_current", None)
         run.notes = json.dumps(notes) if notes else None
@@ -277,13 +288,10 @@ class ExecutionService:
 
         run.status = "running_candidates"
         responses = self._responses_for_model(run, model_snapshot.id)
-        tasks = []
-        for response in responses:
-            if response.status == "completed":
-                continue
-            task = await self._prepare_execution_task(run, response, model_snapshot)
-            tasks.append(task)
+        tasks, iterative_groups = await self._split_tasks_by_mode(run, responses, model_snapshot)
         await self._execute_prepared_tasks(tasks)
+        for ps_id, chain_responses in iterative_groups.items():
+            await self._execute_iterative_chain(run, ps_id, model_snapshot, chain_responses)
 
         await self._advance_run_after_candidate_execution(run)
         refreshed = await self.repository.list_candidate_responses(run.id)
@@ -385,12 +393,37 @@ class ExecutionService:
                     self.repository.add_candidate_response(candidate_response)
                     run.candidate_responses.append(candidate_response)
 
+    async def _split_tasks_by_mode(
+        self,
+        run: SessionRun,
+        responses: list[CandidateResponse],
+        model_snapshot: SessionRunModelSnapshot,
+        local_confirmed_at: datetime | None = None,
+    ) -> tuple[list[PreparedExecutionTask], dict[int, list[CandidateResponse]]]:
+        """Split responses into parallel independent tasks and per-prompt iterative groups."""
+        ps_mode = {ps.id: getattr(ps, "sampling_mode", "independent") for ps in run.prompt_snapshots}
+        tasks: list[PreparedExecutionTask] = []
+        iterative_groups: dict[int, list[CandidateResponse]] = {}
+        for response in responses:
+            if response.status == "completed":
+                continue
+            mode = ps_mode.get(response.prompt_snapshot_id, "independent")
+            if mode == "iterative":
+                iterative_groups.setdefault(response.prompt_snapshot_id, []).append(response)
+            else:
+                task = await self._prepare_execution_task(
+                    run, response, model_snapshot, local_confirmed_at=local_confirmed_at
+                )
+                tasks.append(task)
+        return tasks, iterative_groups
+
     async def _prepare_execution_task(
         self,
         run: SessionRun,
         response: CandidateResponse,
         model_snapshot: SessionRunModelSnapshot,
         local_confirmed_at: datetime | None = None,
+        prompt_text_override: str | None = None,
     ) -> PreparedExecutionTask:
         prompt_snapshot = next(
             item for item in run.prompt_snapshots if item.id == response.prompt_snapshot_id
@@ -398,12 +431,13 @@ class ExecutionService:
         model_profile = await self.model_repository.get_model_profile(
             model_snapshot.source_model_profile_id
         )
+        prompt_text = prompt_text_override if prompt_text_override is not None else prompt_snapshot.user_prompt_text
         response.retry_count = response.retry_count or 0
         if model_profile is None:
             response.error_message = "Source model profile not found."
             return PreparedExecutionTask(
                 response=response,
-                prompt_text=prompt_snapshot.user_prompt_text,
+                prompt_text=prompt_text,
                 system_prompt_text=prompt_snapshot.system_prompt_text,
                 endpoint_url=model_snapshot.endpoint_url,
                 model_identifier=model_snapshot.model_identifier,
@@ -425,7 +459,7 @@ class ExecutionService:
         )
         return PreparedExecutionTask(
             response=response,
-            prompt_text=prompt_snapshot.user_prompt_text,
+            prompt_text=prompt_text,
             system_prompt_text=prompt_snapshot.system_prompt_text,
             endpoint_url=model_snapshot.endpoint_url,
             model_identifier=model_snapshot.model_identifier,
@@ -438,6 +472,57 @@ class ExecutionService:
             scenario_type=prompt_snapshot.scenario_type,
             test_cases_hidden=prompt_snapshot.test_cases_hidden_jsonb,
         )
+
+    async def _execute_iterative_chain(
+        self,
+        run: SessionRun,
+        prompt_snapshot_id: int,
+        model_snapshot: SessionRunModelSnapshot,
+        responses: list[CandidateResponse],
+        local_confirmed_at: datetime | None = None,
+    ) -> None:
+        prompt_snapshot = next(ps for ps in run.prompt_snapshots if ps.id == prompt_snapshot_id)
+        sorted_responses = sorted(responses, key=lambda r: r.sample_index)
+
+        prior_code: str | None = None
+        prior_tier: int | None = None
+        prior_error: str | None = None
+
+        for response in sorted_responses:
+            if response.status == "completed":
+                prior_code = response.normalized_response_text
+                prior_tier = response.execution_tier
+                prior_error = response.error_message
+                continue
+
+            if prior_tier is not None and prior_tier >= 2:
+                now = datetime.now(UTC)
+                response.status = "completed"
+                response.started_at = now
+                response.completed_at = now
+                response.error_message = f"Skipped — attempt {response.sample_index - 1} passed."
+                await self.repository.commit()
+                continue
+
+            prompt_text: str | None = None
+            if response.sample_index > 0 and prior_code is not None:
+                prompt_text = _build_iterative_prompt(
+                    prompt_snapshot.user_prompt_text, prior_code, prior_tier, prior_error
+                )
+
+            task = await self._prepare_execution_task(
+                run=run,
+                response=response,
+                model_snapshot=model_snapshot,
+                local_confirmed_at=local_confirmed_at,
+                prompt_text_override=prompt_text,
+            )
+            await self._execute_prepared_tasks([task])
+            await self.repository.commit()
+
+            prior_code = response.normalized_response_text
+            prior_tier = response.execution_tier
+            prior_error = response.error_message
 
     async def _execute_prepared_tasks(
         self,

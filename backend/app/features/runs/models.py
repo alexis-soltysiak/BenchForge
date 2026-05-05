@@ -102,6 +102,12 @@ class SessionRunPromptSnapshot(Base):
     version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     test_cases_visible_jsonb: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     test_cases_hidden_jsonb: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    sampling_mode: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="independent",
+        server_default="independent",
+    )
     snapshot_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
     run: Mapped[SessionRun] = relationship(back_populates="prompt_snapshots")

@@ -52,6 +52,17 @@ export function addSessionPrompt(sessionId: number, promptId: number): Promise<S
   });
 }
 
+export function updateSessionPromptSamplingMode(
+  sessionId: number,
+  sessionPromptId: number,
+  samplingMode: string,
+): Promise<Session> {
+  return apiRequest<Session>(`/sessions/${sessionId}/prompts/${sessionPromptId}`, {
+    method: "PATCH",
+    body: { sampling_mode: samplingMode },
+  });
+}
+
 export function removeSessionPrompt(sessionId: number, sessionPromptId: number): Promise<Session> {
   return apiRequest<Session>(`/sessions/${sessionId}/prompts/${sessionPromptId}`, {
     method: "DELETE",

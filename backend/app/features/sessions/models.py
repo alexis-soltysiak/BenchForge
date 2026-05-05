@@ -61,6 +61,12 @@ class BenchmarkSessionPrompt(Base):
         nullable=False,
     )
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    sampling_mode: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="independent",
+        server_default="independent",
+    )
 
     session: Mapped[BenchmarkSession] = relationship(back_populates="prompts")
 

@@ -6,6 +6,7 @@ export type SessionPromptItem = {
   cost_tier: string | null;
   estimated_input_tokens: number | null;
   scenario_type: string | null;
+  sampling_mode: string;
   display_order: number;
 };
 
